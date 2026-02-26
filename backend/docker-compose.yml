@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: jackpotjockeys_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jackpot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jackpot_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-jackpotjockeys}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jackpot} -d ${POSTGRES_DB:-jackpotjockeys}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: jackpotjockeys_api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_change_me}
+      POSTGRES_USER: ${POSTGRES_USER:-jackpot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jackpot_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-jackpotjockeys}
+      DB_URL: ${DB_URL:-postgresql+psycopg://jackpot:jackpot_pass@db:5432/jackpotjockeys}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+volumes:
+  pgdata:

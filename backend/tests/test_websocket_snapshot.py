@@ -5,7 +5,7 @@ import asyncio
 from conftest import WS_URL
 
 @pytest.mark.asyncio
-async def test_websocket_snapshot_hydration(auth_token, setup_race, clean_db):
+async def test_websocket_snapshot_hydration(auth_token, setup_race):
     # Connect to WS
     uri = f"{WS_URL}?token={auth_token}"
     

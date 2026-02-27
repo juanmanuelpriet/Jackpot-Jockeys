@@ -6,6 +6,7 @@ from app.core.idempotency import IdempotencyManager
 from app.schemas import powers as power_schemas
 from app.settings import settings
 from app.db import models
+from app.api.auth import get_current_user
 from typing import List
 
 router = APIRouter(prefix="/powers", tags=["powers"])
@@ -24,7 +25,7 @@ def get_powers_catalog():
 @router.post("/cast", response_model=power_schemas.PowerCastResponse)
 def cast_power(
     request: power_schemas.PowerCastRequest,
-    user_id: int,
+    user_id: int = Depends(get_current_user),
     x_idempotency_key: str = Header(...),
     db: Session = Depends(get_db)
 ):
@@ -59,7 +60,7 @@ def cast_power(
             "telegraph_ms": power["telegraph_ms"]
         }
         
-        IdempotencyManager.save_response(db, user_id, x_idempotency_key, "/powers/cast", request.model_dump(), response)
+        IdempotencyManager.save_response(db, user_id, x_idempotency_key, "/powers/cast", request.model_dump(mode='json'), response)
         
         # 5. Broadcast via WS (Would call WS Manager here)
         return response

@@ -1,0 +1,60 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-8.3.2, pluggy-1.6.0 -- /usr/local/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /app
+configfile: pytest.ini
+plugins: asyncio-0.24.0, anyio-4.12.1
+asyncio: mode=Mode.AUTO, default_loop_scope=function
+collecting ... collected 1 item
+
+tests/test_idempotency.py::test_bet_idempotency_success DEBUG FAIL: 422 - {"detail":[{"type":"missing","loc":["query","user_id"],"msg":"Field required","input":null}]}
+FAILED
+
+=================================== FAILURES ===================================
+_________________________ test_bet_idempotency_success _________________________
+
+api_client = <httpx.AsyncClient object at 0xffff81fee490>
+auth_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0X3VzZXJfMTc3MjE1MjAxNi44NzA2MzQiLCJ1c2VyX2lkIjozMSwibG9iYnlfaWQiOiJURVNUX0xPQkJZIiwiZXhwIjoxNzcyMTUyOTE2fQ.fW-vFe6Ii4TA3pK7mfUosCz0PrNoCqg9aT9vdWMTing'
+setup_race = (<app.db.models.Race object at 0xffff81fb6590>, <app.db.models.Market object at 0xffff81f66c10>, <app.db.models.MarketSelection object at 0xffff81e6bed0>)
+
+    @pytest.mark.asyncio
+    async def test_bet_idempotency_success(api_client, auth_token, setup_race):
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "X-Idempotency-Key": "same-key-1"
+        }
+        race, market, selection = setup_race
+    
+        bet_payload = {
+            "race_id": race.id,
+            "market_id": market.id,
+            "selection_key": "horse_1",
+            "amount": 50.0
+        }
+    
+        # First attempt
+        res1 = await api_client.post("/bets", json=bet_payload, headers=headers)
+        if res1.status_code != 200:
+            print(f"DEBUG FAIL: {res1.status_code} - {res1.text}")
+>       assert res1.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests/test_idempotency.py:24: AssertionError
+=============================== warnings summary ===============================
+tests/test_idempotency.py::test_bet_idempotency_success
+  /usr/local/lib/python3.11/site-packages/pytest_asyncio/plugin.py:783: DeprecationWarning: The event_loop fixture provided by pytest-asyncio has been redefined in
+  /app/tests/conftest.py:14
+  Replacing the event_loop fixture with a custom implementation is deprecated
+  and will lead to errors in the future.
+  If you want to request an asyncio event loop with a scope other than function
+  scope, use the "scope" argument to the asyncio mark when marking the tests.
+  If you want to return different types of event loops, use the event_loop_policy
+  fixture.
+  
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_idempotency.py::test_bet_idempotency_success - assert 422 =...
+========================= 1 failed, 1 warning in 0.04s =========================

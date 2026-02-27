@@ -4,7 +4,7 @@ import httpx
 from app.db import models
 
 @pytest.mark.asyncio
-async def test_wallet_concurrency(api_client, db_session, setup_race, clean_db):
+async def test_wallet_concurrency(api_client, db_session, setup_race):
     # Setup: Create user with exactly $100
     user = models.User(username="concurrency_user")
     db_session.add(user)

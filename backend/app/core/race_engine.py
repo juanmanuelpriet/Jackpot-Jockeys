@@ -1,10 +1,11 @@
 import asyncio
 from datetime import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.db.database import SessionLocal
 from app.db import models
 from app.ws.manager import manager
-from typing import Optional
+from typing import Optional, Dict
 
 class RaceEngine:
     def __init__(self, lobby_id: str):

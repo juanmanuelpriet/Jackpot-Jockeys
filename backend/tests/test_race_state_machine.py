@@ -3,7 +3,7 @@ import httpx
 from app.db import models
 
 @pytest.mark.asyncio
-async def test_race_lifecycle_via_admin(api_client, setup_race, db_session, clean_db):
+async def test_race_lifecycle_via_admin(api_client, setup_race, db_session):
     race, _, _ = setup_race
     lobby_id = race.lobby_id
     

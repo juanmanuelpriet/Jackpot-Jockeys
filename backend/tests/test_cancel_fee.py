@@ -4,7 +4,7 @@ from app.db import models
 from app.settings import settings
 
 @pytest.mark.asyncio
-async def test_bet_cancel_fee_impact(api_client, auth_token, setup_race, db_session, clean_db):
+async def test_bet_cancel_fee_impact(api_client, auth_token, setup_race, db_session):
     headers = {"Authorization": f"Bearer {auth_token}"}
     race, market, selection = setup_race
     
@@ -22,7 +22,7 @@ async def test_bet_cancel_fee_impact(api_client, auth_token, setup_race, db_sess
     # In reality, delete might need auth too, for MVP we use user_id query param or similar
     # Assuming user_id=1 for the newly joined user in cleanup
     user = db_session.query(models.User).order_by(models.User.id.desc()).first()
-    cancel_res = await api_client.delete(f"/bets/{bet_id}", params={"user_id": user.id})
+    cancel_res = await api_client.delete(f"/bets/{bet_id}", headers=headers)
     assert cancel_res.status_code == 200
     
     data = cancel_res.json()

@@ -26,21 +26,25 @@ def db_session():
     finally:
         session.close()
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def clean_db():
     """Wipes critical tables before/after tests."""
-    # Note: In a production-like test, we might use a separate database schema
     session = SessionLocal()
-    session.query(models.Bet).delete()
-    session.query(models.MarketSelection).delete()
-    session.query(models.Market).delete()
-    session.query(models.Race).delete()
-    session.query(models.Wallet).delete()
-    session.query(models.User).delete()
-    session.query(models.IdempotencyKey).delete()
-    session.query(models.AuditLog).delete()
-    session.commit()
-    session.close()
+    try:
+        # Delete in order of dependencies (leaf to root)
+        session.query(models.AuditLog).delete()
+        session.query(models.IdempotencyKey).delete()
+        session.query(models.Bet).delete()
+        session.query(models.MarketSelection).delete()
+        session.query(models.Market).delete()
+        session.query(models.Loan).delete()
+        session.query(models.Favor).delete()
+        session.query(models.Race).delete()
+        session.query(models.Wallet).delete()
+        session.query(models.User).delete()
+        session.commit()
+    finally:
+        session.close()
 
 @pytest.fixture
 async def api_client():
@@ -58,19 +62,28 @@ async def auth_token(api_client):
 
 @pytest.fixture
 def setup_race(db_session):
-    """Creates a race and market for testing."""
-    race = models.Race(lobby_id="TEST_LOBBY", current_state="BettingOpen")
-    db_session.add(race)
+    """Creates or updates a race and market for testing."""
+    race = db_session.query(models.Race).filter(models.Race.lobby_id == "TEST_LOBBY").first()
+    if not race:
+        race = models.Race(lobby_id="TEST_LOBBY", current_state="BettingOpen")
+        db_session.add(race)
+    else:
+        race.current_state = "BettingOpen"
+    
     db_session.commit()
     db_session.refresh(race)
     
-    market = models.Market(race_id=race.id, type="Win", rake_pct=0.10)
-    db_session.add(market)
-    db_session.commit()
-    db_session.refresh(market)
+    market = db_session.query(models.Market).filter(models.Market.race_id == race.id).first()
+    if not market:
+        market = models.Market(race_id=race.id, type="Win", rake_pct=0.10)
+        db_session.add(market)
+        db_session.commit()
+        db_session.refresh(market)
     
-    selection = models.MarketSelection(market_id=market.id, selection_key="horse_1", pool_amount=0.0)
-    db_session.add(selection)
-    db_session.commit()
+    selection = db_session.query(models.MarketSelection).filter(models.MarketSelection.market_id == market.id).first()
+    if not selection:
+        selection = models.MarketSelection(market_id=market.id, selection_key="horse_1", pool_amount=0.0)
+        db_session.add(selection)
+        db_session.commit()
     
     return race, market, selection

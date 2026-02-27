@@ -1,3 +1,5 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
 from app.api import auth, wallet, markets, bets, powers, admin
 from app.ws import router as ws_router

@@ -3,7 +3,7 @@ import httpx
 from datetime import datetime
 
 @pytest.mark.asyncio
-async def test_bet_idempotency_success(api_client, auth_token, setup_race, clean_db):
+async def test_bet_idempotency_success(api_client, auth_token, setup_race):
     headers = {
         "Authorization": f"Bearer {auth_token}",
         "X-Idempotency-Key": "same-key-1"
@@ -19,6 +19,8 @@ async def test_bet_idempotency_success(api_client, auth_token, setup_race, clean
 
     # First attempt
     res1 = await api_client.post("/bets", json=bet_payload, headers=headers)
+    if res1.status_code != 200:
+        print(f"DEBUG FAIL: {res1.status_code} - {res1.text}")
     assert res1.status_code == 200
     id1 = res1.json()["id"]
 
@@ -28,7 +30,7 @@ async def test_bet_idempotency_success(api_client, auth_token, setup_race, clean
     assert res2.json()["id"] == id1 # Same result
 
 @pytest.mark.asyncio
-async def test_bet_idempotency_mismatch(api_client, auth_token, setup_race, clean_db):
+async def test_bet_idempotency_mismatch(api_client, auth_token, setup_race):
     headers = {
         "Authorization": f"Bearer {auth_token}",
         "X-Idempotency-Key": "mismatch-key-1"

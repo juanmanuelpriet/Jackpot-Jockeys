@@ -1,6 +1,6 @@
 # Jackpot Jockeys Backend 🏎️💰
 
-Este es el motor autoritativo de **Jackpot Jockeys (AntiGravity)**, un casino de carreras futuristas de alta velocidad. El sistema gestiona la lógica de las carreras, la economía persistente de los usuarios y la sincronización de estado en tiempo real.
+Este es el motor autoritativo de **Jackpot Jockeys**, un casino de carreras futuristas de alta velocidad. El sistema gestiona la lógica de las carreras, la economía persistente de los usuarios y la sincronización de estado en tiempo real.
 
 ## Overview
 Optimizado para entornos **LAN-first** (con visión de escalado a la nube), el backend centraliza la verdad del juego:

@@ -1,4 +1,4 @@
-# Jackpot Jockeys (AntiGravity) 🐎🏎️
+# Jackpot Jockeys 🐎🏎️
 
 **Jackpot Jockeys** es un casino de carreras futuristas dinámico y caótico, donde la inteligencia artificial compite en pistas generadas procedimentalmente.
 

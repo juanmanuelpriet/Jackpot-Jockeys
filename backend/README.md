@@ -1,6 +1,6 @@
 # Jackpot Jockeys Backend 🏎️💨
 
-Este es el backend autoritativo de **Jackpot Jockeys (AntiGravity)**, un casino de carreras futuristas donde la velocidad y el caos se encuentran. El servidor gestiona el estado de las carreras, las apuestas en tiempo real, la economía de los usuarios y la sincronización con los dashboards de Unity.
+Este es el backend autoritativo de **Jackpot Jockeys (AntiGravity)**, un casino de carreras futuristas donde la velocidad y el caos se encuentran. El servidor gestiona el estado de las carreras, las apuestas en tiempo real, la economía de los usuarios y la sincronización con los dashboards de Pygame.
 
 ## Overview
 Jackpot Jockeys es una experiencia LAN-first (con miras a online) diseñada para entornos competitivos.
@@ -17,14 +17,14 @@ Elegimos estas herramientas por su rendimiento, seguridad y facilidad de desarro
 - **PostgreSQL**: Base de datos relacional robusta con soporte para transacciones ACID.
 - **SQLAlchemy 2.0**: El ORM estándar de Python, ahora con mejor soporte para tipos y API moderna.
 - **Alembic**: Gestión de migraciones para versionar el esquema de la base de datos de forma segura.
-- **WebSockets**: Crucial para el "State Sync" entre el motor de la carrera y los clientes (Unity/Móvil).
+- **WebSockets**: Crucial para el "State Sync" entre el motor de la carrera y los clientes (Pygame/Móvil).
 
 ## Architecture
 El servidor actúa como el orquestador central:
 
 ```mermaid
 graph TD
-    Unity[Dashboard Unity PC] <-->|WS State Sync| BE(FastAPI Backend)
+    Dashboard[Dashboard Pygame PC] <-->|WS State Sync| BE(FastAPI Backend)
     Phone[iPhone/Android App] <-->|REST / WS| BE
     BE <--> DB[(PostgreSQL)]
     Engine[Race Engine Loop] -->|Updates| BE

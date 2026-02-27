@@ -14,7 +14,7 @@ El proyecto se divide en varios componentes clave:
 
 - [**Backend (Python/FastAPI)**](file:///Users/juanmanuelprieto/Documents/Jackpot%20Jockeys/backend/README.md): El "cerebro" autoritativo que maneja la lógica de las carreras, apuestas y WebSockets.
 - [**Frontend Mobile**]: (En desarrollo) Aplicación web/móvil para la interacción de los jugadores.
-- [**Unity Dashboard**]: (En desarrollo) Motor visual de las carreras en PC.
+- [**Pygame Dashboard**]: (En desarrollo) Motor visual de las carreras en PC desarrollado con Pygame.
 
 ## Desarrollo
 

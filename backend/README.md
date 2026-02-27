@@ -1,89 +1,118 @@
-# Jackpot Jockeys Backend 🏎️💨
+# Jackpot Jockeys Backend 🏎️💰
 
-Este es el backend autoritativo de **Jackpot Jockeys (AntiGravity)**, un casino de carreras futuristas donde la velocidad y el caos se encuentran. El servidor gestiona el estado de las carreras, las apuestas en tiempo real, la economía de los usuarios y la sincronización con los dashboards de Pygame.
+Este es el motor autoritativo de **Jackpot Jockeys (AntiGravity)**, un casino de carreras futuristas de alta velocidad. El sistema gestiona la lógica de las carreras, la economía persistente de los usuarios y la sincronización de estado en tiempo real.
 
 ## Overview
-Jackpot Jockeys es una experiencia LAN-first (con miras a online) diseñada para entornos competitivos.
-- **Autoritativo**: El servidor dicta el estado de la carrera y resuelve apuestas de forma centralizada.
-- **Tiempo Real**: Comunicación bidireccional vía WebSockets para sincronización de milisegundos.
-- **Economía Robusta**: Manejo de balances (total vs. bloqueado) con garantías transaccionales.
+Optimizado para entornos **LAN-first** (con visión de escalado a la nube), el backend centraliza la verdad del juego:
+- **Autoría Total**: El servidor controla el cronómetro, resuelve las apuestas y valida cada acción.
+- **Baja Latencia**: Comunicación bidireccional vía WebSockets para sincronización con el Dashboard de Pygame.
+- **Integridad Financiera**: Sistema de wallet con bloqueos preventivos y transacciones atómicas.
 
-## Why this Stack?
-Elegimos estas herramientas por su rendimiento, seguridad y facilidad de desarrollo:
-
+## Why this stack?
 - **FastAPI**: 
-  - *High performance*: Basado en Starlette y Pydantic, ideal para aplicaciones asíncronas.
-  - *Auto-documentation*: Swagger UI integrada (`/docs`) para prototipado rápido.
-- **PostgreSQL**: Base de datos relacional robusta con soporte para transacciones ACID.
-- **SQLAlchemy 2.0**: El ORM estándar de Python, ahora con mejor soporte para tipos y API moderna.
-- **Alembic**: Gestión de migraciones para versionar el esquema de la base de datos de forma segura.
-- **WebSockets**: Crucial para el "State Sync" entre el motor de la carrera y los clientes (Pygame/Móvil).
+  - *Desempeño*: Velocidad comparable a Go/Node gracias a su naturaleza asíncrona.
+  - *Validación*: Pydantic v2 garantiza que no entren datos basura al sistema antes de tocar la DB.
+- **WebSockets (Native)**: Permite el "State Syncing" fluido sin el overhead de polling constante.
+- **PostgreSQL**: La base de datos relacional por excelencia para garantizar consistencia ACID en la economía.
+- **SQLAlchemy 2.0**: Uso de APIs modernas con soporte completo de tipos para evitar errores en tiempo de ejecución.
+- **Alembic**: Versionamiento profesional de la base de datos, vital para entornos colaborativos.
+- **JWT (python-jose)**: Autenticación stateless que facilita la reconexión rápida de los clientes móviles.
 
 ## Architecture
-El servidor actúa como el orquestador central:
+El servidor orquestra tres frentes críticos:
 
-```mermaid
-graph TD
-    Dashboard[Dashboard Pygame PC] <-->|WS State Sync| BE(FastAPI Backend)
-    Phone[iPhone/Android App] <-->|REST / WS| BE
-    BE <--> DB[(PostgreSQL)]
-    Engine[Race Engine Loop] -->|Updates| BE
-```
+1. **Race Engine Loop**: Una tarea asíncrona dedicada que gestiona la máquina de estados (Lobby → Betting → Racing → Settling).
+2. **Transactional API**: Endpoints REST para gestión de wallet, apuestas e ítems.
+3. **Broadcaster**: Manager de conexiones WebSocket que sectoriza eventos por `lobby_id`.
 
-### Decisiones de Diseño
-- **Server Authoritative**: Todo cálculo de balance, costo de poderes y premios ocurre en el backend. Los clientes solo visualizan y envían intenciones.
-- **Atomicidad (SELECT FOR UPDATE)**: Las operaciones de billetera (wallet) bloquean la fila en la DB para prevenir *race conditions* durante apuestas simultáneas.
-- **Idempotencia**: Los endpoints críticos aceptan un `X-Idempotency-Key` para evitar cargos dobles por reintentos de red.
-- **WS State Versioning**: Cada snapshot de WebSocket incluye una `state_version` para que los clientes puedan detectar si perdieron paquetes y deben resincronizar.
+### Decisiones de Diseño Críticas
+- **Atomicidad & Bloqueos**: Utilizamos `SELECT ... FOR UPDATE` en las operaciones de wallet para prevenir el *Double Spending* bajo condiciones de alta concurrencia.
+- **Wallet Locking**: `balance_total` representa el dinero real; `balance_locked` es el capital retenido en apuestas activas. El balance disponible es el resultado calculado.
+- **Idempotencia**: Implementada vía `X-Idempotency-Key`. Si un cliente reintenta una apuesta por fallo de red, el servidor devuelve el resultado original sin duplicar el cargo.
+- **State Versioning**: Cada cambio de estado incrementa una `state_version`. Los clientes (Pygame) usan esto para asegurar que el snapshot visual coincide con el estado lógico del servidor.
 
 ## Getting Started (Docker)
 
-La forma más rápida de correr el backend es usando Docker Compose:
+Sigue estos pasos para levantar el entorno de desarrollo local:
 
-1. **Configura el entorno**:
+1. **Variables de Entorno**:
    ```bash
    cp .env.example .env
-   # Edita .env si es necesario
+   # Configura JWT_SECRET y credenciales de DB si es necesario
    ```
 
-2. **Lanza los servicios**:
+2. **Levantar Servicios**:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
-   Esto levantará el backend en `http://localhost:8000` y una instancia de Postgres.
+   *El backend estará disponible en `http://localhost:8000`.*
 
-## Migraciones (Alembic)
-El esquema evoluciona con el proyecto. Para aplicar cambios:
+3. **Ver Documentación Interactiva**:
+   Accede a `http://localhost:8000/docs` para ver el Swagger UI.
 
-- **Aplicar migraciones**:
+## Migrations (Alembic)
+El servicio de API se encarga de ejecutar las migraciones al arrancar si `RUN_MIGRATIONS=1`. Para manejo manual:
+
+- **Evolucionar la DB (Upgrade)**:
   ```bash
-  docker-compose exec app alembic upgrade head
+  docker compose exec api alembic upgrade head
   ```
-- **Crear nueva migración**:
+- **Generar nueva migración**:
   ```bash
-  docker-compose exec app alembic revision --autogenerate -m "descripción"
+  docker compose exec api alembic revision --autogenerate -m "feat: add favor system"
   ```
 
 ## Testing
-Contamos con una suite de pruebas enfocada en la integridad económica y la concurrencia:
+Validamos la robustez económica y la consistencia de estados.
 
-```bash
-./run_tests.sh
-```
-**¿Qué validamos?**
-- **Wallet Atomicity**: Pruebas de estrés que intentan gastar más del balance disponible simultáneamente.
-- **Idempotency**: Verificar que enviar la misma apuesta dos veces no duplica el cargo.
-- **Cancel Fee**: Asegurar que la penalización por cancelación se calcule y deduzca correctamente.
-- **State Machine**: Transiciones legales de la carrera (Lobby -> Betting -> Racing).
+- **Correr suite completa**:
+  ```bash
+  ./run_tests.sh
+  ```
+*(Esto levantará contenedores efímeros para asegurar un entorno de prueba limpio).*
 
-## Configuration
-Configuración principal vía `.env`:
-- `MAX_POWER_SPEND_PER_RACE`: Limita el caos en la pista.
-- `POWER_COST_SCALING`: Factor multiplicativo para el costo de poderes sucesivos.
-- `CANCEL_FEE`: Porcentaje de cobro por arrepentirse de una apuesta.
+**Tests Críticos Incluidos**:
+- Concurrencia en Wallet (Stress test de balance).
+- Validación de Idempotencia en apuestas.
+- Ciclo de vida de la máquina de estados de la carrera.
+
+## Configuration (.env)
+| Variable | Descripción | Valor Default |
+|----------|-------------|---------------|
+| `MAX_POWER_SPEND_PER_RACE` | Cap de gasto en poderes por carrera | `300` |
+| `CANCEL_FEE` | Comisión por cancelar una apuesta activa | `0.05` |
+| `JWT_SECRET` | Llave para firmar tokens de acceso | `dev_secret` |
+| `DB_URL` | String de conexión (usar `db` como host en Docker) | `postgresql+psycopg://...` |
+
+## API Quick Reference
+
+### REST Endpoints
+- `POST /auth/join`: Registro rápido y entrada al lobby.
+- `GET /wallet/me`: Consulta de balances (total vs locked).
+- `POST /bets`: Colocación de apuestas (Requiere `X-Idempotency-Key`).
+- `DELETE /bets/{id}`: Cancelación con cobro de comisión.
+- `POST /powers/cast`: Aplicación de poderes en tiempo real.
+
+### WebSocket Protocol
+- **Endpoint**: `ws://localhost:8000/ws?token=YOUR_JWT_TOKEN`
+- **Sincronización inicial**: Al conectar, el cliente debe enviar:
+  ```json
+  {"type": "GET_STATE_SNAPSHOT"}
+  ```
+- **Eventos periódicos**: El servidor emite `STATE_SYNC` y `RACE_STATE_CHANGED` automáticamente.
+
+## Troubleshooting
+- **DB no listo**: El script `scripts/wait_for_db.sh` bloquea la API hasta que Postgres acepte conexiones. Si falla, revisa los logs: `docker compose logs db`.
+- **WS Desconectado (Code 1008)**: El token JWT es inválido o el `lobby_id` no coincide. Refresca el token vía `/auth/join`.
+- **Puerto 8000 ocupado**: Revisa si tienes otra instancia de Uvicorn corriendo localmente fuera de Docker.
 
 ## Roadmap
-- [ ] **Extra Markets**: Soporte para apuestas tipo *Trifecta* y *Exacta*.
-- [ ] **Contracts/Loans**: Sistema de préstamos cuando un jugador queda en quiebra.
-- [ ] **Observabilidad**: Integración con Prometheus/Grafana para monitorear latencia de WS.
-- [ ] **Cloud Ready**: Preparar despliegue automático en Google Cloud Run.
+### MVP Next 🚀
+- **Trifecta Market**: Soporte para apuestas de orden exacto (1ro, 2do, 3ro).
+- **Favor System**: Mecánica de deudas y lealtad entre jugadores.
+- **Race Replay**: Guardado de seeds para reproducir carreras exactas.
+
+### Later / Online ☁️
+- **Observabilidad**: Exportador de métricas para Prometheus/Grafana.
+- **Cloud Run Deployment**: Adaptación para hosting serverless con Cloud SQL.
+- **Post-Race Analytics**: Dashboard de estadísticas históricas de caballos/conductores.

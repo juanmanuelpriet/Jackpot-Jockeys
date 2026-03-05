@@ -10,17 +10,19 @@
 
 ## Estructura del Proyecto
 
-El proyecto se divide en varios componentes clave:
+El proyecto se divide en los siguientes componentes clave:
 
-- [**Backend (Python/FastAPI)**](file:///Users/juanmanuelprieto/Documents/Jackpot%20Jockeys/backend/README.md): El "cerebro" autoritativo que maneja la lógica de las carreras, apuestas y WebSockets.
-- [**Frontend Mobile**]: (En desarrollo) Aplicación web/móvil para la interacción de los jugadores.
-- [**Pygame Dashboard**]: (En desarrollo) Motor visual de las carreras en PC desarrollado con Pygame.
+- [**Backend (Python/FastAPI)**](./backend/README.md): El "cerebro" autoritativo que maneja la lógica de las carreras, la economía, el rate-limiting y los WebSockets.
+- [**Dashboard PC "The Show" (React/Vite)**](./dashboard/README.md): La interfaz para la pantalla grande. Muestra la carrera, las apuestas en vivo (cambio de odds), el leaderboard social y un feed narrativo cómico en tiempo real. 
+- **Frontend Mobile**: (Próximamente) Interfaz móvil optimizada para que los jugadores apuesten, pidan préstamos y lancen poderes. (Por ahora se escanea el QR del Dashboard para unirse).
 
 ## Desarrollo
 
-Para comenzar a trabajar en el backend o entender la arquitectura del sistema, por favor consulta la documentación específica:
+Para comenzar a trabajar en las distintas partes del sistema, por favor consulta sus respectivas guías:
 
-👉 [**Documentación del Backend**](file:///Users/juanmanuelprieto/Documents/Jackpot%20Jockeys/backend/README.md)
+👉 [**Documentación del Backend**](./backend/README.md)  
+👉 [**Documentación del Dashboard**](./dashboard/README.md)  
+👉 [**Especificación del Dashboard (Etapa 3)**](./docs/DASHBOARD_SPEC.md)
 
 ---
 *Desarrollado con pasión para el caos futurista.*

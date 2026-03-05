@@ -1,73 +1,50 @@
-# React + TypeScript + Vite
+# Jackpot Jockeys: The Show (Dashboard PC) 🖥️🏁
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Esta es la interfaz principal (Etapa 3 MVP) del ecosistema de **Jackpot Jockeys**. Está diseñada para funcionar como un "Broadcast Overlay" de Casino Futurista en la red local (LAN), conectándose directamente al **Backend Autoritativo**.
 
-Currently, two official plugins are available:
+## 🌟 Características
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. **Admin / GM Console (`SetupView`)**
+   - Creación rápida de Lobby con `join_code` autogenerado (ej: XB34Z).
+   - Render ultra-rápido de código QR nativo escalable para que los jugadores escaneen.
+2. **The Show (`TheShowView`)**
+   - **Race View (Pista):** Renderiza el estado de la carrera (`RaceRunning`) y mapea dinámicamente el avance de los caballos según eventos del backend.
+   - **Betting View (Apuestas):** Gráficos de barra porcentuales dinámicos e impulsados por WebSockets (`ODDS_UPDATE`), mostrando Live-Odds de Parimutuel.
+   - **Social Leaderboard:** Integración en tiempo real (`BALANCE_UPDATE`) para ordenar jugadores basados en su balance bancario (`balance_total`).
+   - **El Narrador:** Feed histórico cronológico interceptando logs tipo `BET_PLACED` (Apuestas) y `POWER_APPLIED` (Poderes) transformándolos a formato TV.
 
-## React Compiler
+## 🛠️ Stack Tecnológico
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 18** + **TypeScript** (Vite)
+- **Tailwind CSS v3.4:** Estilizado hiper-rápido con Glassmorphism (`backdrop-blur`) y Neon Glows ad-hoc (`text-glow-accent`).
+- **Zustand:** Manejador de estado global asíncrono.
+- **Axios:** Para comandos críticos del Game Master (`/admin/race/start`, `/admin/race/settle`).
+- **WebSockets HTML5 Nativos:** `wsClient.ts` custom con recolector Garbage Collect auto-limpiable, Heartbeat (`PING 30s`) y Auto-Reconnect inteligente (Pide `GET_STATE_SNAPSHOT` al despertar).
 
-## Expanding the ESLint configuration
+## 🚀 Cómo Correr el Dashboard (LAN-First)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Para abrir la consola del "Game Master" / Espectador principal (Ideal en Smart TV o monitor grande).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+**Requisito previo:** Debes tener el [Backend corriendo primero](../backend/README.md) en Docker (Puerto 8000).
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+```bash
+# 1. Instalar dependencias
+cd dashboard
+npm install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 2. Correr el servidor exponiéndolo a toda la red local/Wi-Fi
+npm run dev -- --host 0.0.0.0
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+> **Abre `http://localhost:5173` en tu navegador.**  
+*(Nota: Si juegas LAN, usa la IP real de la máquina como `http://192.168.1.10:5173` en la Smart TV).*
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 📡 Integración Core WebSockets
+El dashboard depende estrechamente de su cliente WS (`src/core/wsClient.ts`), mapeado directamente al backend.
+- `GET_STATE_SNAPSHOT` es solicitado cada vez que React detecta que se inicializó un cliente o hubo un corte de red de microsegundos, para evitar desincronizaciones de UI.
+- Escucha los 8 Hooks obligatorios del *Architectural Spec*.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📌 Siguientes Pasos (Roadmap)
+- Integrar Assets 2D (Render Caballos y Pixel Art).
+- Integrar Partículas Canvas Confetti en evento `SETTLEMENT_COMPLETE`.
+- Modales de alertas/notificación lateral para los `Loans` (Préstamos).

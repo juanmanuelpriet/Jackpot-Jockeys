@@ -141,6 +141,65 @@ def manual_settle(
     return {"settled": True, "race_id": race_id, "placements": placements_data, "summary": summary}
 
 
+@router.post("/race/next/{lobby_id}")
+def next_race(
+    lobby_id: str,
+    admin: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin dashboard: create the next race for a lobby after the previous one ended."""
+    lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
+    if not lobby:
+        raise HTTPException(status_code=404, detail="Lobby not found")
+
+    # Ensure there are no active races
+    active_race = db.query(models.Race).filter(
+        models.Race.lobby_id == lobby_id,
+        models.Race.current_state != "Ended",
+    ).first()
+
+    if active_race:
+        # If it's in Results, we can move it to Ended
+        if active_race.current_state in ["Results", "Settling"]:
+            active_race.current_state = "Ended"
+            active_race.state_version += 1
+            db.commit()
+        else:
+            raise HTTPException(status_code=400, detail=f"Cannot start next race. Current race is in state {active_race.current_state}")
+
+    # Create new race
+    race = models.Race(lobby_id=lobby_id, current_state="Lobby")
+    db.add(race)
+    db.commit()
+    db.refresh(race)
+
+    lobby.current_race_id = race.id
+    db.commit()
+
+    # Create markets for the new race automatically
+    try:
+        Repository.create_markets_for_race(
+            db, race.id, race.num_horses or settings.DEFAULT_NUM_HORSES, settings.RAKE_PCT
+        )
+    except Exception as e:
+        # Handle case where markets already exist or config fails, non-fatal for creation
+        print(f"Failed to auto-create markets: {e}")
+
+    # Start the engine automatically so it goes to BettingOpen
+    if lobby_id in engines:
+        del engines[lobby_id] # Clean up old engine just in case
+        
+    engine = RaceEngine(lobby_id)
+    engines[lobby_id] = engine
+    asyncio.create_task(engine.run())
+    
+    race.current_state = "BettingOpen"
+    race.state_version += 1
+    db.commit()
+
+    return {"message": f"Next race created and started for lobby {lobby_id}", "race_id": race.id}
+
+
 @router.get("/lobby/{lobby_id}/state")
 def get_lobby_state(
     lobby_id: str,

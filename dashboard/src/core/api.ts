@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+// Get LAN IP automatically based on where the browser is serving the app
+const API_BASE = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8000`;
 
 const api = axios.create({
-    baseURL: API_URL,
+    baseURL: API_BASE,
 });
 
 export const setAuthToken = (token: string) => {
@@ -27,6 +28,11 @@ export const createLobby = async (name: string, max_players: number = 8) => {
 
 export const startRace = async (lobbyId: string) => {
     const response = await api.post(`/admin/race/start/${lobbyId}`);
+    return response.data;
+};
+
+export const nextRace = async (lobbyId: string) => {
+    const response = await api.post(`/admin/race/next/${lobbyId}`);
     return response.data;
 };
 

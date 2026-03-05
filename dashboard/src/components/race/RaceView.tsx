@@ -3,13 +3,13 @@ import type { HorsePlacement } from '../../core/store';
 import { useMemo } from 'react';
 
 export default function RaceView() {
-    const { race, placements } = useGameStore();
+    const { race, placements, activePowers } = useGameStore();
 
     const isRunning = race?.current_state === 'RaceRunning';
     const isFinished = race?.current_state === 'Settling' || race?.current_state === 'Results';
 
     // For MVP: generate a stub track view of 6 horses
-    const horses = useMemo(() => Array.from({ length: 6 }, (_, i) => `horse_${i + 1}`), []);
+    const horses = useMemo(() => Array.from({ length: 6 }, (_, i) => `horse_${i + 1} `), []);
 
     const getPlacement = (horseId: string): HorsePlacement | undefined => {
         return placements.find(p => p.horse_id === horseId);
@@ -38,10 +38,18 @@ export default function RaceView() {
 
                 {horses.map(horseId => {
                     const placement = getPlacement(horseId);
+                    // Check if this horse has active powers
+                    const horsePowers = activePowers.filter(p => p.target_id === horseId);
+                    const hasPowers = horsePowers.length > 0;
+
                     // Simple stub animation logic: if running, CSS transition moves them. If finished, they snap to finish line.
                     let widthClass = 'w-16'; // Starting block
                     if (isRunning) widthClass = 'w-3/4'; // Simulate mid-race
                     if (isFinished) widthClass = 'w-[calc(100%-2rem)]'; // Finish line
+
+                    const powerGlowClass = hasPowers
+                        ? 'border-y-2 border-l-2 border-fuchsia-400 shadow-[0_0_20px_rgba(232,121,249,0.8)] animate-pulse scale-105 z-20'
+                        : 'shadow-[0_0_10px_rgba(79,70,229,0.8)] z-10 border-y border-l border-transparent';
 
                     return (
                         <div key={horseId} className="flex-1 relative flex items-center">
@@ -50,11 +58,21 @@ export default function RaceView() {
 
                             {/* The Horse Box */}
                             <div
-                                className={`relative h-10 bg-indigo-600 rounded flex items-center justify-end px-3 transition-all duration-[10000ms] ease-in-out border-r-4 border-amber-300 shadow-[0_0_10px_rgba(79,70,229,0.8)] z-10 ${widthClass}`}
+                                className={`relative h-10 bg-indigo-600 rounded flex items-center justify-end px-3 transition-all duration-[10000ms] ease-in-out border-r-4 border-amber-300 ${powerGlowClass} ${widthClass}`}
                                 style={{
                                     transitionDuration: isRunning ? '15s' : isFinished ? '1s' : '0s'
                                 }}
                             >
+                                {/* Active Power Icons */}
+                                {hasPowers && (
+                                    <div className="absolute -top-3 left-2 flex gap-1 animate-bounce">
+                                        {horsePowers.map((p, idx) => (
+                                            <span key={idx} className="bg-fuchsia-900 text-fuchsia-200 text-[10px] font-bold px-1 rounded border border-fuchsia-500">
+                                                ⚡ {p.power_id.substring(0, 6)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                                 <span className="font-bold font-mono tracking-tighter text-white drop-shadow-md">
                                     {horseId.toUpperCase()}
                                 </span>

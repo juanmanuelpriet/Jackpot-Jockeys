@@ -1,10 +1,10 @@
 import { useGameStore } from '../../core/store';
-import { startRace, forceSettle } from '../../core/api';
-import { Settings, Play, Flag, RefreshCw } from 'lucide-react';
+import { startRace, forceSettle, nextRace } from '../../core/api';
+import { Settings, Play, Flag, RefreshCw, FastForward } from 'lucide-react';
 import { useState } from 'react';
 
 export default function AdminPanel() {
-    const { race } = useGameStore();
+    const { race, resetForNextRace } = useGameStore();
     const [loading, setLoading] = useState(false);
 
     const handleStartBetting = async () => {
@@ -14,7 +14,7 @@ export default function AdminPanel() {
             await startRace(race.lobby_id);
         } catch (e) {
             console.error(e);
-            alert("Error starting.");
+            alert("Error starting beds.");
         } finally {
             setLoading(false);
         }
@@ -22,11 +22,27 @@ export default function AdminPanel() {
 
     const handleForceSettle = async () => {
         if (!race) return;
+        if (!window.confirm("⚠️ ¿Estás seguro de forzar el fin de la carrera? Esto cerrará las apuestas y calculará premios de inmediato.")) return;
         setLoading(true);
         try {
             await forceSettle(race.id);
         } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleNextRace = async () => {
+        if (!race) return;
+        if (!window.confirm("🏁 ¿Iniciar la SIGUIENTE CARRERA? Esto vaciará la pista y abrirá nuevas apuestas.")) return;
+        setLoading(true);
+        try {
+            resetForNextRace();
+            await nextRace(race.lobby_id);
+        } catch (e) {
+            console.error(e);
+            alert("Error creando la siguiente carrera.");
         } finally {
             setLoading(false);
         }
@@ -71,15 +87,28 @@ export default function AdminPanel() {
                     <button
                         onClick={handleForceSettle}
                         disabled={loading}
-                        className="flex items-center gap-2 bg-red-600 hover:bg-red-500 px-4 py-2 rounded font-bold transition text-sm disabled:opacity-50"
+                        className="flex items-center gap-2 bg-red-600 hover:bg-red-500 px-4 py-2 rounded font-bold transition text-sm disabled:opacity-50 shadow-[0_0_10px_rgba(220,38,38,0.5)]"
                     >
                         <Flag size={16} /> FORCE SETTLE
                     </button>
                 )}
 
-                {/* Temporary reset/re-sync mock button. Normally WS auto-syncs. */}
-                <button className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded transition text-sm text-slate-300">
-                    <RefreshCw size={16} /> RE-SYNC
+                {(race.current_state === 'Results' || race.current_state === 'Ended' || race.current_state === 'Settling') && (
+                    <button
+                        onClick={handleNextRace}
+                        disabled={loading}
+                        className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black px-6 py-2 rounded font-black transition text-sm disabled:opacity-50 shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse"
+                    >
+                        <FastForward size={16} /> NEXT RACE
+                    </button>
+                )}
+
+                {/* Diagnostic re-sync */}
+                <button
+                    onClick={() => window.location.reload()}
+                    className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded transition text-sm text-slate-300 ml-4"
+                >
+                    <RefreshCw size={16} /> F5
                 </button>
             </div>
 

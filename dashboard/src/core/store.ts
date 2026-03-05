@@ -37,12 +37,18 @@ export interface Race {
     num_horses: number;
 }
 
+export interface ActivePower {
+    power_id: string;
+    target_id: string;
+}
+
 export interface GameState {
     race: Race | null;
     markets: Market[];
     wallets: PlayerWallet[];
     placements: HorsePlacement[];
     logs: any[]; // Narrator logs
+    activePowers: ActivePower[];
     playersCount: number;
 
     // Actions
@@ -51,6 +57,9 @@ export interface GameState {
     updateOdds: (marketId: number, odds: MarketOdds) => void;
     updateWallet: (userId: number, total: number, locked: number) => void;
     addLog: (log: any) => void;
+    addActivePower: (powerId: string, targetId: string) => void;
+    removeActivePower: (powerId: string, targetId: string) => void;
+    resetForNextRace: () => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -59,7 +68,23 @@ export const useGameStore = create<GameState>((set) => ({
     wallets: [],
     placements: [],
     logs: [],
+    activePowers: [],
     playersCount: 0,
+
+    resetForNextRace: () => set((state) => ({
+        markets: [],
+        placements: [],
+        activePowers: [],
+        logs: [{ type: 'system', text: '¡Nueva Carrera Abierta! Hagan sus apuestas.', time: new Date() }, ...state.logs].slice(0, 50)
+    })),
+
+    addActivePower: (powerId, targetId) => set((state) => ({
+        activePowers: [...state.activePowers, { power_id: powerId, target_id: targetId }]
+    })),
+
+    removeActivePower: (powerId, targetId) => set((state) => ({
+        activePowers: state.activePowers.filter(p => !(p.power_id === powerId && p.target_id === targetId))
+    })),
 
     setSnapshot: (snapshot) => set(() => {
         console.log("Setting snapshot:", snapshot);
@@ -68,6 +93,7 @@ export const useGameStore = create<GameState>((set) => ({
             markets: snapshot.markets || [],
             wallets: snapshot.wallets || [],
             placements: snapshot.placements || [],
+            activePowers: snapshot.activePowers || [],
             playersCount: snapshot.wallets ? snapshot.wallets.length : 0,
         };
     }),

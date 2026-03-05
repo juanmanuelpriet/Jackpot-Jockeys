@@ -34,6 +34,8 @@ def clean_db():
         # Delete in order of dependencies (leaf to root)
         session.query(models.AuditLog).delete()
         session.query(models.IdempotencyKey).delete()
+        session.query(models.PowerCastEvent).delete()
+        session.query(models.RaceResult).delete()
         session.query(models.Bet).delete()
         session.query(models.MarketSelection).delete()
         session.query(models.Market).delete()

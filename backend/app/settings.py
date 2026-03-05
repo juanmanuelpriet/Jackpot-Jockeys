@@ -21,6 +21,19 @@ class Settings(BaseSettings):
     RAKE_PCT: float = 0.10
     MAX_BET_PER_MARKET: float = 500.0
 
+    # Anti-Chaos Config
+    MAX_DEBUFFS_PER_TARGET_PER_USER: int = 3
+    PITY_SHIELD_THRESHOLD: int = 5
+    PITY_SHIELD_REDUCTION: float = 0.5
+
+    # Race Config
+    DEFAULT_NUM_HORSES: int = 6
+
+    # Loans Config
+    NPC_INTEREST_RATE: float = 0.15
+    MAX_NPC_LOAN: float = 500.0
+    MAX_TOTAL_DEBT: float = 1000.0
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()

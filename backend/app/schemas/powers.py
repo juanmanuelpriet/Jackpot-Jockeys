@@ -4,8 +4,8 @@ from typing import List, Optional
 class PowerCatalogItem(BaseModel):
     id: str
     nombre: str
-    tipo: str # buff, debuff, global
-    tamano: str # pequeno, grande
+    tipo: str  # buff, debuff, global
+    tamano: str  # pequeno, grande
     costo_usd: float
     objetivo: str
     duracion_s: float
@@ -13,7 +13,7 @@ class PowerCatalogItem(BaseModel):
 
 class PowerCastRequest(BaseModel):
     power_id: str
-    target_id: str # Horse or Global
+    target_id: str  # Horse or Global
 
 class PowerCastResponse(BaseModel):
     status: str
@@ -21,3 +21,5 @@ class PowerCastResponse(BaseModel):
     target_id: str
     deducted_amount: float
     telegraph_ms: int
+    effective_duration_s: Optional[float] = None
+    pity_shield_active: Optional[bool] = False

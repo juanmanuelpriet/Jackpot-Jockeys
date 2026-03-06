@@ -203,6 +203,15 @@ const handleWSEvent = (event: any) => {
             socket?.send(JSON.stringify({ type: 'GET_STATE_SNAPSHOT' }));
             break;
 
+        case 'MINI_SETTLEMENT_COMPLETE':
+            store.addLog({
+                type: 'system',
+                text: `🏆 Mini-settlement: ${event.data?.market_type || event.market_type || '???'} — ¡${(event.data?.winner || event.winner || '???').replace('_', ' ').toUpperCase()} gana el parcial!`,
+                time: new Date()
+            });
+            socket?.send(JSON.stringify({ type: 'GET_STATE_SNAPSHOT' }));
+            break;
+
         case 'TICK_UPDATE':
             store.updateHorseTelemetry(event.tick || event.data?.tick || 0, event.horses || event.data?.horses || []);
             break;

@@ -325,6 +325,124 @@ class Repository:
         
         return settlement_summary
 
+    # ── Lap/Checkpoint Markets ─────────────────────────────────────
+
+    @staticmethod
+    def create_lap_markets(db: Session, race_id: int, num_horses: int,
+                           num_laps: int, checkpoint_segment_idxs: list[int],
+                           rake_pct: float = 0.10):
+        """Create LapWinner and CheckpointLeader markets for a race.
+        Called at BettingOpen alongside standard Win/Place/Show markets."""
+        horse_ids = [f"horse_{i}" for i in range(1, num_horses + 1)]
+        created = []
+
+        # LapWinner markets (one per lap)
+        for lap in range(1, num_laps + 1):
+            mtype = f"LapWinner_{lap}"
+            market = models.Market(race_id=race_id, type=mtype, status="Open", rake_pct=rake_pct)
+            db.add(market)
+            db.flush()
+            for hid in horse_ids:
+                db.add(models.MarketSelection(market_id=market.id, selection_key=hid, pool_amount=0.0))
+            created.append(market)
+
+        # CheckpointLeader markets
+        for cp_idx in checkpoint_segment_idxs:
+            mtype = f"CheckpointLeader_{cp_idx}"
+            market = models.Market(race_id=race_id, type=mtype, status="Open", rake_pct=rake_pct)
+            db.add(market)
+            db.flush()
+            for hid in horse_ids:
+                db.add(models.MarketSelection(market_id=market.id, selection_key=hid, pool_amount=0.0))
+            created.append(market)
+
+        return created
+
+    @staticmethod
+    def close_market_by_id(db: Session, market_id: int):
+        """Close a single market by ID (for mid-race closure zones)."""
+        market = db.query(models.Market).filter(
+            models.Market.id == market_id,
+            models.Market.status == "Open",
+        ).first()
+        if market:
+            market.status = "Closed"
+            market.closed_at = datetime.utcnow()
+            return True
+        return False
+
+    @staticmethod
+    def mini_settle_market(db: Session, market_id: int, winner_horse_id: str) -> dict:
+        """
+        Settle a single lap/checkpoint market mid-race.
+        Same parimutuel logic as full settlement but for one market.
+        Uses SELECT FOR UPDATE for wallet safety.
+        Returns payout summary.
+        """
+        now = datetime.utcnow()
+        market = db.query(models.Market).filter(
+            models.Market.id == market_id,
+        ).with_for_update().one_or_none()
+
+        if not market or market.status != "Closed":
+            return {}
+
+        selections = db.query(models.MarketSelection).filter(
+            models.MarketSelection.market_id == market.id,
+        ).with_for_update().all()
+
+        bets = db.query(models.Bet).filter(
+            models.Bet.market_id == market.id,
+            models.Bet.status == "Active",
+        ).all()
+
+        if not bets:
+            market.status = "Settled"
+            return {}
+
+        winning_keys = {winner_horse_id}
+        total_pool = _r(sum(s.pool_amount for s in selections))
+        net_pool = _r(total_pool * (1 - market.rake_pct))
+        winning_pool = sum(
+            s.pool_amount for s in selections
+            if s.selection_key in winning_keys
+        )
+
+        payouts = []
+
+        if winning_pool == 0:
+            # Refund all
+            for bet in bets:
+                bet.status = "Refunded"
+                bet.payout_amount = bet.amount
+                bet.settled_at = now
+                wallet = Repository.get_user_wallet_with_lock(db, bet.user_id)
+                wallet.balance_locked = _r(wallet.balance_locked - bet.amount)
+                payouts.append({"user_id": bet.user_id, "bet_id": bet.id, "payout": bet.amount, "status": "Refunded"})
+        else:
+            for bet in bets:
+                wallet = Repository.get_user_wallet_with_lock(db, bet.user_id)
+                if bet.selection_key in winning_keys:
+                    payout = _r((bet.amount / winning_pool) * net_pool)
+                    bet.payout_amount = payout
+                    bet.status = "Won"
+                    bet.settled_at = now
+                    wallet.balance_locked = _r(wallet.balance_locked - bet.amount)
+                    wallet.balance_total = _r(wallet.balance_total + (payout - bet.amount))
+                    wallet.lifetime_earned = _r(wallet.lifetime_earned + payout)
+                    payouts.append({"user_id": bet.user_id, "bet_id": bet.id, "payout": payout, "status": "Won"})
+                else:
+                    bet.payout_amount = 0
+                    bet.status = "Lost"
+                    bet.settled_at = now
+                    wallet.balance_locked = _r(wallet.balance_locked - bet.amount)
+                    wallet.balance_total = _r(wallet.balance_total - bet.amount)
+                    payouts.append({"user_id": bet.user_id, "bet_id": bet.id, "payout": 0, "status": "Lost"})
+                wallet.lifetime_wagered = _r(wallet.lifetime_wagered + bet.amount)
+
+        market.status = "Settled"
+        return {"market_type": market.type, "winner": winner_horse_id, "payouts": payouts}
+
     # ── Power Tracking (for enforcement) ──────────────────────────
 
     @staticmethod

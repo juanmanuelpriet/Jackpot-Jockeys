@@ -39,6 +39,14 @@ class ActiveMod:
     source_power_id: str
 
 @dataclass
+class Perception:
+    hazard_dist_mm: int = 999_999  # Distance to nearest hazard in current lane
+    hazard_type: str = ""
+    rival_left: bool = False
+    rival_right: bool = False
+    stamina_low: bool = False
+
+@dataclass
 class HorseState:
     horse_id: str
     pos_mm: int = 0
@@ -58,6 +66,11 @@ class HorseState:
     # Base stats (set at init, used by AI)
     base_vel_mmps: int = 12_000
     base_accel_mmps2: int = 2_500
+
+    # Neural Weights (DNA) - Permil (1000 = 1.0)
+    w_hazard_evasion: int = 500      # Low = ignores, High = proactive lane change
+    w_aggression: int = 500          # Higher = more willing to lane change for blocking
+    w_stamina_efficiency: int = 500   # Higher = slows down more when stamina low
 
 @dataclass
 class SimEvent:
@@ -116,13 +129,19 @@ def compute_speed_multiplier(mods: list[ActiveMod], tick: int) -> int:
 
 
 def init_horses(num_horses: int, rng: DetRNG) -> list[HorseState]:
-    """Initialize horses with seeded base stats."""
+    """Initialize horses with seeded base stats and neural DNA."""
     horses = []
     for i in range(1, num_horses + 1):
         base_vel = 11_000 + rng.randint(0, 3_000)   # 11-14 m/s
         base_accel = 2_000 + rng.randint(0, 1_500)   # 2-3.5 m/s²
         stamina = 700 + rng.randint(0, 300)           # 700-1000 permil
         lane = rng.randint(0, 2)
+        
+        # Neural DNA
+        w_evasion = rng.randint(200, 800)
+        w_aggr = rng.randint(200, 800)
+        w_eff = rng.randint(200, 800)
+
         horses.append(HorseState(
             horse_id=f"horse_{i}",
             vel_mmps=base_vel,
@@ -130,14 +149,71 @@ def init_horses(num_horses: int, rng: DetRNG) -> list[HorseState]:
             stamina_permil=stamina,
             base_vel_mmps=base_vel,
             base_accel_mmps2=base_accel,
+            w_hazard_evasion=w_evasion,
+            w_aggression=w_aggr,
+            w_stamina_efficiency=w_eff
         ))
     return horses
 
 
-def build_tick_snapshot(tick: int, horses: list[HorseState], world: WorldConfig) -> TickSnapshot:
-    """Build a snapshot with rank and progress."""
+def get_perception(h: HorseState, all_horses: list[HorseState], world: WorldConfig) -> Perception:
+    """Scan the track ahead and nearby rivals."""
+    total_len = world.track_length_mm
+    current_lap_pos = h.pos_mm % total_len
+    
+    # 1. Hazard Sensor (look ahead 300 meters = 300,000 mm)
+    look_ahead_mm = 300_000
+    nearest_haz_dist = 999_999
+    nearest_haz_type = ""
+    
+    # Simple scan of current and next segment
+    cur_seg_idx = world.get_segment_idx(h.pos_mm)
+    for i in range(3): # Look at current + next 2 segments
+        idx = (cur_seg_idx + i) % len(world.segments)
+        seg = world.segments[idx]
+        seg_start = world.segment_start_mm[idx]
+        
+        for slot in seg.hazard_slots:
+            # Absolute position of hazard
+            haz_abs_start = seg_start + (slot.zone_start_permil * seg.length_mm // 1000)
+            
+            # Distance from horse (handle wrap-around if needed, but simplified for now)
+            dist = haz_abs_start - current_lap_pos
+            if dist < 0: dist += total_len 
+            
+            if 0 < dist < look_ahead_mm:
+                if slot.lane == -1 or slot.lane == h.lane:
+                    if dist < nearest_haz_dist:
+                        nearest_haz_dist = dist
+                        nearest_haz_type = slot.hazard_id
+
+    # 2. Rival Sensors (Left/Right)
+    rival_left = False
+    rival_right = False
+    for other in all_horses:
+        if other.horse_id == h.horse_id or other.finished:
+            continue
+        
+        # Longitudinal distance
+        dist_x = abs(other.pos_mm - h.pos_mm)
+        if dist_x < 5000: # within 5 meters
+            if other.lane == h.lane - 1:
+                rival_left = True
+            elif other.lane == h.lane + 1:
+                rival_right = True
+
+    return Perception(
+        hazard_dist_mm=nearest_haz_dist,
+        hazard_type=nearest_haz_type,
+        rival_left=rival_left,
+        rival_right=rival_right,
+        stamina_low=(h.stamina_permil < 300)
+    )
+
+
+def build_tick_snapshot(tick: int, horses: list[HorseState], world: WorldConfig, all_perceptions: dict[str, Perception]) -> TickSnapshot:
+    """Build a snapshot with rank, progress, and neural perception data."""
     total_dist_mm = world.track_length_mm * world.laps
-    # Sort by position descending for rank
     ranked = sorted(horses, key=lambda h: -h.pos_mm)
     rank_map = {h.horse_id: rank + 1 for rank, h in enumerate(ranked)}
 
@@ -145,6 +221,10 @@ def build_tick_snapshot(tick: int, horses: list[HorseState], world: WorldConfig)
     for h in horses:
         progress = h.pos_mm * 1000 // total_dist_mm if total_dist_mm > 0 else 0
         mod_names = [m.source_power_id for m in h.active_mods if m.expires_tick > tick]
+        
+        # Perception for this horse
+        p = all_perceptions.get(h.horse_id, Perception())
+        
         horse_data.append({
             "id": h.horse_id,
             "pos_mm": h.pos_mm,
@@ -157,27 +237,62 @@ def build_tick_snapshot(tick: int, horses: list[HorseState], world: WorldConfig)
             "stamina_permil": h.stamina_permil,
             "active_mods": mod_names,
             "finished": h.finished,
+            # Perception Data for Godot (HUD + Decision visualization)
+            "neural_perception": {
+                "hazard_dist": p.hazard_dist_mm,
+                "hazard_type": p.hazard_type,
+                "rival_left": p.rival_left,
+                "rival_right": p.rival_right,
+                "stamina_low": p.stamina_low
+            }
         })
     return TickSnapshot(tick=tick, horses=horse_data)
 
+def ai_decide(horse: HorseState, world: WorldConfig, rng: DetRNG, tick: int, perception: Perception):
+    """Neural AI Decision logic: evaluate sensors and apply weights."""
+    # ── 1. Acceleration Logic ──
+    # Base effort
+    effort = horse.base_accel_mmps2
+    
+    # Stamina management (DNA weighted)
+    if perception.stamina_low:
+        # High efficiency weight = slows down more to regen
+        regen_factor = 1000 - (horse.w_stamina_efficiency * 600 // 1000) # 400..1000
+        effort = effort * regen_factor // 1000
 
-def ai_decide(horse: HorseState, world: WorldConfig, rng: DetRNG, tick: int):
-    """Simple deterministic AI: adjust acceleration and optionally change lane."""
-    # Base acceleration with some variance per tick
-    horse.accel_mmps2 = horse.base_accel_mmps2 + rng.randint(-500, 500)
+    horse.accel_mmps2 = effort + rng.randint(-300, 300)
 
-    # Lane change: occasionally, with cooldown
-    if horse.lane_change_cooldown <= 0 and rng.random_permil() < 30:  # 3% chance per tick
-        direction = rng.choice([-1, 1])
+    # ── 2. Lane Change Logic ──
+    if horse.lane_change_cooldown > 0:
+        return
+
+    change_desire = 0 # -1000 to 1000
+    
+    # Hazard Evasion Sensor
+    if perception.hazard_type != "":
+        # Distance weight: 1.0 at 0mm, 0.0 at 300,000mm
+        dist_factor = (300_000 - perception.hazard_dist_mm) * 1000 // 300_000
+        evasion_strength = dist_factor * horse.w_hazard_evasion // 1000
+        
+        # Decide direction
+        if evasion_strength > 300: # Threshold
+            if horse.lane == 0: change_desire = 1000
+            elif horse.lane == 2: change_desire = -1000
+            else: change_desire = rng.choice([-1000, 1000])
+
+    # Aggression / Blocking (only if no hazard)
+    elif horse.w_aggression > 600:
+        if perception.rival_left: change_desire = -500
+        elif perception.rival_right: change_desire = 500
+
+    # Apply decision if strong enough
+    if abs(change_desire) > 400:
+        direction = 1 if change_desire > 0 else -1
         new_lane = horse.lane + direction
         if 0 <= new_lane <= 2:
             horse.lane = new_lane
             horse.lane_change_cooldown = LANE_CHANGE_COOLDOWN
             horse.vel_mmps = horse.vel_mmps * LANE_CHANGE_PENALTY_PERMIL // 1000
-
-    # Speed management: slow down if stamina low
-    if horse.stamina_permil < 200:
-        horse.accel_mmps2 = horse.accel_mmps2 * 500 // 1000  # half effort
 
 
 # ── Main Simulation ──
@@ -267,11 +382,14 @@ class RaceSimulation:
         # 0b. Apply/Expire scheduled powers
         self._process_scheduled_powers()
 
+        # 0c. Compute Perceptions
+        perceptions = {h.horse_id: get_perception(h, self.horses, self.world) for h in self.horses}
+
         # 1. AI decisions (sorted by horse_id)
         for h in sorted(self.horses, key=lambda h: h.horse_id):
             if h.finished or h.stun_ticks_left > 0:
                 continue
-            ai_decide(h, self.world, self.rng, tick)
+            ai_decide(h, self.world, self.rng, tick, perceptions[h.horse_id])
 
         # 2. Physics
         for h in sorted(self.horses, key=lambda h: h.horse_id):
@@ -292,7 +410,7 @@ class RaceSimulation:
         self._check_laps_checkpoints()
 
         # 7. Tick snapshot
-        snap = build_tick_snapshot(tick, self.horses, self.world)
+        snap = build_tick_snapshot(tick, self.horses, self.world, perceptions)
         self.tick_snapshots.append(snap)
 
     def _apply_physics(self, h: HorseState):
@@ -521,7 +639,9 @@ class RaceSimulation:
 
     def get_snapshot(self) -> dict:
         """Full state snapshot for client resync."""
-        snap = build_tick_snapshot(self.tick, self.horses, self.world)
+        # Recalculate perceptions for the current state
+        perceptions = {h.horse_id: get_perception(h, self.horses, self.world) for h in self.horses}
+        snap = build_tick_snapshot(self.tick, self.horses, self.world, perceptions)
         active_powers = [
             {"power_id": sp.power_id, "target": sp.target_id,
              "apply_tick": sp.apply_tick, "expires_tick": sp.expire_tick}

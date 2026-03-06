@@ -1,1 +1,3 @@
 res://scripts/WebSocketManager.gd
+res://scenes/NeuralAgent.tscn
+res://scripts/NeuralAgent.gd

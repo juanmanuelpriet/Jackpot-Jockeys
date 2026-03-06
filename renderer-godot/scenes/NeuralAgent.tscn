@@ -1,38 +1,75 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="Curve" id="Curve_trail"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+colors = PackedColorArray(0, 1, 1, 1, 0, 0.4, 1, 0)
 
 [ext_resource type="Script" path="res://scripts/NeuralAgent.gd" id="1_script"]
 
 [node name="NeuralAgent" type="Node2D"]
 script = ExtResource("1_script")
 
+[node name="GlowSprite" type="ColorRect" parent="."]
+modulate = Color(0, 0.6, 1, 0.15)
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+pivot_offset = Vector2(30, 30)
+
 [node name="SynapseTrail" type="CPUParticles2D" parent="."]
-amount = 20
-lifetime = 0.5
+amount = 40
+lifetime = 0.8
+speed_scale = 1.2
 direction = Vector2(-1, 0)
-spread = 20.0
+spread = 15.0
 gravity = Vector2(0, 0)
-initial_velocity_min = 50.0
-initial_velocity_max = 100.0
+initial_velocity_min = 80.0
+initial_velocity_max = 150.0
 scale_amount_min = 2.0
-scale_amount_max = 5.0
-color = Color(0.2, 0.6, 1, 0.5)
+scale_amount_max = 4.0
+scale_amount_curve = SubResource("Curve_trail")
+color_ramp = SubResource("Gradient_trail")
 
 [node name="Icon" type="Label" parent="."]
+z_index = 10
 offset_left = -20.0
 offset_top = -25.0
 offset_right = 20.0
 offset_bottom = 25.0
+theme_override_colors/font_shadow_color = Color(0, 0.466667, 1, 0.5)
+theme_override_constants/shadow_outline_size = 10
 theme_override_font_sizes/font_size = 32
 text = "🧠"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="PulseAnimation" type="CPUParticles2D" parent="."]
-amount = 10
-lifetime = 1.0
+amount = 15
+lifetime = 1.2
+speed_scale = 0.8
 emission_shape = 1
-emission_sphere_radius = 20.0
+emission_sphere_radius = 15.0
 gravity = Vector2(0, 0)
 scale_amount_min = 1.0
-scale_amount_max = 3.0
-color = Color(0.8, 0, 1, 0.3)
+scale_amount_max = 5.0
+scale_amount_curve = SubResource("Curve_trail")
+color = Color(0.8, 0, 1, 0.4)
+
+[node name="PowerBurst" type="CPUParticles2D" parent="."]
+emitting = false
+amount = 30
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 200.0
+initial_velocity_max = 400.0
+scale_amount_min = 2.0
+scale_amount_max = 8.0
+scale_amount_curve = SubResource("Curve_trail")
+color = Color(1, 0.8, 0, 1)

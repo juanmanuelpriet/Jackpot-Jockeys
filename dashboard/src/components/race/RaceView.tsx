@@ -1,12 +1,16 @@
+import { useRef } from 'react';
 import { useGameStore } from '../../core/store';
 
 export default function RaceView() {
     const { race, simTick } = useGameStore();
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     const isRunning = race?.current_state === 'RaceRunning';
     const isFinished = race?.current_state === 'Settling' || race?.current_state === 'Results';
 
     if (!race) return null;
+
+    const lobbyId = race.lobby_id;
 
     return (
         <div className="flex-1 flex flex-col h-full relative font-mono">
@@ -40,29 +44,45 @@ export default function RaceView() {
                 </div>
             </div>
 
-            {/* Godot Viewport */}
-            <div className="flex-1 bg-black/60 backdrop-blur-md rounded-xl border border-indigo-900/30 overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-                <iframe
-                    id="godot-renderer"
-                    src={`/godot/index.html?lobby=${race.lobby_id}&token=${localStorage.getItem('token') || ''}`}
-                    className="w-full h-full border-none"
-                    title="Neural Core Renderer"
-                    allow="autoplay"
-                />
+            {/* Race Visualization (Godot) */}
+            <div className="relative group">
+                {/* Neon Frame Accent */}
+                <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-fuchsia-500 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
 
-                {/* Fallback Overlay if Godot isn't exported yet */}
-                {!isRunning && !isFinished && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-slate-900/40 backdrop-blur-[2px]">
-                        <span className="text-4xl mb-4 animate-bounce">🧠</span>
-                        <h3 className="text-xl font-black text-white tracking-widest opacity-50 italic">
-                            AWAITING_NEURAL_UPLINK
-                        </h3>
-                        <p className="text-[10px] text-indigo-400 font-mono mt-2">
-                            GODOT_ENGINE_INITIALIZED_SECTOR_A1
-                        </p>
+                <div className="relative h-[600px] bg-black/80 rounded-xl overflow-hidden border border-white/10 shadow-2xl backdrop-blur-sm">
+                    {/* Visual Overlay for Cinematic feel */}
+                    <div className="absolute inset-0 pointer-events-none border-[20px] border-black/20 z-10 rounded-xl"></div>
+
+                    <iframe
+                        ref={iframeRef}
+                        src={`/godot/index.html?lobby=${lobbyId}&token=${localStorage.getItem('token') || ''}`}
+                        className="w-full h-full border-none"
+                        title="Godot Race Renderer"
+                        allow="autoplay"
+                    />
+
+                    {/* Overlay: Race Info */}
+                    <div className="absolute top-4 left-4 z-20 flex gap-4">
+                        <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg border border-cyan-500/30 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                            <span className="text-xs font-mono text-cyan-400">ENGINE_ALIVE: V1.2.0</span>
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
+
+            {/* Fallback Overlay if Godot isn't exported yet */}
+            {(!isRunning && !isFinished) && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-slate-900/40 backdrop-blur-[2px]">
+                    <span className="text-4xl mb-4 animate-bounce">🧠</span>
+                    <h3 className="text-xl font-black text-white tracking-widest opacity-50 italic">
+                        AWAITING_NEURAL_UPLINK
+                    </h3>
+                    <p className="text-[10px] text-indigo-400 font-mono mt-2">
+                        GODOT_ENGINE_INITIALIZED_SECTOR_A1
+                    </p>
+                </div>
+            )}
         </div>
     );
 }

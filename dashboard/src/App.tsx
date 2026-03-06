@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import SetupView from './views/SetupView';
 import TheShowView from './views/TheShowView';
+import MobileApp from './mobile/MobileApp';
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <Routes>
         <Route path="/" element={<SetupView />} />
         <Route path="/show" element={<TheShowView />} />
+        <Route path="/m/*" element={<MobileApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

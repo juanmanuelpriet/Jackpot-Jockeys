@@ -40,7 +40,10 @@ export default function SetupView() {
                     <h2 className="text-3xl mb-8">¡Escanea para unirte!</h2>
 
                     <div className="bg-white p-4 rounded-xl mb-8">
-                        <QRCode value={`http://localhost:5173/join?code=${lobbyData.join_code}`} size={300} />
+                        <QRCode
+                            value={`${window.location.protocol}//${window.location.hostname}:5173/m?join=${lobbyData.join_code}&api=${encodeURIComponent(import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000`)}`}
+                            size={300}
+                        />
                     </div>
 
                     <div className="text-6xl font-mono tracking-[0.5em] font-bold text-amber-400 mb-12">

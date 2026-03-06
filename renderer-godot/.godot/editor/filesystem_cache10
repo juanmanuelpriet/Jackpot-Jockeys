@@ -1,0 +1,10 @@
+63f7b34db8d8cdea90c76aacccf841ec
+::res://::1772823533
+::res://assets/::1772823021
+::res://scenes/::1772823075
+NeuralAgent.tscn::PackedScene::-1::1772823068::0::1::::<><><>0<>0<><>::res://scripts/NeuralAgent.gd
+RaceSim.tscn::PackedScene::-1::1772823075::0::1::::<><><>0<>0<><>::res://scripts/RaceSim.gd<>res://scripts/WebSocketManager.gd
+::res://scripts/::1772823057
+NeuralAgent.gd::GDScript::7599566421148821234::1772823050::0::1::::<>Node2D<><>0<>0<><>::
+RaceSim.gd::GDScript::4807591626877801590::1772823057::0::1::::<>Node2D<><>0<>0<><>::
+WebSocketManager.gd::GDScript::8096882305869357419::1772823042::0::1::::<>Node<><>0<>0<><>::

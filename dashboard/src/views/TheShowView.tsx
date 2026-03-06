@@ -4,20 +4,23 @@ import BettingView from '../components/betting/BettingView';
 import SocialView from '../components/social/SocialView';
 import NarratorLog from '../components/narrator/NarratorLog';
 import AdminPanel from '../components/admin/AdminPanel';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
 
 export default function TheShowView() {
     const { race } = useGameStore();
     const joinCode = localStorage.getItem('LOBBY_JOIN_CODE');
-    const apiOverride = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000`;
+
+    // Auto-detect LAN IP or fallback to current hostname
+    const [lanIp, setLanIp] = useState(window.location.hostname);
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    const apiOverride = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${lanIp}:8000`;
 
     // If no race is in store (e.g. refreshed page without WS reconnect logic full), 
     // we might want to go back to setup or show a loader. 
-    // For now, we assume WS re-connects and fetches snapshot.
     useEffect(() => {
         if (!race) {
-            // Could wait for WS reconnect, but if accessed directly without lobby, redirect
             console.log("No race snapshot yet...");
         }
     }, [race]);
@@ -31,15 +34,32 @@ export default function TheShowView() {
 
             {/* Floating QR Code to join mid-game */}
             {joinCode && (
-                <div className="absolute top-4 right-4 z-50 flex flex-col items-center bg-slate-900/80 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm shadow-xl hover:scale-105 transition-transform origin-top-right">
-                    <p className="text-xs font-bold text-indigo-300 mb-2 uppercase tracking-widest text-glow-accent">¡Únete!</p>
-                    <div className="bg-white p-2 rounded-lg">
+                <div className="absolute top-4 right-4 z-50 flex flex-col items-center bg-slate-900/90 p-4 rounded-xl border border-indigo-500/30 backdrop-blur-md shadow-2xl hover:scale-105 transition-transform origin-top-right w-48">
+                    <p className="text-[10px] font-black text-cyan-400 mb-2 uppercase tracking-[0.3em] italic">NEURAL_JOIN</p>
+
+                    <div className="bg-white p-2 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                         <QRCode
-                            value={`${window.location.protocol}//${window.location.hostname}:5173/m?join=${joinCode}&api=${encodeURIComponent(apiOverride)}`}
+                            value={`${window.location.protocol}//${lanIp}:5173/m?join=${joinCode}&api=${encodeURIComponent(apiOverride)}`}
                             size={120}
                         />
                     </div>
-                    <p className="mt-2 text-xl font-mono font-black text-amber-400 tracking-[0.2em]">{joinCode}</p>
+
+                    <p className="mt-2 text-xl font-mono font-black text-white tracking-[0.2em]">{joinCode}</p>
+
+                    {isLocalhost && (
+                        <div className="mt-3 w-full animate-pulse border-t border-indigo-900/50 pt-3">
+                            <p className="text-[7px] text-amber-500 font-bold text-center leading-tight mb-2 uppercase">
+                                ADVERTENCIA: Usando localhost.<br />Ingresa tu IP de red:
+                            </p>
+                            <input
+                                type="text"
+                                value={lanIp === 'localhost' ? '' : lanIp}
+                                onChange={(e) => setLanIp(e.target.value)}
+                                placeholder="192.168.x.x"
+                                className="w-full bg-black/50 border border-amber-500/30 rounded px-2 py-1 text-center text-[10px] text-white focus:outline-none focus:border-amber-500"
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 

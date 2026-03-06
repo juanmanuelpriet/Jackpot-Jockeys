@@ -17,11 +17,22 @@ func _ready():
 
 func _check_js_params():
 	if OS.has_feature("web"):
-		var js_url = JavaScriptBridge.eval("window.location.search")
-		if js_url:
-			# Parse query params manually or via simple regex
-			# Example: ?token=...&lobby=...
-			pass
+		# Get hostname from JS bridge for dynamic backend resolution
+		var js_hostname = JavaScriptBridge.eval("window.location.hostname")
+		if js_hostname:
+			url = "ws://" + js_hostname + ":8000"
+			print("Dynamic host detected: ", url)
+		
+		# Get token/lobby from query string
+		var js_search = JavaScriptBridge.eval("window.location.search")
+		if js_search:
+			var query = js_search.substr(1)
+			var pairs = query.split("&")
+			for pair in pairs:
+				var parts = pair.split("=")
+				if parts.size() == 2:
+					if parts[0] == "token": token = parts[1]
+					if parts[1] == "lobby": lobby_id = parts[1]
 
 func connect_to_server():
 	var full_url = url

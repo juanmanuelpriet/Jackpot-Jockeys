@@ -1,0 +1,38 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/NeuralAgent.gd" id="1_script"]
+
+[node name="NeuralAgent" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="SynapseTrail" type="CPUParticles2D" parent="."]
+amount = 20
+lifetime = 0.5
+direction = Vector2(-1, 0)
+spread = 20.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 50.0
+initial_velocity_max = 100.0
+scale_amount_min = 2.0
+scale_amount_max = 5.0
+color = Color(0.2, 0.6, 1, 0.5)
+
+[node name="Icon" type="Label" parent="."]
+offset_left = -20.0
+offset_top = -25.0
+offset_right = 20.0
+offset_bottom = 25.0
+theme_override_font_sizes/font_size = 32
+text = "🧠"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PulseAnimation" type="CPUParticles2D" parent="."]
+amount = 10
+lifetime = 1.0
+emission_shape = 1
+emission_sphere_radius = 20.0
+gravity = Vector2(0, 0)
+scale_amount_min = 1.0
+scale_amount_max = 3.0
+color = Color(0.8, 0, 1, 0.3)

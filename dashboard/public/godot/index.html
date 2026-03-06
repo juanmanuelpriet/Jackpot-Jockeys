@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jackpot Jockeys - Godot Viewport</title>
+    <style>
+        body { margin: 0; background: #04030f; color: #4f46e5; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        .box { border: 1px solid #4f46e5; padding: 20px; text-align: center; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2 class="blink">AWAITING GODOT EXPORT</h2>
+        <p>Place Godot Web Export files in: <code>/dashboard/public/godot/</code></p>
+        <p>Current Lobby: <span id="lobby">---</span></p>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        document.getElementById('lobby').innerText = params.get('lobby') || 'UNKNOWN';
+    </script>
+</body>
+</html>

@@ -89,11 +89,11 @@ export default function BetsTab() {
                             >
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">
-                                        {['🐴', '🦄', '🏇', '🐎', '🦓', '🫏'][i] || '🐴'}
+                                        {['🧠', '🕸️', '⚡', '🤖', '⚛️', '🧬'][i] || '🧠'}
                                     </span>
                                     <div>
                                         <p className="font-bold text-white text-sm">
-                                            {sel.selection_key.replace('_', ' ').toUpperCase()}
+                                            AGENTE {sel.selection_key.split('_')[1]}
                                         </p>
                                         <p className="text-xs text-slate-500">
                                             Pool: ${sel.pool_amount.toFixed(0)}
@@ -123,7 +123,7 @@ export default function BetsTab() {
             {/* Confirm Modal */}
             {showConfirm && selectedHorse && (
                 <ConfirmModal
-                    title={`Apostar a ${selectedHorse.replace('_', ' ').toUpperCase()}`}
+                    title={`Apostar a AGENTE ${selectedHorse.split('_')[1]}`}
                     description={`Monto: $${betAmount} — Saldo disponible: $${wallet.balance_available.toFixed(0)}`}
                     confirmLabel={`Confirmar ($${betAmount})`}
                     confirmColor="bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.5)]"
@@ -142,8 +142,8 @@ export default function BetsTab() {
                                 key={amt}
                                 onClick={() => setBetAmount(amt)}
                                 className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${betAmount === amt
-                                        ? 'bg-indigo-500 text-white scale-110'
-                                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                    ? 'bg-indigo-500 text-white scale-110'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700'
                                     }`}
                             >
                                 ${amt}
@@ -152,8 +152,8 @@ export default function BetsTab() {
                         <button
                             onClick={() => setBetAmount(Math.floor(wallet.balance_available))}
                             className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${betAmount === Math.floor(wallet.balance_available)
-                                    ? 'bg-red-600 text-white scale-110'
-                                    : 'bg-slate-800 text-red-400 border border-red-700/50'
+                                ? 'bg-red-600 text-white scale-110'
+                                : 'bg-slate-800 text-red-400 border border-red-700/50'
                                 }`}
                         >
                             ALL-IN

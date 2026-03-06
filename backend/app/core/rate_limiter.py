@@ -13,11 +13,11 @@ from app.settings import settings
 
 # Rate limit config: {path_prefix: (max_requests, window_seconds)}
 RATE_LIMITS = {
-    "/bets": (20, 10),
-    "/powers": (10, 10),
-    "/loans": (5, 10),
+    "/bets": (100, 10),
+    "/powers": (50, 10),
+    "/loans": (20, 10),
 }
-DEFAULT_LIMIT = (50, 10)
+DEFAULT_LIMIT = (200, 10)
 
 # In-memory store: {(user_id, path_prefix): [timestamps]}
 _request_log: dict = defaultdict(list)

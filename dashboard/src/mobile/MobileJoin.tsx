@@ -9,7 +9,12 @@ export default function MobileJoin() {
     const navigate = useNavigate();
     const setUser = useMobileStore(s => s.setUser);
 
-    const [joinCode, setJoinCode] = useState('');
+    // Immediate extraction for instant UI feedback
+    const initialCode = searchParams.get('join') || '';
+    const initialApi = searchParams.get('api');
+    if (initialApi) sessionStorage.setItem('VITE_API_OVERRIDE', initialApi);
+
+    const [joinCode, setJoinCode] = useState(initialCode);
     const [username, setUsername] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -60,22 +65,22 @@ export default function MobileJoin() {
             <div className="w-full max-w-sm">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <span className="text-5xl">🏇</span>
-                    <h1 className="text-3xl font-black text-indigo-400 mt-2">JACKPOT JOCKEYS</h1>
-                    <p className="text-xs text-slate-600 mt-1">La fiesta empieza aquí</p>
+                    <span className="text-5xl drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">🧠</span>
+                    <h1 className="text-3xl font-black text-white mt-2 tracking-widest italic">NEURAL CORE</h1>
+                    <p className="text-[10px] text-cyan-500 font-mono mt-1 opacity-70">{" >> "} SECTOR_JOIN_INITIALIZED</p>
                 </div>
 
                 {/* Lobby Code Badge */}
-                <div className="flex items-center justify-center gap-2 mb-6">
-                    <span className="text-xs text-slate-500 uppercase">Sala:</span>
-                    <span className="bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-4 py-1.5 rounded-full font-mono font-bold text-lg tracking-widest">
-                        {joinCode || '???'}
+                <div className="flex flex-col items-center justify-center gap-2 mb-6">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-[0.3em]">SYNCHRONIZING_LOBBY</span>
+                    <span className="bg-cyan-950/30 border border-cyan-500/30 text-cyan-400 px-6 py-2 rounded-sm font-mono font-black text-2xl tracking-widest shadow-[inset_0_0_10px_rgba(34,211,238,0.2)]">
+                        {joinCode || '------'}
                     </span>
                 </div>
 
-                <form onSubmit={handleJoin} className="space-y-4">
+                <form onSubmit={handleJoin} className="space-y-6">
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Tu Nombre</label>
+                        <label className="block text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-[0.2em] ml-1">IDENTIFICADOR_SUJETO</label>
                         <input
                             type="text"
                             maxLength={12}
@@ -83,28 +88,28 @@ export default function MobileJoin() {
                             autoFocus
                             value={username}
                             onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                            placeholder="Ej. PEPE123"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-center text-xl font-bold placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all uppercase"
+                            placeholder="USER_NAME"
+                            className="w-full bg-black/60 border border-indigo-900/50 rounded-sm p-4 text-center text-xl font-black text-white placeholder-slate-800 focus:outline-none focus:border-cyan-500 transition-all font-mono"
                         />
                     </div>
 
                     {error && (
-                        <div className="bg-red-900/30 border border-red-700/50 text-red-300 text-sm p-3 rounded-xl text-center">
-                            {error}
+                        <div className="bg-red-950/40 border border-red-500/30 text-red-400 text-[10px] p-3 rounded-sm text-center font-mono animate-pulse">
+                            ERR: {error}
                         </div>
                     )}
 
                     <button
                         type="submit"
                         disabled={loading || !username.trim() || !joinCode.trim()}
-                        className="w-full bg-indigo-600 text-white font-black py-4 rounded-xl active:scale-95 transition-all shadow-[0_4px_20px_rgba(79,70,229,0.4)] disabled:opacity-50 disabled:active:scale-100 text-lg"
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-sm active:scale-95 transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] disabled:opacity-30 disabled:active:scale-100 text-sm tracking-[0.4em] border border-indigo-400/50 uppercase"
                     >
-                        {loading ? '⏳ CONECTANDO...' : '🎰 ENTRAR AL CAOS'}
+                        {loading ? 'ESTABLECIENDO_LINK...' : 'INJECT_MIND'}
                     </button>
                 </form>
 
-                <p className="text-[10px] text-slate-700 text-center mt-6">
-                    Conectando a {sessionStorage.getItem('VITE_API_OVERRIDE') || `${window.location.hostname}:8000`}
+                <p className="text-[8px] text-slate-600 text-center mt-8 font-mono tracking-widest opacity-50">
+                    REMOTE_UPLINK: {sessionStorage.getItem('VITE_API_OVERRIDE') || `${window.location.hostname}:8000`}
                 </p>
             </div>
         </div>

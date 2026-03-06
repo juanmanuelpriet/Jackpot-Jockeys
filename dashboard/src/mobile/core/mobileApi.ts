@@ -8,9 +8,13 @@ import { v4 as uuidv4 } from 'uuid';
  * 3. Fallback: window.location.hostname:8000
  */
 const getApiBase = (): string => {
+    // 1. Check for session override (useful for scanned QR codes)
     const override = sessionStorage.getItem('VITE_API_OVERRIDE');
     if (override) return decodeURIComponent(override);
-    return import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000`;
+
+    // 2. Fallback: use current page hostname:8000 (correct for LAN mobile access)
+    // Avoid localhost if accessing from a real device
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
 };
 
 const mobileApi = axios.create({

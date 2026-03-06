@@ -10,6 +10,8 @@ from app.settings import settings
 import asyncio
 import random
 import string
+from datetime import datetime, timedelta
+from app.ws.manager import manager
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -94,7 +96,15 @@ async def start_race_engine(
     
     race.current_state = "BettingOpen"
     race.state_version += 1
+    race.state_entered_at = datetime.now()
     db.commit()
+    
+    # Broadcast to all connected clients that betting is open!
+    await manager.broadcast(lobby_id, {
+        "event_name": "RACE_STATE_CHANGED",
+        "state": race.current_state,
+        "version": race.state_version,
+    })
     
     return {"message": f"Race engine started for lobby {lobby_id}", "race_id": race.id}
 
@@ -108,6 +118,28 @@ async def stop_race_engine(
         del engines[lobby_id]
         return {"message": "Engine stopped"}
     return {"message": "Engine not running"}
+
+
+@router.post("/race/force-run/{lobby_id}")
+async def force_run_race(
+    lobby_id: str,
+    admin: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Force transition from BettingOpen to RaceRunning instantly."""
+    race = db.query(models.Race).filter(
+        models.Race.lobby_id == lobby_id,
+        models.Race.current_state == "BettingOpen",
+    ).first()
+    if not race:
+        raise HTTPException(status_code=400, detail="Race is not in BettingOpen state")
+
+    if lobby_id in engines:
+        # Trick the engine into thinking time ran out
+        race.state_entered_at = datetime.now() - timedelta(seconds=600)
+        db.commit()
+    
+    return {"message": "Race forced to start"}
 
 
 @router.post("/race/settle/{race_id}")

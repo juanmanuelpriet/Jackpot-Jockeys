@@ -87,6 +87,7 @@ def _get_snapshot(db: Session, lobby_id: str, user_id: int) -> dict:
 
     return {
         "event_name": "STATE_SNAPSHOT",
+        "lobby_id": race.lobby_id,
         "race_id": race.id,
         "current_state": race.current_state,
         "state_version": race.state_version,
@@ -112,15 +113,28 @@ async def websocket_endpoint(websocket: WebSocket):
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.ALGORITHM])
         user_id = payload.get("user_id")
         lobby_id = payload.get("lobby_id")
+        username = payload.get("sub", f"User {user_id}")
+        role = payload.get("role", "player")
+
         if not user_id or not lobby_id:
+            print(f"WS manual close -> Missing user_id ({user_id}) or lobby_id ({lobby_id}) in token payload")
             await websocket.close(code=4002, reason="Invalid token payload")
             return
-    except JWTError:
+    except JWTError as e:
+        print(f"WS manual close -> JWTError: {e}")
         await websocket.close(code=4003, reason="Invalid token")
         return
 
     # Connect
     await manager.connect(lobby_id, user_id, websocket)
+
+    # Broadcast join if player
+    if role == "player":
+        await manager.broadcast(lobby_id, {
+            "event_name": "PLAYER_JOINED",
+            "user_id": user_id,
+            "username": username
+        })
 
     try:
         while True:
@@ -150,5 +164,20 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         manager.disconnect(lobby_id, websocket)
+        if role == "player":
+            await manager.broadcast(lobby_id, {
+                "event_name": "PLAYER_LEFT",
+                "user_id": user_id,
+                "username": username
+            })
     except Exception as e:
+        print(f"WS error in lobby {lobby_id} user {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
         manager.disconnect(lobby_id, websocket)
+        if role == "player":
+            await manager.broadcast(lobby_id, {
+                "event_name": "PLAYER_LEFT",
+                "user_id": user_id,
+                "username": username
+            })

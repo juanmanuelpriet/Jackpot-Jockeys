@@ -1,5 +1,5 @@
 import { useGameStore } from '../../core/store';
-import { startRace, forceSettle, nextRace } from '../../core/api';
+import { startRace, forceStartRace, forceSettle, nextRace } from '../../core/api';
 import { Settings, Play, Flag, RefreshCw, FastForward } from 'lucide-react';
 import { useState } from 'react';
 
@@ -15,6 +15,19 @@ export default function AdminPanel() {
         } catch (e) {
             console.error(e);
             alert("Error starting beds.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForceStart = async () => {
+        if (!race) return;
+        setLoading(true);
+        try {
+            await forceStartRace(race.lobby_id);
+        } catch (e) {
+            console.error(e);
+            alert("Error forced starting race.");
         } finally {
             setLoading(false);
         }
@@ -80,6 +93,16 @@ export default function AdminPanel() {
                         className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded font-bold transition text-sm disabled:opacity-50"
                     >
                         <Play size={16} /> ABRIR APUESTAS
+                    </button>
+                )}
+
+                {race.current_state === 'BettingOpen' && (
+                    <button
+                        onClick={handleForceStart}
+                        disabled={loading}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-500 px-4 py-2 rounded font-bold transition text-sm disabled:opacity-50 shadow-[0_0_10px_rgba(22,163,74,0.5)]"
+                    >
+                        <Play size={16} /> FORZAR INICIO DE CARRERA
                     </button>
                 )}
 

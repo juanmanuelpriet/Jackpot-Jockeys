@@ -13,8 +13,13 @@ const processedEvents = new Set<string>();
 
 export const connectMobileWS = (token: string) => {
     // Prevent double-mount (React 18 StrictMode)
-    if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
-        if (currentToken === token) return;
+    if (socket && currentToken === token) {
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+            return;
+        }
+    }
+
+    if (socket && currentToken !== token) {
         disconnectMobileWS();
     }
 
@@ -103,7 +108,7 @@ const handleEvent = (event: any) => {
     const myUserId = store.user?.id;
 
     // Dedupe narrative events
-    const hash = event.event_name + '_' + (event.data?.timestamp || JSON.stringify(event.data).length + '_' + Date.now());
+    const hash = event.event_name + '_' + (event.timestamp || JSON.stringify(event).length + '_' + Date.now());
     const isNarrative = ['BET_PLACED', 'POWER_APPLIED', 'SETTLEMENT_COMPLETE', 'BET_REJECTED'].includes(event.event_name);
     if (isNarrative) {
         if (processedEvents.has(hash)) return;
@@ -115,8 +120,8 @@ const handleEvent = (event: any) => {
     }
 
     // Version guard
-    if (event.data?.state_version && store.race) {
-        if (event.data.state_version > store.race.state_version + 1) {
+    if (event.state_version && store.race) {
+        if (event.state_version > store.race.state_version + 1) {
             socket?.send(JSON.stringify({ type: 'GET_STATE_SNAPSHOT' }));
             return;
         }
@@ -124,12 +129,12 @@ const handleEvent = (event: any) => {
 
     switch (event.event_name) {
         case 'STATE_SNAPSHOT':
-            store.setSnapshot(event.data);
+            store.setSnapshot(event);
             break;
 
         case 'RACE_STATE_CHANGED': {
-            const newState = event.data.new_state;
-            store.updateRaceState(newState, event.data.state_version);
+            const newState = event.new_state;
+            store.updateRaceState(newState, event.state_version);
 
             const stateLabels: Record<string, string> = {
                 'BettingOpen': '🎰 ¡Apuestas abiertas!',
@@ -143,7 +148,7 @@ const handleEvent = (event: any) => {
         }
 
         case 'ODDS_UPDATE':
-            store.updateOdds(event.data.market_id, event.data.odds);
+            store.updateOdds(event.market_id, event.odds);
             break;
 
         case 'MARKET_CLOSED':
@@ -151,49 +156,49 @@ const handleEvent = (event: any) => {
             break;
 
         case 'BALANCE_UPDATE':
-            if (event.data.user_id === myUserId) {
-                store.updateWallet(event.data.balance_total, event.data.balance_locked);
+            if (event.user_id === myUserId) {
+                store.updateWallet(event.balance_total, event.balance_locked);
             }
             break;
 
         case 'BET_PLACED':
-            if (event.data.user_id === myUserId) {
-                store.addToast('success', `✅ Apuesta de $${event.data.amount} confirmada.`);
+            if (event.user_id === myUserId) {
+                store.addToast('success', `✅ Apuesta de $${event.amount} confirmada.`);
                 store.addActivity({
                     id: `bet_${Date.now()}`,
                     type: 'bet',
-                    text: `Apostaste $${event.data.amount} a ${event.data.selection_key}`,
-                    amount: -event.data.amount,
+                    text: `Apostaste $${event.amount} a ${event.selection_key}`,
+                    amount: -event.amount,
                     time: new Date(),
                 });
             }
             break;
 
         case 'BET_REJECTED':
-            if (event.data.user_id === myUserId) {
-                store.addToast('error', `❌ Apuesta rechazada: ${event.data.reason || 'Error'}`);
+            if (event.user_id === myUserId) {
+                store.addToast('error', `❌ Apuesta rechazada: ${event.reason || 'Error'}`);
             }
             break;
 
         case 'BET_CANCELED':
-            if (event.data.user_id === myUserId) {
-                store.addToast('info', `↩️ Apuesta cancelada. Reembolso: $${event.data.refund}`);
+            if (event.user_id === myUserId) {
+                store.addToast('info', `↩️ Apuesta cancelada. Reembolso: $${event.refund}`);
                 store.addActivity({
                     id: `cancel_${Date.now()}`,
                     type: 'bet',
-                    text: `Apuesta cancelada (reembolso $${event.data.refund})`,
-                    amount: event.data.refund,
+                    text: `Apuesta cancelada (reembolso $${event.refund})`,
+                    amount: event.refund,
                     time: new Date(),
                 });
             }
             break;
 
         case 'POWER_APPLIED':
-            store.addToast('warning', `⚡ Poder ${event.data.power_id} activado sobre ${event.data.target_id}`);
+            store.addToast('warning', `⚡ Poder ${event.power_id} activado sobre ${event.target_id}`);
             store.addActivity({
                 id: `pwr_${Date.now()}`,
                 type: 'power',
-                text: `Poder ${event.data.power_id} → ${event.data.target_id}`,
+                text: `Poder ${event.power_id} → ${event.target_id}`,
                 time: new Date(),
             });
             break;

@@ -96,6 +96,13 @@ def join_lobby(user_data: auth_schemas.UserJoin, db: Session = Depends(get_db)):
         wallet = models.Wallet(user_id=user.id, balance_total=1000.0, balance_locked=0.0)
         db.add(wallet)
         db.commit()
+    else:
+        # Ensure returning users have a wallet
+        wallet = db.query(models.Wallet).filter(models.Wallet.user_id == user.id).first()
+        if not wallet:
+            wallet = models.Wallet(user_id=user.id, balance_total=1000.0, balance_locked=0.0)
+            db.add(wallet)
+            db.commit()
     
     # Find or create lobby race
     race = db.query(models.Race).filter(

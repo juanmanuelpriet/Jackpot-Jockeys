@@ -100,7 +100,7 @@ const handleWSEvent = (event: any) => {
     // Basic Hash Dedupe for Narrative Logs
     // Create a unique key using event timestamp & type (or fallback to full stringify)
     // Ensures Strict Mode double-render won't duplicate "Frenzy" or "Placed" events exactly
-    const eventHash = event.event_name + "_" + (event.data?.timestamp || JSON.stringify(event.data).length + "_" + Date.now());
+    const eventHash = event.event_name + "_" + (event.timestamp || JSON.stringify(event).length + "_" + Date.now());
 
     // For dedupe: only narrative events need this (to not spam log). State mapping is inherently idempotent.
     const isNarrativeEvent = ['BET_PLACED', 'POWER_APPLIED', 'SETTLEMENT_COMPLETE'].includes(event.event_name);
@@ -117,9 +117,9 @@ const handleWSEvent = (event: any) => {
     // 1. Version Guard Check
     // If we receive an event that dictates a state version that jumps more than +1
     // we request a full resync to guarantee consistency.
-    if (event.data?.state_version && store.race) {
+    if (event.state_version && store.race) {
         const localVersion = store.race.state_version;
-        const incomingVersion = event.data.state_version;
+        const incomingVersion = event.state_version;
         if (incomingVersion > localVersion + 1) {
             console.warn(`Version jump detected! Local: ${localVersion}, Incoming: ${incomingVersion}. Requesting Snapshot.`);
             socket?.send(JSON.stringify({ type: 'GET_STATE_SNAPSHOT' }));
@@ -130,12 +130,12 @@ const handleWSEvent = (event: any) => {
     // 2. Dispatchers
     switch (event.event_name) {
         case 'STATE_SNAPSHOT':
-            store.setSnapshot(event.data);
+            store.setSnapshot(event);
             break;
 
         case 'RACE_STATE_CHANGED':
-            store.updateRaceState(event.data.new_state, event.data.state_version);
-            store.addLog({ type: 'system', text: `📢 La carrera avanzó a: ${event.data.new_state}`, time: new Date() });
+            store.updateRaceState(event.new_state, event.state_version);
+            store.addLog({ type: 'system', text: `📢 La carrera avanzó a: ${event.new_state}`, time: new Date() });
             break;
 
         case 'STATE_SYNC':
@@ -143,16 +143,16 @@ const handleWSEvent = (event: any) => {
             break;
 
         case 'ODDS_UPDATE':
-            store.updateOdds(event.data.market_id, event.data.odds);
+            store.updateOdds(event.market_id, event.odds);
             break;
 
         case 'BALANCE_UPDATE':
-            store.updateWallet(event.data.user_id, event.data.balance_total, event.data.balance_locked);
+            store.updateWallet(event.user_id, event.balance_total, event.balance_locked);
             break;
 
         case 'BET_PLACED':
             // Anti-Spam Aggregator
-            currentFrenzyTotal += parseFloat(event.data.amount) || 0;
+            currentFrenzyTotal += parseFloat(event.amount) || 0;
             currentFrenzyCount++;
 
             if (betFrenzyTimer) clearTimeout(betFrenzyTimer);
@@ -168,7 +168,7 @@ const handleWSEvent = (event: any) => {
                     import('./logger').then(({ getRandomBetPhrase }) => {
                         store.addLog({
                             type: 'bet',
-                            text: getRandomBetPhrase(event.data.user_id, event.data.amount, event.data.selection_key),
+                            text: getRandomBetPhrase(event.user_id, event.amount, event.selection_key),
                             time: new Date()
                         });
                     });
@@ -183,15 +183,15 @@ const handleWSEvent = (event: any) => {
             import('./logger').then(({ getRandomPowerPhrase }) => {
                 store.addLog({
                     type: 'power',
-                    text: getRandomPowerPhrase(event.data.power_id, event.data.target_id),
+                    text: getRandomPowerPhrase(event.power_id, event.target_id),
                     time: new Date()
                 });
             });
-            store.addActivePower(event.data.power_id, event.data.target_id);
+            store.addActivePower(event.power_id, event.target_id);
             break;
 
         case 'POWER_EXPIRED':
-            store.removeActivePower(event.data.power_id, event.data.target_id);
+            store.removeActivePower(event.power_id, event.target_id);
             break;
 
         case 'SETTLEMENT_COMPLETE':
@@ -206,14 +206,14 @@ const handleWSEvent = (event: any) => {
         case 'MINI_SETTLEMENT_COMPLETE':
             store.addLog({
                 type: 'system',
-                text: `🏆 Mini-settlement: ${event.data?.market_type || event.market_type || '???'} — ¡${(event.data?.winner || event.winner || '???').replace('_', ' ').toUpperCase()} gana el parcial!`,
+                text: `🏆 Mini-settlement: ${event.market_type || '???'} — ¡${(event.winner || '???').replace('_', ' ').toUpperCase()} gana el parcial!`,
                 time: new Date()
             });
             socket?.send(JSON.stringify({ type: 'GET_STATE_SNAPSHOT' }));
             break;
 
         case 'TICK_UPDATE':
-            store.updateHorseTelemetry(event.tick || event.data?.tick || 0, event.horses || event.data?.horses || []);
+            store.updateHorseTelemetry(event.tick || 0, event.horses || []);
             break;
 
         case 'RACE_FINISHED':
@@ -227,7 +227,7 @@ const handleWSEvent = (event: any) => {
         case 'COLLISION_EVENT':
             store.addLog({
                 type: 'system',
-                text: `💥 ¡${(event.data?.horse_a || event.horse_a || '???').replace('_', ' ').toUpperCase()} y ${(event.data?.horse_b || event.horse_b || '???').replace('_', ' ').toUpperCase()} chocan en la pista!`,
+                text: `💥 ¡${(event.horse_a || '???').replace('_', ' ').toUpperCase()} y ${(event.horse_b || '???').replace('_', ' ').toUpperCase()} chocan en la pista!`,
                 time: new Date()
             });
             break;
@@ -246,6 +246,14 @@ const handleWSEvent = (event: any) => {
                 text: `🌪️ ¡EVENTO GLOBAL: ${event.data?.type || event.type || '???'}!`,
                 time: new Date()
             });
+            break;
+
+        case 'PLAYER_JOINED':
+            store.addConnectedPlayer(event.user_id, event.username);
+            break;
+
+        case 'PLAYER_LEFT':
+            store.removeConnectedPlayer(event.user_id);
             break;
 
         case 'LAP_CHECKPOINT_EVENT':

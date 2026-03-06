@@ -11,11 +11,11 @@ export const setAuthToken = (token: string) => {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 };
 
-export const adminJoin = async (username: string) => {
+export const adminJoin = async (username: string, lobbyId: string = "LOBBY_TMP") => {
     const response = await api.post('/auth/join', {
         username,
         role: "admin",
-        lobby_id: "LOBBY_TMP" // Overridden when lobby is created, just to get token
+        lobby_id: lobbyId
     });
     setAuthToken(response.data.access_token);
     return response.data;
@@ -28,6 +28,11 @@ export const createLobby = async (name: string, max_players: number = 8) => {
 
 export const startRace = async (lobbyId: string) => {
     const response = await api.post(`/admin/race/start/${lobbyId}`);
+    return response.data;
+};
+
+export const forceStartRace = async (lobbyId: string) => {
+    const response = await api.post(`/admin/race/force-run/${lobbyId}`);
     return response.data;
 };
 

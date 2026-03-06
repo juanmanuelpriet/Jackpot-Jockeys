@@ -66,6 +66,7 @@ export interface GameState {
     horseTelemetry: HorseTelemetry[];
     simTick: number;
     playersCount: number;
+    connectedPlayers: { user_id: number; username: string }[];
 
     // Actions
     setSnapshot: (snapshot: any) => void;
@@ -77,6 +78,10 @@ export interface GameState {
     removeActivePower: (powerId: string, targetId: string) => void;
     updateHorseTelemetry: (tick: number, horses: HorseTelemetry[]) => void;
     resetForNextRace: () => void;
+
+    // Player Roster
+    addConnectedPlayer: (userId: number, username: string) => void;
+    removeConnectedPlayer: (userId: number) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -89,6 +94,7 @@ export const useGameStore = create<GameState>((set) => ({
     horseTelemetry: [],
     simTick: 0,
     playersCount: 0,
+    connectedPlayers: [],
 
     resetForNextRace: () => set((state) => ({
         markets: [],
@@ -112,14 +118,32 @@ export const useGameStore = create<GameState>((set) => ({
         activePowers: state.activePowers.filter(p => !(p.power_id === powerId && p.target_id === targetId))
     })),
 
+    addConnectedPlayer: (userId, username) => set((state) => {
+        if (state.connectedPlayers.some(p => p.user_id === userId)) return state;
+        return { connectedPlayers: [...state.connectedPlayers, { user_id: userId, username }] };
+    }),
+
+    removeConnectedPlayer: (userId) => set((state) => ({
+        connectedPlayers: state.connectedPlayers.filter(p => p.user_id !== userId)
+    })),
+
     setSnapshot: (snapshot) => set(() => {
         console.log("Setting snapshot:", snapshot);
+
+        const race: Race = {
+            id: snapshot.race_id,
+            lobby_id: snapshot.lobby_id,
+            current_state: snapshot.current_state,
+            state_version: snapshot.state_version,
+            num_horses: snapshot.num_horses || 6,
+        };
+
         return {
-            race: snapshot.race,
+            race,
             markets: snapshot.markets || [],
             wallets: snapshot.wallets || [],
             placements: snapshot.placements || [],
-            activePowers: snapshot.activePowers || [],
+            activePowers: snapshot.active_powers || [],
             playersCount: snapshot.wallets ? snapshot.wallets.length : 0,
         };
     }),

@@ -203,6 +203,60 @@ const handleWSEvent = (event: any) => {
             socket?.send(JSON.stringify({ type: 'GET_STATE_SNAPSHOT' }));
             break;
 
+        case 'TICK_UPDATE':
+            store.updateHorseTelemetry(event.tick || event.data?.tick || 0, event.horses || event.data?.horses || []);
+            break;
+
+        case 'RACE_FINISHED':
+            store.addLog({
+                type: 'system',
+                text: `🏁 ¡CARRERA TERMINADA! ${event.placements?.[0]?.horse_id?.replace('_', ' ').toUpperCase() || '???'} gana en el tick ${event.tick || '?'}!`,
+                time: new Date()
+            });
+            break;
+
+        case 'COLLISION_EVENT':
+            store.addLog({
+                type: 'system',
+                text: `💥 ¡${(event.data?.horse_a || event.horse_a || '???').replace('_', ' ').toUpperCase()} y ${(event.data?.horse_b || event.horse_b || '???').replace('_', ' ').toUpperCase()} chocan en la pista!`,
+                time: new Date()
+            });
+            break;
+
+        case 'HAZARD_EVENT':
+            store.addLog({
+                type: 'system',
+                text: `⚠️ ${(event.data?.horse_id || event.horse_id || '???').replace('_', ' ').toUpperCase()} pisa ${event.data?.hazard_id || event.hazard_id || 'trampa'}!`,
+                time: new Date()
+            });
+            break;
+
+        case 'GLOBAL_EVENT':
+            store.addLog({
+                type: 'system',
+                text: `🌪️ ¡EVENTO GLOBAL: ${event.data?.type || event.type || '???'}!`,
+                time: new Date()
+            });
+            break;
+
+        case 'LAP_CHECKPOINT_EVENT':
+            if (event.data?.is_lap_complete || event.is_lap_complete) {
+                store.addLog({
+                    type: 'system',
+                    text: `🔄 ${(event.data?.horse_id || event.horse_id || '???').replace('_', ' ').toUpperCase()} completa la vuelta ${event.data?.lap || event.lap}!`,
+                    time: new Date()
+                });
+            }
+            break;
+
+        case 'POWER_TELEGRAPH':
+            store.addLog({
+                type: 'power',
+                text: `📡 ¡Poder ${event.data?.power_id || '???'} apuntando a ${(event.data?.target_id || '???').replace('_', ' ')}! Impacto inminente...`,
+                time: new Date()
+            });
+            break;
+
         default:
             console.log('Unhandled WS Event:', event);
     }

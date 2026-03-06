@@ -55,6 +55,8 @@ class Race(Base):
     state_version = Column(Integer, default=1)  # Incremented on every transition
     race_seed = Column(String, nullable=True)
     num_horses = Column(Integer, default=6)
+    world_config_hash = Column(String, nullable=True)  # sha256 of WorldConfig for replay verification
+    replay_log = Column(JSON, nullable=True)  # Full ReplayLog JSONB for deterministic replay
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     ended_at = Column(DateTime(timezone=True), nullable=True)
     settled_at = Column(DateTime(timezone=True), nullable=True)

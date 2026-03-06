@@ -42,6 +42,20 @@ export interface ActivePower {
     target_id: string;
 }
 
+export interface HorseTelemetry {
+    id: string;
+    pos_mm: number;
+    lane: number;
+    vel_mmps: number;
+    lap: number;
+    segment_idx: number;
+    rank: number;
+    progress_permil: number;
+    stamina_permil: number;
+    active_mods: string[];
+    finished: boolean;
+}
+
 export interface GameState {
     race: Race | null;
     markets: Market[];
@@ -49,6 +63,8 @@ export interface GameState {
     placements: HorsePlacement[];
     logs: any[]; // Narrator logs
     activePowers: ActivePower[];
+    horseTelemetry: HorseTelemetry[];
+    simTick: number;
     playersCount: number;
 
     // Actions
@@ -59,6 +75,7 @@ export interface GameState {
     addLog: (log: any) => void;
     addActivePower: (powerId: string, targetId: string) => void;
     removeActivePower: (powerId: string, targetId: string) => void;
+    updateHorseTelemetry: (tick: number, horses: HorseTelemetry[]) => void;
     resetForNextRace: () => void;
 }
 
@@ -69,13 +86,22 @@ export const useGameStore = create<GameState>((set) => ({
     placements: [],
     logs: [],
     activePowers: [],
+    horseTelemetry: [],
+    simTick: 0,
     playersCount: 0,
 
     resetForNextRace: () => set((state) => ({
         markets: [],
         placements: [],
         activePowers: [],
+        horseTelemetry: [],
+        simTick: 0,
         logs: [{ type: 'system', text: '¡Nueva Carrera Abierta! Hagan sus apuestas.', time: new Date() }, ...state.logs].slice(0, 50)
+    })),
+
+    updateHorseTelemetry: (tick, horses) => set(() => ({
+        horseTelemetry: horses,
+        simTick: tick,
     })),
 
     addActivePower: (powerId, targetId) => set((state) => ({

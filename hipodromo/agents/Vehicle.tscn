@@ -1,0 +1,33 @@
+[gd_scene load_steps=3 format=3 uid="uid://df6s3rae2g3l"]
+
+[ext_resource type="Script" path="res://agents/Vehicle.gd" id="1_xxx"]
+[ext_resource type="Texture2D" path="res://assets/sprites/vehicle_cyber_horse.png" id="2_yyy"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_abc123"]
+radius = 16.0
+
+[node name="Vehicle" type="CharacterBody2D"]
+collision_mask = 3
+motion_mode = 1
+script = ExtResource("1_xxx")
+
+[node name="Visual" type="Sprite2D" parent="."]
+rotation = 1.5708
+scale = Vector2(0.12, 0.12)
+texture = ExtResource("2_yyy")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_abc123")
+
+[node name="EngineParticles" type="CPUParticles2D" parent="."]
+position = Vector2(-16, 0)
+amount = 40
+lifetime = 0.3
+gravity = Vector2(0, 0)
+initial_velocity_min = 150.0
+initial_velocity_max = 300.0
+direction = Vector2(-1, 0)
+spread = 20.0
+scale_amount_min = 3.0
+scale_amount_max = 8.0
+color = Color(0.3, 0.8, 1, 0.8)

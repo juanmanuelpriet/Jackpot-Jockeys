@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://c7t8r2m8d3l0"]
+
+[ext_resource type="Script" path="res://scenes/Race2D.gd" id="1_xxx"]
+[ext_resource type="Script" path="res://track/TrackGenerator.gd" id="2_xxx"]
+
+[node name="Race2D" type="Node2D"]
+script = ExtResource("1_xxx")
+
+[node name="TrackGenerator" type="Node2D" parent="."]
+script = ExtResource("2_xxx")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(0.3, 0.3)

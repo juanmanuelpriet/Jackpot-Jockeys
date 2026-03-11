@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://c3m7waa1q4f2"]
-
-[ext_resource type="Script" path="res://agents/AIBrain.gd" id="1_abc"]
-
-[node name="AIBrain" type="Node"]
-script = ExtResource("1_abc")

@@ -4,13 +4,20 @@ class_name Vehicle
 @export var max_speed: float = 1400.0
 @export var acceleration: float = 1800.0
 @export var turn_speed: float = 3.5
-@export var lateral_grip: float = 4.0 # Cuanto mas alto, menos derrapa (drift)
-@export var drag: float = 1.0 # Fricción con el "aire"
+@export var lateral_grip: float = 4.0 
+@export var drag: float = 1.0 
 @export var braking: float = 2000.0
 
 var throttle: float = 0.0 # 0.0 a 1.0
 var brake_input: float = 0.0 # 0.0 a 1.0
 var steer: float = 0.0 # -1.0 a 1.0
+
+# --- Modificadores del Entorno (World Events) ---
+var friction_modifier: float = 1.0
+var control_inverted: bool = false
+var sensor_noise: float = 0.0
+var stun_timer: float = 0.0
+var drift_impairment: float = 1.0
 
 @onready var visual = $Visual
 @onready var particles = $EngineParticles
@@ -93,16 +100,11 @@ func set_color(c: Color):
 	if visual:
 		visual.color = c
 
-# --- Modificadores del Entorno (World Events) ---
-var friction_modifier: float = 1.0
-var control_inverted: bool = false
-var sensor_noise: float = 0.0
-var stun_timer: float = 0.0
-var drift_impairment: float = 1.0
-
-func _process(delta):
-	if stun_timer > 0.0:
-		stun_timer -= delta
+func reset_modifiers():
+	friction_modifier = 1.0
+	control_inverted = false
+	sensor_noise = 0.0
+	drift_impairment = 1.0
 
 func set_friction_modifier(val: float):
 	friction_modifier = max(0.1, val)

@@ -1,6 +1,8 @@
 extends Node
 class_name BaselineAgent
 
+const OBS_SCHEMA_V1 = "15_dims: [speed, v_x, v_y, s, off_track, stuck, error_h, error_l, w_gust_flag, w_x, w_y, f_mod, ctrl_inv, stun_t, noise_t]"
+
 @export var vehicle_path: NodePath
 var vehicle: Vehicle
 
@@ -12,10 +14,11 @@ var rival_agents: Array = []
 var is_active: bool = false
 var lookahead_distance: float = 400.0
 
-# Estado interno para fallback
+# Estado interno para fallback y recompensas
 var stuck_timer: float = 0.0
 var prev_progress: float = 0.0
 var off_track_time: float = 0.0
+var prev_steer_action: float = 0.0
 
 func _ready():
 	if has_node(vehicle_path):
@@ -44,17 +47,16 @@ func get_observation_dict() -> Dictionary:
 	var global_pos = vehicle.global_position
 	var s = track_generator.get_progress_scalar(global_pos)
 	var off_track_dist = track_generator.get_off_track_distance(global_pos)
-	var target_pt = get_lookahead_point(lookahead_distance)
-	var dir_to_target = (target_pt - global_pos).normalized()
-	var forward = Vector2.RIGHT.rotated(vehicle.rotation)
 	
-	var heading_error = forward.angle_to(dir_to_target)
+	var ideal_heading = track_generator.get_ideal_heading(global_pos)
+	var forward = Vector2.RIGHT.rotated(vehicle.rotation)
+	var heading_error = forward.angle_to(ideal_heading)
 	
 	var obs = {
 		"self_state": {
-			"speed": vehicle.velocity.length() / vehicle.max_speed,
-			"vel_x": vehicle.velocity.x / vehicle.max_speed,
-			"vel_y": vehicle.velocity.y / vehicle.max_speed,
+			"speed": vehicle.velocity.length() / max(1.0, vehicle.max_speed),
+			"vel_x": vehicle.velocity.x / max(1.0, vehicle.max_speed),
+			"vel_y": vehicle.velocity.y / max(1.0, vehicle.max_speed),
 			"progress": s,
 			"off_track": off_track_dist,
 			"stuck_timer": stuck_timer
@@ -62,7 +64,7 @@ func get_observation_dict() -> Dictionary:
 		"track": {
 			"heading_error": heading_error / PI,
 			"lateral_error": off_track_dist / 100.0,
-			"curvature_ahead": 0.0 # Simplificado
+			"curvature_ahead": track_generator.get_local_curvature(s)
 		},
 		"world_events": []
 	}
@@ -76,7 +78,7 @@ func get_observation_vector() -> Array[float]:
 	var dict = get_observation_dict()
 	if dict.is_empty():
 		var empty: Array[float] = []
-		empty.resize(20) # Filler size
+		empty.resize(15) 
 		empty.fill(0.0)
 		return empty
 		
@@ -89,22 +91,18 @@ func get_observation_vector() -> Array[float]:
 	vec.append(dict["self_state"]["off_track"])
 	vec.append(dict["self_state"]["stuck_timer"])
 	
-	# 2. Track errors (2)
+	# 2. Track errors (2) (Normalizamos el array de Tracksensors asumiendo sin raycasts)
 	vec.append(dict["track"]["heading_error"])
 	vec.append(dict["track"]["lateral_error"])
 	
 	# 3. World Events (7)
-	var events: Array[float] = dict["world_events"]
+	var events: Array = dict["world_events"]
 	if events.size() == 7:
-		vec.append_array(events)
+		for e in events: vec.append(float(e))
 	else:
 		vec.append_array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 		
-	# Tamaño total base = 6 + 2 + 7 = 15 dims (Extensible a 85 con raycasts y rivales)
-	# Padding a 20 dims para estabilidad inicial
-	while vec.size() < 20:
-		vec.append(0.0)
-		
+	# Tamaño total base garantizado = 6 + 2 + 7 = 15 dims (V1)
 	return vec
 
 # --- CONTROL BASELINE / POLICY ---
@@ -118,7 +116,7 @@ func compute_baseline_action(delta: float) -> Dictionary:
 	var s = track_generator.get_progress_scalar(pos)
 	var off_track = track_generator.get_off_track_distance(pos)
 	
-	# Actualizar variables de safety
+	# Actualizar variables de safety (stuck handling real)
 	if vehicle.velocity.length() < 50.0 and vehicle.throttle > 0.1:
 		stuck_timer += delta
 	else:
@@ -130,7 +128,6 @@ func compute_baseline_action(delta: float) -> Dictionary:
 		off_track_time = 0.0
 
 	var target = get_lookahead_point(lookahead_distance)
-	var raw_dist = pos.distance_to(target)
 	var dir_to_target = (target - pos).normalized()
 	
 	var forward = Vector2.RIGHT.rotated(vehicle.rotation)
@@ -143,17 +140,21 @@ func compute_baseline_action(delta: float) -> Dictionary:
 	var steer = right_dot * 2.5 # Ganancia Kp simple
 	steer = clamp(steer, -1.0, 1.0)
 	
-	# Curvature-based speed modulation
-	# Si el dot frontal es muy bajo, la curva es cerrada
+	# Modulación de aceleración predictiva por curvatura local
+	var curvature_ahead = track_generator.get_local_curvature(s)
+	
 	var throttle = 1.0
 	var brake = 0.0
 	
-	if forward_dot < 0.3:
+	if abs(curvature_ahead) > 0.015: # Curva fuerte
 		throttle = 0.3
 		brake = 0.5
-	elif forward_dot < 0.7:
+	elif abs(curvature_ahead) > 0.005: # Curva media
 		throttle = 0.6
 		brake = 0.1
+	elif forward_dot < 0.5: # Vehículo mal orientado
+		throttle = 0.2
+		brake = 0.4
 	elif vehicle.velocity.length() > vehicle.max_speed * 0.95:
 		throttle = 0.8 # Lift and coast near topspeed
 		
@@ -161,20 +162,20 @@ func compute_baseline_action(delta: float) -> Dictionary:
 	
 	# Si está atrapado
 	if stuck_timer > 1.5:
-		# Intento de destrabar: reversa y giro opuesto
 		throttle = 0.0
 		brake = 1.0
-		steer = -sign(steer)
+		steer = -sign(steer) # Intentar reversa opuesta
 		
-	# Si va directo a la pared (off-track en aumento rápido)
+	# Si va directo a la pared (off-track crítico)
 	if off_track > 50.0:
 		throttle = 0.2
 		brake = 0.8
-		steer = sign(right_dot) * 1.5 # Oversteer para volver
+		# Emergency Steer hacia el centro asumiendo path cercano
+		steer = sign(right_dot) * 1.5 
 		
 	return {
-		"throttle": throttle,
-		"brake": brake,
+		"throttle": clamp(throttle, 0.0, 1.0),
+		"brake": clamp(brake, 0.0, 1.0),
 		"steer": clamp(steer, -1.0, 1.0)
 	}
 
@@ -190,10 +191,6 @@ func get_lookahead_point(distance: float) -> Vector2:
 	
 	return track_generator.path.curve.sample_baked(target_offset)
 
-# (Opcional) Correr autónomamente si no está controlado por Race2D explícitamente
-# En el loop final, Race2D debería llamar a compute_baseline_action() y luego inyectarlo al Vehicle.
-# Para compatibilidad del prototipo, lo aplicamos aquí.
-func _physics_process(delta):
-	if is_active and vehicle:
-		var act = compute_baseline_action(delta)
-		vehicle.apply_inputs(act["throttle"], act["brake"], act["steer"])
+# IMPORTANTE: Eliminamos _physics_process interno de este script.
+# En este diseño Gymnasium-Like, es el Entorno (Race2D.step_environment)
+# el que obtiene 'compute_baseline_action()' y luego inyecta las variables a 'v.apply_inputs()'.

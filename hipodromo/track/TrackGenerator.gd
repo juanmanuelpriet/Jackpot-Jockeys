@@ -127,30 +127,42 @@ func get_start_transform() -> Transform2D:
 	var dir = (waypoints[1] - waypoints[0]).normalized()
 	return Transform2D(dir.angle(), pos)
 
-# --- Métricas Espaciales para RL ---
+# --- Métricas Espaciales Avanzadas para RL ---
 
-# Devuelve la longitud total de la pista
 func get_track_length() -> float:
 	if is_instance_valid(path) and path.curve:
 		return path.curve.get_baked_length()
 	return 0.0
 
-# Devuelve el progreso 's' en metros a lo largo de la spline central
 func get_progress_scalar(global_pos: Vector2) -> float:
 	if not is_instance_valid(path) or not path.curve: return 0.0
 	var local_pos = path.to_local(global_pos)
 	return path.curve.get_closest_offset(local_pos)
 
-# Devuelve qué tan fuera de los límites de la pista está un punto (0 si está dentro)
 func get_off_track_distance(global_pos: Vector2) -> float:
 	if not is_instance_valid(path) or not path.curve: return 0.0
 	var local_pos = path.to_local(global_pos)
 	var closest_pt = path.curve.get_closest_point(local_pos)
 	var dist_to_center = local_pos.distance_to(closest_pt)
-	
-	# track_width es el ancho total, el borde visual está en track_width / 2.0
-	# Usamos un margen interno de -15.0 igual que la colisión
 	var edge_dist = (track_width / 2.0) - 15.0
-	var off_track = dist_to_center - edge_dist
+	return max(0.0, dist_to_center - edge_dist)
+
+# Devuelve el vector normalizado que apunta a lo largo de la pista en esa posición
+func get_ideal_heading(global_pos: Vector2) -> Vector2:
+	if not is_instance_valid(path) or not path.curve: return Vector2.RIGHT
+	var offset = get_progress_scalar(global_pos)
+	var tangent = path.curve.sample_baked_with_rotation(offset).x.normalized()
+	return path.to_global(tangent) - path.global_position
+
+# Estima la curvatura track en el progreso s buscando dTheta / dS
+func get_local_curvature(s: float) -> float:
+	if not is_instance_valid(path) or not path.curve: return 0.0
+	var sample_dist = 20.0
+	var len = get_track_length()
+	var s_next = fmod(s + sample_dist, len)
 	
-	return max(0.0, off_track)
+	var t1 = path.curve.sample_baked_with_rotation(s).x
+	var t2 = path.curve.sample_baked_with_rotation(s_next).x
+	
+	var angle_diff = t1.angle_to(t2)
+	return angle_diff / sample_dist # Rads per meter

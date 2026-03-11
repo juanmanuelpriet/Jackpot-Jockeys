@@ -42,30 +42,16 @@ func _ready():
 	reset_environment(demo_config)
 
 func _setup_background():
-	var canvas = CanvasLayer.new()
-	canvas.layer = -10 # Behind everything
-	
-	var tex = preload("res://assets/sprites/track_background_grid.png")
-	var tex_rect = TextureRect.new()
-	tex_rect.texture = tex
-	tex_rect.stretch_mode = TextureRect.STRETCH_TILE
-	
-	# Parallax-like infinite grid by locking it to the screen size but repeating
-	tex_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# But actually we are in a 2D scene, so ParallaxBackground is better
-	
-	canvas.queue_free() # Re-design logic
 	var bg = ParallaxBackground.new()
 	bg.layer = -10
 	var bl = ParallaxLayer.new()
-	bl.motion_mirroring = Vector2(2000, 2000)
-	var spr = Sprite2D.new()
-	spr.texture = tex
-	spr.region_enabled = true
-	spr.region_rect = Rect2(0, 0, 4000, 4000) # Replicates infinitely inside the mirror
 	
-	# Configurar el sprite centrado o relativo
-	spr.centered = false
+	var spr = Sprite2D.new()
+	spr.texture = preload("res://assets/sprites/track_background_grid.png")
+	spr.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	spr.region_enabled = true
+	spr.region_rect = Rect2(-10000, -10000, 20000, 20000)
+	spr.centered = true
 	
 	bl.add_child(spr)
 	bg.add_child(bl)

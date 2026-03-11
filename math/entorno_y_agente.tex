@@ -19,66 +19,58 @@
 \section{Introducción}
 Este documento describe el modelo matemático que rige las físicas del vehículo (\textit{Hovercraft}) y las observaciones que el agente de Inteligencia Artificial (IA) realiza dentro del entorno \textbf{AG-RACE}. El sistema está diseñado tanto para ser evaluado por heurísticas matemáticas (\textit{Pure Pursuit}) como para entrenar políticas de Aprendizaje por Refuerzo (RL).
 
-\section{Dinámica del Vehículo (Modelo Cinemático)}
-El vehículo se modela en un espacio bidimensional (2D) sujeto a aceleraciones lineales, fricción simulada ("drag") y atenuación de derrapes.
+\section{Fundamentos Matemáticos y Determinismo}
+Para garantizar una evaluación justa y reproducible durante el entrenamiento RL, el entorno AG-RACE exige \textbf{determinismo absoluto}. Todos los cálculos espaciales y pseudoaleatorios se generan a partir de una \textit{Semilla Inicial} ($S_0$), garantizando que dos episodios ejecutados bajo la misma secuencia de acciones produzcan idénticas observaciones y recompensas.
 
-\subsection{Estado del Vehículo}
-El estado dinámico del vehículo se define por su posición global $\mathbf{p} \in \mathbb{R}^2$, su velocidad lineal $\mathbf{v} \in \mathbb{R}^2$ y su rotación (orientación) $\theta \in [-\pi, \pi]$.
+\subsection{Generación Procedural de Pistas (Splines Hermite)}
+La curva central paramétrica de la pista $C(s)$ se genera interpolando $N$ puntos de control generados aleatoriamente dentro de rangos cilíndricos controlados por la semilla determinista. La interpolación se modela usando splines cúbicos de tipo Hermite, donde el segmento $P_i(u)$ para $u \in [0, 1]$ se define como:
+$$ P_i(u) = (2u^3 - 3u^2 + 1)P_0 + (u^3 - 2u^2 + u)M_0 + (-2u^3 + 3u^2)P_1 + (u^3 - u^2)M_1 $$
+Donde $P_0, P_1$ son puntos de control y $M_0, M_1$ son sus respectivas tangentes parametrizadas.
 
-\subsection{Vectores Direccionales}
-A partir del ángulo $\theta$, se derivan los vectores dirección frontal (forward) y derecho (right):
+\section{Dinámica del Vehículo y Motor Físico Jolt}
+El vehículo se modela en un espacio bidimensional (2D) sujeto a aceleraciones lineales y atenuación de derrapes.
+
+\subsection{Estado del Vehículo y Vectores}
+El estado dinámico del vehículo se define por su posición global $\mathbf{p}$, su velocidad lineal $\mathbf{v}$ y su rotación $\theta$.
+Los vectores direccionales frontales y laterales se definen como:
 $$ \hat{\mathbf{f}} = \begin{bmatrix} \cos\theta \\ \sin\theta \end{bmatrix}, \quad \hat{\mathbf{r}} = \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} $$
 
-\subsection{Entradas de Control (Acciones)}
-El agente proporciona tres valores escalares continuos procesados por fotograma interactivo:
-\begin{itemize}
-    \item \textbf{Aceleración ($T$):} $T \in [0, 1]$
-    \item \textbf{Freno ($B$):} $B \in [0, 1]$
-    \item \textbf{Giro ($S$):} $S \in [-1, 1]$
-\end{itemize}
-
 \subsection{Actualización de Movimiento y Giro}
-La orientación se actualiza de manera dependiente de la entrada de giro y la velocidad de giro constante $\omega_{turn}$:
+El agente proporciona tres valores escalares de acción: Aceleración ($T \in [0, 1]$), Freno ($B \in [0, 1]$) y Giro ($S \in [-1, 1]$).
+La orientación y la aceleración se actualizan discretamente:
 $$ \theta_{t+\Delta t} = \theta_t + (S \cdot \omega_{turn} \cdot \Delta t) $$
-
-La fuerza de empuje modifica la velocidad a través de la aceleración constante $a_{max}$ y un modificador de fricción ambiental $\mu_{fric}$:
 $$ \mathbf{v}_{t+\Delta t} = \mathbf{v}_t + \left( \hat{\mathbf{f}} \cdot T \cdot a_{max} \cdot \mu_{fric} \cdot \Delta t \right) $$
 
-Si se aplica freno ($B > 0$), la velocidad se reduce linealmente en contra de su propio vector de movimiento:
-$$ \mathbf{v}_{t+\Delta t} = \mathbf{v}_{t} - \left( \frac{\mathbf{v}_{t}}{|\mathbf{v}_{t}|} \cdot \min\left( B \cdot a_{brake} \cdot \mu_{fric} \cdot \Delta t, |\mathbf{v}_{t}| \right) \right) $$
-
-\subsection{Fricción Diferencial (Drifting)}
-Para simular el efecto \textit{Hovercraft}, se descompone la velocidad en sus magnitudes frontal ($v_f$) y lateral ($v_l$):
+\subsection{Derrape (Drift) y Velocidad Transversal}
+Para simular el efecto \textit{Hovercraft}, se descompone la velocidad en frontal ($v_f$) y lateral ($v_l$):
 $$ v_f = \mathbf{v} \cdot \hat{\mathbf{f}} \quad \text{y} \quad v_l = \mathbf{v} \cdot \hat{\mathbf{r}} $$
-La velocidad lateral de derrape se atenúa mediante un coeficiente de agarre lateral $K_{grip}$ sujeto a deterioro ambiental $\mu_{drift}$:
+La velocidad lateral se atenúa mediante un coeficiente $K_{grip}$ sujeto a deterioro ambiental $\mu_{drift}$:
 $$ v_{l, new} = v_l - \text{sgn}(v_l) \cdot \min(|v_l|, K_{grip} \cdot \mu_{drift} \cdot |v_l| \cdot \Delta t) $$
-De igual modo, la velocidad frontal sufre atenuación por resistencia al aire (drag) $C_d$:
-$$ v_{f, new} = v_f - \text{sgn}(v_f) \cdot \min(|v_f|, C_d \cdot \mu_{fric} \cdot |v_f| \cdot \Delta t) $$
 
-La velocidad final compuesta y re-ensamblada sujeta a los límites físicos $V_{max}$ es:
-$$ \mathbf{v}_{final} = v_{f, new}\hat{\mathbf{f}} + v_{l, new}\hat{\mathbf{r}} $$
-$$ \mathbf{v}_{t+\Delta t} = \min( |\mathbf{v}_{final}|, V_{max} ) \frac{\mathbf{v}_{final}}{|\mathbf{v}_{final}|} $$
+\section{Métricas del Entorno y Recompensas (RL)}
 
-\section{Percepción del Agente (Políticas de RL)}
-El entorno es formulado como un Proceso de Decisión de Markov (MDP) parcialmente observable.
+\subsection{Progreso en la Pista}
+El progreso del agente, $s \in [0, 1]$, se calcula normalizando el avance sobre la longitud de la spline $L$:
+El recompensa por paso $t$ es la del diferencial transcurrido:
+$$ R_{avance} = (s_t - s_{t-1}) \cdot L $$
 
-\subsection{Proyección en la Pista (Espacio de Frenet)}
-La curva de la pista central se evalúa como una función paramétrica $C(s) \in \mathbb{R}^2$ donde $s \in [0, L]$ asume $L$ como perímetro total de la pista.
+\subsection{Error Lateral (Track Distance) y Penalización}
+Para determinar si el vehículo está en la pista, calculamos la distancia eucíldea residual hacia el centro de la spline $C(s)$:
+$$ err_{lateral} = \| \mathbf{p} - C(s_{closest}) \| - \frac{Track_{Width}}{2} $$
+Si $err_{lateral} > 0$, el agente sale de la pista. Se le aplica una severa penalización proporcional para obligarlo a regresar:
+$$ R_{off\_track} = -\alpha \cdot e^{\beta \cdot err_{lateral}} $$
 
-Para cualquier posición global $\mathbf{p}$, existe el escalar $s_{closest}$ que minimiza la distancia eucíldea:
-$$ d_{error}(\mathbf{p}) = \min_{s} \| \mathbf{p} - C(s) \| $$
+\section{Condiciones Variables y Perturbaciones (World Events)}
+El entorno dinámico inyecta fallos y ruidos matemáticos (World Events) para entrenar la generalización del agente:
 
-Esta métrica $d_{error}$ es devuelta como magnitud absoluta penalizante ("off-track error"). Adviértase que, si el vehículo sobrepasa el ancho asimilado asintomáticamente de la pista ($W_{track}/2$), tal valor escala significativamente para penalizar severamente a la política RL.
+\subsection{Evento: LOW\_GRIP (Baja Adherencia)}
+Al desencadenarse, la fricción base disminuye proporcional a la \textit{severidad} del evento:
+$$ \mu_{nuevo}(t_0) = \mu_{base} \cdot (1.0 - severity) $$
+El recupero de tracción es progresivo y sigue una función lineal por cada $\Delta t$:
+$$ \mu_{drift}(t) = \min( \mu_{base}, \mu_{drift}(t-\Delta t) + recovery_{rate} \cdot \Delta t ) $$
 
-\subsection{Error de Orientación (Heading Error)}
-El error es obtenido a partir de una pre-sintonía de distancia proyectada $D_{lookahead}$ asumiendo:
-$$ Target = C( (s_{closest} \cdot L + D_{lookahead}) \pmod L ) $$
-
-El vector unitario óptimo de avance es $\hat{\mathbf{u}} = \frac{Target - \mathbf{p}}{|Target - \mathbf{p}|}$.
-El error direccional alimentado a las observaciones se computa contra $\hat{\mathbf{f}}$:
-$$ e_\theta = \arccos(\hat{\mathbf{u}} \cdot \hat{\mathbf{f}}) \quad \text{Normalizado bajo} \left[ \frac{e_\theta}{\pi} \right] $$
-
-\subsection{Vector Estocástico}
-Las observaciones recopiladas construyen un vector matricial $O_t \in \mathbb{R}^{20}$ combinando magnitudes intrínsecas del vehículo (velocidades relativas, variables de atascamiento), discrepancias espaciales (errores $e_\theta, d_{error}$) y perturbaciones del World Event Manager derivadas como ruido inyectado, determinando la dinámica de transición de las políticas de aprendizaje.
+\subsection{Evento: WIND\_GUST (Ráfagas de Viento)}
+Aplica una fuerza de perturbación estocástica o direccional ($\mathbf{V}_{wind}$) sobre la aceleración instantánea, obligando a las heurísticas (PID) o políticas (PPO) a corregir el \textit{steer} dinámicamente:
+$$ \mathbf{v}_{t+\Delta t} = \mathbf{v}_{t+\Delta t} + \mathbf{V}_{wind} \cdot \Delta t $$
 
 \end{document}

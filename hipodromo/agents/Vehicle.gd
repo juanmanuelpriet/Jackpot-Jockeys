@@ -18,11 +18,19 @@ var control_inverted: bool = false
 var sensor_noise: float = 0.0
 var stun_timer: float = 0.0
 var drift_impairment: float = 1.0
+var _collisions_this_frame: int = 0
 
 @onready var visual = $Visual
 @onready var particles = $EngineParticles
 
 func _physics_process(delta):
+	# Decrement stun timer
+	if stun_timer > 0.0:
+		stun_timer -= delta
+		if stun_timer < 0.0:
+			stun_timer = 0.0
+	
+	_collisions_this_frame = 0
 	# Girar la nave dependiente de la velocidad a veces ayuda a sentirse bien, pero en hovercrafts se puede rotar sobre el propio eje.
 	# Añadiremos rotación libre sobre el eje z.
 	if abs(steer) > 0.01:
@@ -75,8 +83,8 @@ func _physics_process(delta):
 	for i in get_slide_collision_count():
 		var col = get_slide_collision(i)
 		var n = col.get_normal()
-		# Rebote antigravedad
 		velocity = velocity.bounce(n) * 0.7
+		_collisions_this_frame += 1
 		break
 
 # Funciones públicas para ser llamadas por un Controller o un AI Brain
@@ -124,3 +132,7 @@ func set_sensor_noise(val: float):
 # Lógica pública para inyectar fuerzas externas (viento, choques forzados)
 func apply_disturbance(force_vector: Vector2):
 	velocity += force_vector
+
+## Number of wall collisions detected this physics frame.
+func get_collision_count_this_frame() -> int:
+	return _collisions_this_frame

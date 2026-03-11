@@ -3,23 +3,24 @@ class_name WorldEventManager
 
 enum EventType { WIND_GUST, LOW_GRIP, CONTROL_INVERTED, SHORT_STUN, SENSOR_NOISE }
 
-# Configuración y Estado Diario
+# Configuración y Estado
 var rng: RandomNumberGenerator
 var global_config: EnvironmentConfig
 var active_events: Array[Dictionary] = []
+var _rng_init_hash: int = 0
 
 # Referencias
 var agents: Array = []
 var active_allowed: bool = false
 @export var max_active_events: int = 2
 
-# Inicializa el RNG y el Schedule
 func initialize(config: EnvironmentConfig, vehicles: Array):
 	global_config = config
 	agents = vehicles
 	
 	rng = RandomNumberGenerator.new()
 	rng.seed = hash(str(global_config.base_seed) + "_world_events")
+	_rng_init_hash = rng.seed
 	
 	active_events.clear()
 	active_allowed = global_config.enable_events
@@ -67,6 +68,7 @@ func spawn_event():
 	active_events.append({
 		"type": ev_type,
 		"severity": severity,
+		"total_duration": duration,
 		"time_left": duration,
 		"target": target_agent
 	})
@@ -77,26 +79,32 @@ func reset_agents_modifiers():
 			a.reset_modifiers()
 
 func apply_events_to_agents(delta: float):
-	reset_agents_modifiers() # Reset base config cada frame, luego acumulamos sobreescribiendo
+	reset_agents_modifiers()
 	
 	for e in active_events:
 		var a = e["target"]
 		if not is_instance_valid(a): continue
 		
+		# Smooth decay: severity ramps down over final 30% of duration
+		var effective_severity: float = e["severity"]
+		var decay_threshold = e.get("total_duration", e["time_left"]) * 0.3
+		if e["time_left"] < decay_threshold and decay_threshold > 0.0:
+			effective_severity *= (e["time_left"] / decay_threshold)
+		
 		match e["type"]:
 			EventType.WIND_GUST:
-				var push = Vector2.RIGHT.rotated(a.rotation + PI/2) * 500.0 * e["severity"] * delta
+				var push = Vector2.RIGHT.rotated(a.rotation + PI/2) * 500.0 * effective_severity * delta
 				a.apply_disturbance(push)
 			EventType.LOW_GRIP:
-				a.set_friction_modifier(1.0 - (0.5 * e["severity"]))
-				a.set_drift_impairment(1.0 - (0.5 * e["severity"]))
+				a.set_friction_modifier(1.0 - (0.5 * effective_severity))
+				a.set_drift_impairment(1.0 - (0.5 * effective_severity))
 			EventType.CONTROL_INVERTED:
-				if e["severity"] > 0.5: 
+				if effective_severity > 0.5: 
 					a.set_control_inversion(true)
 			EventType.SHORT_STUN:
 				a.apply_stun(e["time_left"]) 
 			EventType.SENSOR_NOISE:
-				a.set_sensor_noise(e["severity"])
+				a.set_sensor_noise(effective_severity)
 
 # Expone el estado a las observaciones de RL (Vector estructurado 7 dims)
 func get_events_vector_for_agent(agent: Node) -> Array[float]:
@@ -120,3 +128,7 @@ func get_events_vector_for_agent(agent: Node) -> Array[float]:
 				EventType.SENSOR_NOISE:
 					v[6] = e["severity"]
 	return v
+
+## Hash of the RNG init state for determinism verification.
+func get_schedule_hash() -> int:
+	return _rng_init_hash

@@ -42,9 +42,11 @@ func _init():
 	col_outer.build_mode = CollisionPolygon2D.BUILD_SEGMENTS
 	static_body.add_child(col_outer)
 
-func generate_track(seed_val: int):
+func generate_track(seed_val: int, config_track_width: float = -1.0):
 	active_seed = seed_val
 	seed(active_seed)
+	if config_track_width > 0.0:
+		track_width = config_track_width
 	
 	path.curve.clear_points()
 	waypoints.clear()
@@ -134,7 +136,17 @@ func get_track_length() -> float:
 		return path.curve.get_baked_length()
 	return 0.0
 
+## Returns progress as a scalar in [0, 1] along the closed spline.
 func get_progress_scalar(global_pos: Vector2) -> float:
+	if not is_instance_valid(path) or not path.curve: return 0.0
+	var total = get_track_length()
+	if total <= 0.0: return 0.0
+	var local_pos = path.to_local(global_pos)
+	var raw_offset = path.curve.get_closest_offset(local_pos)
+	return clamp(raw_offset / total, 0.0, 1.0)
+
+## Returns the raw baked offset in meters (for internal sampling).
+func _get_raw_offset(global_pos: Vector2) -> float:
 	if not is_instance_valid(path) or not path.curve: return 0.0
 	var local_pos = path.to_local(global_pos)
 	return path.curve.get_closest_offset(local_pos)
@@ -147,22 +159,41 @@ func get_off_track_distance(global_pos: Vector2) -> float:
 	var edge_dist = (track_width / 2.0) - 15.0
 	return max(0.0, dist_to_center - edge_dist)
 
-# Devuelve el vector normalizado que apunta a lo largo de la pista en esa posición
+## Signed lateral distance from track center. Negative = left, Positive = right.
+func get_lateral_distance(global_pos: Vector2) -> float:
+	if not is_instance_valid(path) or not path.curve: return 0.0
+	var local_pos = path.to_local(global_pos)
+	var raw_offset = path.curve.get_closest_offset(local_pos)
+	var closest_pt = path.curve.sample_baked(raw_offset)
+	var tangent = path.curve.sample_baked_with_rotation(raw_offset).x.normalized()
+	var normal = Vector2(-tangent.y, tangent.x) # left-pointing normal
+	var diff = local_pos - closest_pt
+	return diff.dot(normal)
+
 func get_ideal_heading(global_pos: Vector2) -> Vector2:
 	if not is_instance_valid(path) or not path.curve: return Vector2.RIGHT
-	var offset = get_progress_scalar(global_pos)
-	var tangent = path.curve.sample_baked_with_rotation(offset).x.normalized()
+	var raw_offset = _get_raw_offset(global_pos)
+	var tangent = path.curve.sample_baked_with_rotation(raw_offset).x.normalized()
 	return path.to_global(tangent) - path.global_position
 
-# Estima la curvatura track en el progreso s buscando dTheta / dS
+## Curvature at normalized progress s ∈ [0,1]. Returns radians/meter.
 func get_local_curvature(s: float) -> float:
 	if not is_instance_valid(path) or not path.curve: return 0.0
+	var total = get_track_length()
+	if total <= 0.0: return 0.0
 	var sample_dist = 20.0
-	var len = get_track_length()
-	var s_next = fmod(s + sample_dist, len)
+	var offset = s * total
+	var offset_next = fmod(offset + sample_dist, total)
 	
-	var t1 = path.curve.sample_baked_with_rotation(s).x
-	var t2 = path.curve.sample_baked_with_rotation(s_next).x
+	var t1 = path.curve.sample_baked_with_rotation(offset).x
+	var t2 = path.curve.sample_baked_with_rotation(offset_next).x
 	
 	var angle_diff = t1.angle_to(t2)
-	return angle_diff / sample_dist # Rads per meter
+	return angle_diff / sample_dist
+
+## Deterministic hash of the generated track geometry for logging.
+func get_track_hash() -> int:
+	var h: int = 0
+	for p in waypoints:
+		h = hash(str(h) + str(snapped(p.x, 0.01)) + str(snapped(p.y, 0.01)))
+	return h

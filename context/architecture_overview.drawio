@@ -1,0 +1,339 @@
+<mxfile host="app.diagrams.net" modified="2026-03-11T21:30:00.000Z" agent="Antigravity" version="22.1.0">
+  <diagram id="ag-race-architecture" name="Arquitectura AG-RACE">
+    <mxGraphModel dx="2200" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ============================================================ -->
+        <!--  TÍTULO PRINCIPAL                                             -->
+        <!-- ============================================================ -->
+        <mxCell id="title" value="&lt;b&gt;AG-RACE — Arquitectura del Entorno de Entrenamiento RL&lt;/b&gt;&lt;br&gt;Jackpot Jockeys • Godot 4 + Gymnasium-Like API" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=18;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="300" y="-80" width="700" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 1: ORQUESTADOR — Race2D.gd (scenes/)                   -->
+        <!-- ============================================================ -->
+        <mxCell id="race2d_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="0" width="1060" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="race2d_label" value="&lt;b&gt;CAPA 1 — Orquestador del Entorno&lt;/b&gt;&lt;br&gt;&lt;i&gt;scenes/Race2D.gd&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="130" y="5" width="350" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Race2D: reset_environment -->
+        <mxCell id="reset_env" value="&lt;b&gt;reset_environment()&lt;/b&gt;&lt;br&gt;• Semilla determinista&lt;br&gt;• Genera pista&lt;br&gt;• Spawn agentes sync&lt;br&gt;• Retorna obs iniciales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="140" y="55" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Race2D: step_environment -->
+        <mxCell id="step_env" value="&lt;b&gt;step_environment(actions, dt)&lt;/b&gt;&lt;br&gt;1. world_event_manager.step()&lt;br&gt;2. vehicle.apply_inputs()&lt;br&gt;3. Calcular reward + obs&lt;br&gt;→ {obs, rewards, terminated, truncated, info}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="370" y="55" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Race2D: _physics_process -->
+        <mxCell id="physics_loop" value="&lt;b&gt;_physics_process(delta)&lt;/b&gt;&lt;br&gt;• Demo loop standalone&lt;br&gt;• Inference FPS gate&lt;br&gt;• Auto-reset al terminar" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="680" y="55" width="210" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- API Gymnasium badge -->
+        <mxCell id="gym_api" value="&lt;b&gt;API Gymnasium&lt;/b&gt;&lt;br&gt;reset() → obs&lt;br&gt;step(a) → (obs,r,d,t,i)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="920" y="60" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Flechas internas Race2D -->
+        <mxCell id="e_reset_step" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;" edge="1" source="reset_env" target="step_env" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_step_loop" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;" edge="1" source="step_env" target="physics_loop" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_loop_api" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=2;" edge="1" source="physics_loop" target="gym_api" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Notas de límites -->
+        <mxCell id="limit_steps" value="⚠️ max_steps_per_episode = 2000&lt;br&gt;(truncated)" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;size=14;" vertex="1" parent="1">
+          <mxGeometry x="140" y="170" width="200" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="limit_fps" value="⚠️ inference_fps = 15&lt;br&gt;action_repeat = 4&lt;br&gt;physics_fps = 60" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;size=14;" vertex="1" parent="1">
+          <mxGeometry x="360" y="170" width="200" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 2: CONFIGURACIÓN — EnvironmentConfig.gd                 -->
+        <!-- ============================================================ -->
+        <mxCell id="config_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="260" width="520" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="config_label" value="&lt;b&gt;CAPA 2 — Configuración y Currículo&lt;/b&gt;&lt;br&gt;&lt;i&gt;config/EnvironmentConfig.gd&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="130" y="265" width="350" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Phases -->
+        <mxCell id="phase1" value="&lt;b&gt;Phase 1&lt;/b&gt;&lt;br&gt;1 agente&lt;br&gt;Sin eventos&lt;br&gt;Hazards: 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="140" y="310" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase2" value="&lt;b&gt;Phase 2&lt;/b&gt;&lt;br&gt;2 agentes&lt;br&gt;Eventos ON&lt;br&gt;Hazards: 0.2 / 0.5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="310" y="310" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase3" value="&lt;b&gt;Phase 3+&lt;/b&gt;&lt;br&gt;4 agentes&lt;br&gt;Eventos ON&lt;br&gt;Hazards: 0.8 / 1.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="480" y="310" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Flechas currículo -->
+        <mxCell id="e_p1_p2" value="escala" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=2;" edge="1" source="phase1" target="phase2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_p3" value="escala" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=2;" edge="1" source="phase2" target="phase3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Conexión Config → Race2D -->
+        <mxCell id="e_config_race" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;strokeWidth=2;dashed=1;" edge="1" source="config_group" target="race2d_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 3: AGENTES — Vehicle.gd + BaselineAgent.gd              -->
+        <!-- ============================================================ -->
+        <mxCell id="agents_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="260" width="500" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="agents_label" value="&lt;b&gt;CAPA 3 — Sistema de Agentes&lt;/b&gt;&lt;br&gt;&lt;i&gt;agents/&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="690" y="265" width="280" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Vehicle -->
+        <mxCell id="vehicle" value="&lt;b&gt;Vehicle.gd&lt;/b&gt; (CharacterBody2D)&lt;br&gt;&lt;hr&gt;• max_speed: 1400&lt;br&gt;• acceleration: 1800&lt;br&gt;• turn_speed: 3.5&lt;br&gt;• lateral_grip: 4.0&lt;br&gt;• drag: 1.0&lt;br&gt;• braking: 2000&lt;br&gt;&lt;hr&gt;apply_inputs(t, b, s)&lt;br&gt;apply_disturbance(force)&lt;br&gt;set_friction_modifier()&lt;br&gt;set_control_inversion()&lt;br&gt;apply_stun()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#9673a6;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="700" y="310" width="210" height="240" as="geometry" />
+        </mxCell>
+
+        <!-- BaselineAgent -->
+        <mxCell id="brain" value="&lt;b&gt;BaselineAgent.gd&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;b&gt;OBS_SCHEMA_V1 (15 dims)&lt;/b&gt;&lt;br&gt;[speed, v_x, v_y, s,&lt;br&gt; off_track, stuck,&lt;br&gt; error_h, error_l,&lt;br&gt; w_gust, w_x, w_y,&lt;br&gt; f_mod, ctrl_inv,&lt;br&gt; stun_t, noise_t]&lt;br&gt;&lt;hr&gt;get_observation_vector()&lt;br&gt;compute_baseline_action()&lt;br&gt;get_lookahead_point()&lt;br&gt;&lt;hr&gt;&lt;b&gt;Safety Fallback:&lt;/b&gt;&lt;br&gt;• stuck_timer &amp;gt; 1.5s → frena&lt;br&gt;• off_track &amp;gt; 50 → emergencia" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#9673a6;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="940" y="310" width="220" height="240" as="geometry" />
+        </mxCell>
+
+        <!-- Flecha Vehicle ↔ Brain -->
+        <mxCell id="e_vehicle_brain" value="controla" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=2;" edge="1" source="brain" target="vehicle" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 4: PISTA — TrackGenerator.gd                           -->
+        <!-- ============================================================ -->
+        <mxCell id="track_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="480" width="520" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="track_label" value="&lt;b&gt;CAPA 4 — Generación Procedural de Pista&lt;/b&gt;&lt;br&gt;&lt;i&gt;track/TrackGenerator.gd&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="130" y="485" width="400" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="track_gen" value="&lt;b&gt;generate_track(seed)&lt;/b&gt;&lt;br&gt;• num_points: 15&lt;br&gt;• min_radius: 1500&lt;br&gt;• max_radius: 3500&lt;br&gt;• Spline Catmull-Rom&lt;br&gt;• track_width: 300" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#82b366;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="140" y="530" width="170" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="track_metrics" value="&lt;b&gt;Métricas Espaciales RL&lt;/b&gt;&lt;br&gt;• get_progress_scalar(pos) → [0,1]&lt;br&gt;• get_off_track_distance(pos)&lt;br&gt;• get_ideal_heading(pos)&lt;br&gt;• get_local_curvature(s)&lt;br&gt;• get_track_length()&lt;br&gt;• get_start_transform()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#82b366;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="340" y="530" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_gen_metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;" edge="1" source="track_gen" target="track_metrics" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 5: EVENTOS — WorldEventManager.gd                       -->
+        <!-- ============================================================ -->
+        <mxCell id="events_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="760" width="520" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="events_label" value="&lt;b&gt;CAPA 5 — Eventos del Mundo&lt;/b&gt;&lt;br&gt;&lt;i&gt;track/WorldEventManager.gd&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="130" y="765" width="350" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="evt_wind" value="💨 WIND_GUST&lt;br&gt;1–3s" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="140" y="810" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="evt_grip" value="🧊 LOW_GRIP&lt;br&gt;2–5s" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="250" y="810" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="evt_inv" value="🔄 CTRL_INV&lt;br&gt;1–2.5s" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="140" y="870" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="evt_stun" value="⚡ STUN&lt;br&gt;0.3–1s" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="250" y="870" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="evt_noise" value="📡 NOISE&lt;br&gt;3–6s" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="360" y="810" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="evt_vector" value="&lt;b&gt;Events Vector (7 dims)&lt;/b&gt;&lt;br&gt;[gust_flag, w_x, w_y,&lt;br&gt; f_mod, ctrl_inv,&lt;br&gt; stun_t, noise_t]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b85450;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="480" y="810" width="140" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 6: RECOMPENSAS — RewardManager.gd                       -->
+        <!-- ============================================================ -->
+        <mxCell id="reward_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6d0de;strokeColor=#ae4132;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="610" width="500" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="reward_label" value="&lt;b&gt;CAPA 6 — Sistema de Recompensas&lt;/b&gt;&lt;br&gt;&lt;i&gt;scripts/RewardManager.gd&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="690" y="615" width="350" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rw_progress" value="✅ Avance&lt;br&gt;w=+1.0&lt;br&gt;reversa ×1.5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="700" y="660" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rw_offtrack" value="🚫 Off-Track&lt;br&gt;w=−0.5&lt;br&gt;× (1+dist×0.05)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="830" y="660" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rw_stuck" value="🧱 Stuck&lt;br&gt;w=−1.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="660" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rw_collision" value="💥 Colisión&lt;br&gt;w=−0.5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="700" y="740" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rw_lap" value="🏁 Vuelta&lt;br&gt;w=+10.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="830" y="740" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rw_erratic" value="🔀 Zig-Zag&lt;br&gt;w=−0.05&lt;br&gt;si |Δsteer|&amp;gt;0.1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="740" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rw_survival" value="💚 Survival&lt;br&gt;bonus=+0.01/tick" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="830" y="820" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rw_formula" value="&lt;b&gt;r = survival + Σ(señales × pesos)&lt;/b&gt;&lt;br&gt;⚠️ TODO: collisions tracking real" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;size=14;" vertex="1" parent="1">
+          <mxGeometry x="700" y="870" width="280" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  CAPA 7: UI — HUD.gd                                         -->
+        <!-- ============================================================ -->
+        <mxCell id="hud_box" value="&lt;b&gt;CAPA 7 — Debug HUD&lt;/b&gt;&lt;br&gt;&lt;i&gt;ui/HUD.gd&lt;/i&gt;&lt;br&gt;&lt;hr&gt;• Config hash, seed, phase&lt;br&gt;• Step counter&lt;br&gt;• Per-agent: speed, reward, estado&lt;br&gt;• Flags: OFF-TRACK, STUCK, STUN,&lt;br&gt;  INV_CTRL, LOW_GRIP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#666666;strokeWidth=2;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="680" y="960" width="500" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  FLECHAS DE DEPENDENCIA ENTRE CAPAS                           -->
+        <!-- ============================================================ -->
+
+        <!-- Race2D → Track -->
+        <mxCell id="e_race_track" value="genera y consulta" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=2;exitX=0.3;exitY=1;exitDx=0;exitDy=0;" edge="1" source="race2d_group" target="track_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Race2D → Agents -->
+        <mxCell id="e_race_agents" value="spawn + inject actions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=2;exitX=0.8;exitY=1;exitDx=0;exitDy=0;" edge="1" source="race2d_group" target="agents_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Race2D → Events -->
+        <mxCell id="e_race_events" value="step_events(dt)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=2;" edge="1" source="race2d_group" target="events_group" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="230" />
+              <mxPoint x="80" y="845" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Race2D → Rewards -->
+        <mxCell id="e_race_reward" value="calculate_reward()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#ae4132;strokeWidth=2;" edge="1" source="step_env" target="reward_group" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="200" />
+              <mxPoint x="1200" y="200" />
+              <mxPoint x="1200" y="770" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Track → Brain (métricas) -->
+        <mxCell id="e_track_brain" value="progress, heading,&lt;br&gt;curvature, off_track" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;dashed=1;" edge="1" source="track_metrics" target="brain" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Events → Vehicle (modifiers) -->
+        <mxCell id="e_events_vehicle" value="modifica&lt;br&gt;friction, stun, ctrl" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=1;dashed=1;" edge="1" source="evt_vector" target="vehicle" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="860" />
+              <mxPoint x="660" y="550" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Race2D → HUD -->
+        <mxCell id="e_race_hud" value="update_telemetry()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=1;dashed=1;" edge="1" source="reward_group" target="hud_box" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  SECCIÓN: LÍMITES Y TODOs                                     -->
+        <!-- ============================================================ -->
+        <mxCell id="todo_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;arcSize=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="970" width="520" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="todo_label" value="&lt;b&gt;📋 LÍMITES ACTUALES Y MEJORAS PENDIENTES&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=14;fontColor=#1a1a2e;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="130" y="975" width="500" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="todo1" value="🔴 Collision tracking no implementado (TODO en Race2D L193)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1010" width="480" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="todo2" value="🔴 No hay sistema de vueltas real (lap_completed solo por wrap de progreso)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1035" width="480" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="todo3" value="🟡 get_progress_scalar retorna offset bruto, no [0,1] normalizado" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1060" width="480" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="todo4" value="🟡 Sin raycasts / sensores de distancia (solo heading + lateral)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1085" width="480" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="todo5" value="🟡 Sin puente Python real (demo loop standalone solamente)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1110" width="480" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="todo6" value="🟢 HUD solo debug, falta UI de juego para el producto final" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1135" width="480" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="todo7" value="🟢 Sin power-ups, ítems, ni boosters" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="140" y="1160" width="480" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!--  LEYENDA                                                      -->
+        <!-- ============================================================ -->
+        <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="1100" width="500" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" value="&lt;b&gt;LEYENDA&lt;/b&gt;" style="text;html=1;align=left;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1105" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="🔵 Orquestador (Race2D)" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1125" width="160" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="🟡 Configuración" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1145" width="160" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="🟣 Agentes" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1165" width="160" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="🟢 Track / Pista" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1125" width="140" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="🔴 Eventos / Peligros" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1145" width="140" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg6" value="🟠 TODOs / Mejoras" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1165" width="140" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg7" value="— — Dependencia&lt;br&gt;──── Flujo principal" style="text;html=1;align=left;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="1125" width="150" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

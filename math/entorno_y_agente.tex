@@ -69,8 +69,34 @@ $$ \mu_{nuevo}(t_0) = \mu_{base} \cdot (1.0 - severity) $$
 El recupero de tracción es progresivo y sigue una función lineal por cada $\Delta t$:
 $$ \mu_{drift}(t) = \min( \mu_{base}, \mu_{drift}(t-\Delta t) + recovery_{rate} \cdot \Delta t ) $$
 
-\subsection{Evento: WIND\_GUST (Ráfagas de Viento)}
-Aplica una fuerza de perturbación estocástica o direccional ($\mathbf{V}_{wind}$) sobre la aceleración instantánea, obligando a las heurísticas (PID) o políticas (PPO) a corregir el \textit{steer} dinámicamente:
-$$ \mathbf{v}_{t+\Delta t} = \mathbf{v}_{t+\Delta t} + \mathbf{V}_{wind} \cdot \Delta t $$
+\section{Arquitectura Neuronal y Neuroevolución}
+Para resolver este proceso de toma de decisiones no estacionario se emplea una política neuronal compacta de unos 12,000 parámetros entrenada mediante Neuroevolución (ES/ARS o CMA-ES), lo que permite optimizar parámetros al tiempo que se evitan discontinuidades causadas por caídas o salidas de pista abruptas.
+
+\subsection{Estructura de Observaciones (85 Dimensiones)}
+El vector estocástico que recibe el cerebro comprende:
+\begin{itemize}
+    \item \textbf{Sensores de Pista (33 dim):} 31 raycasts polarizados normalizados y métricas geométricas ($e_\theta$, $err_{lateral}$).
+    \item \textbf{Estado Propio (10 dim):} Velocidad, aceleración, rumbo polarizado $\sin / \cos(\theta)$, y estado de derrape.
+    \item \textbf{Rivales (18 dim):} Pooling de características para 3 rivales usando métricas relativas (distancia, velocidad relativa, ángulos).
+    \item \textbf{Eventos y Condiciones (24 dim):} Inyecciones condicionales de variables climáticas, \textit{embeddings} parametrizados de \textit{hazards} en pista y duraciones de los \textit{debuffs} sufridos.
+\end{itemize}
+
+\subsection{Política Multi-Habilidad (Multi-Skill Policy)}
+La red neuronal procesa los \textit{embeddings} de los eventos de forma individual para evitar sobredimensionar la red (one-hot vectors). El \textit{pool} de rivales se unifica matemáticamente utilizando \textit{Max-Pooling}.
+El corazón de la red se diseña con una \textbf{arquitectura bicéfala} que consta de:
+\begin{itemize}
+    \item Un tronco compartido con capas tipo \textit{tanh}.
+    \item Una cabeza entrenada enfocada a la conducción en solitario (Driving: $\mathbf{u}^{(d)}$).
+    \item Una cabeza enfocada al adelantamiento defensivo u ofensivo (Overtaking: $\mathbf{u}^{(o)}$).
+\end{itemize}
+
+Se emplea una compuerta sigmoidal (\textit{Gate Controller} $g$) calculada sobre las distancias hacia los rivales para mezclar la salida de forma suave:
+$$ \mathbf{u} = (1 - g) \cdot \mathbf{u}^{(d)} + g \cdot \mathbf{u}^{(o)} $$
+
+\subsection{Fitness Multi-objetivo y Varianza}
+La función de \textit{fitness} para los métodos CMA-ES engloba un \textit{Trade-off} entre competitividad y seguridad, combinando el avance por tick ($\Delta s_t$) y variables penalizantes (colisión, off-track, stuck, zig-zag). 
+
+Crucialmente, para fomentar la generalización y combatir las trampas procedurales que causan fallos catastróficos, se impone un término estabilizador de \textbf{varianza inter-seed} en el objetivo esperado:
+$$ J(\theta) = \mathbb{E}_{\omega} \left[ \dots - \lambda_{v} Var_{\omega}(R_{\omega}(\theta)) \right] $$
 
 \end{document}

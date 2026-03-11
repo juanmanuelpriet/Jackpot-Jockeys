@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2026.2.4)  11 MAR 2026 10:22
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2026.2.4)  11 MAR 2026 10:26
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -515,15 +515,21 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 
 {/Users/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/data/fonts/m
 ap/pdftex/pdftex.map}]
-Overfull \hbox (3.86877pt too wide) in paragraph at lines 73--74
-\OT1/cmr/m/n/10.95 instantanea, obligando a las heursticas (PID) o poltica
-s (PPO) a corregir el \OT1/cmr/m/it/10.95 steer \OT1/cmr/m/n/10.95 dinamicamen
-te: 
+
+[2]
+Overfull \hbox (3.22636pt too wide) in paragraph at lines 78--79
+[]\OT1/cmr/bx/n/10.95 Sensores de Pista (33 dim): \OT1/cmr/m/n/10.95 31 raycast
+s polarizados normalizados y metricas geometricas
  []
 
 
+Overfull \hbox (6.01407pt too wide) in paragraph at lines 85--87
+\OT1/cmr/m/n/10.95 sobredimensionar la red (one-hot vectors). El \OT1/cmr/m/it/
+10.95 pool \OT1/cmr/m/n/10.95 de rivales se unifica matematicamente utilizando
 
-[2]
+ []
+
+
 
 [3] (entorno_y_agente.aux
 LaTeX Info: Redefining \. on input line 18.
@@ -535,10 +541,10 @@ L3 programming layer <2026-01-19>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 11912 strings out of 469806
- 189442 string characters out of 2467099
+ 11921 strings out of 469806
+ 189560 string characters out of 2467099
  608573 words of memory out of 3000000
- 40403 multiletter control sequences out of 15000+600000
+ 40409 multiletter control sequences out of 15000+600000
  636707 words of font info for 73 fonts, out of 8000000 for 9000
  0 hyphenation exceptions out of 8191
  75i,7n,79p,704b,472s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -559,10 +565,12 @@ nuelprieto/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/public
 eX/texmfs/install/fonts/type1/public/amsfonts/cm/cmsy10.pfb></Users/juanmanuelp
 rieto/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/public/amsf
 onts/cm/cmsy8.pfb></Users/juanmanuelprieto/Library/Application Support/MiKTeX/t
-exmfs/install/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on entorno_y_agente.pdf (3 pages, 170909 bytes).
+exmfs/install/fonts/type1/public/amsfonts/cm/cmti10.pfb></Users/juanmanuelpriet
+o/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts
+/symbols/msbm10.pfb>
+Output written on entorno_y_agente.pdf (3 pages, 188324 bytes).
 PDF statistics:
- 135 PDF objects out of 1000 (max. 8388607)
- 17 named destinations out of 1000 (max. 500000)
- 105 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 153 PDF objects out of 1000 (max. 8388607)
+ 20 named destinations out of 1000 (max. 500000)
+ 129 words of extra memory for PDF output out of 10000 (max. 10000000)
 

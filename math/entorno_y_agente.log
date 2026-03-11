@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2026.2.4)  11 MAR 2026 10:26
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (MiKTeX 22.1) (preloaded format=pdflatex 2026.2.4)  11 MAR 2026 11:46
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -510,30 +510,29 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 18.
 latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
+Overfull \hbox (17.52516pt too wide) in paragraph at lines 20--21
+\OT1/cmr/m/n/10.95 geometrica de la pista, la cinematica del vehculo, la co
+nfiguracion estricta del vector de observaciones
+ []
+
+
 
 [1
 
 {/Users/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/data/fonts/m
 ap/pdftex/pdftex.map}]
+Overfull \hbox (20.15057pt too wide) in paragraph at lines 69--70
+[]\OT1/cmr/bx/n/10.95 Errores Topologicos (2D): \OT1/cmr/m/it/10.95 Heading Er
+ror \OT1/cmr/m/n/10.95 Normalizado ( $[]$ ) y Curvatura Adelantada
+ []
+
+
 
 [2]
-Overfull \hbox (3.22636pt too wide) in paragraph at lines 78--79
-[]\OT1/cmr/bx/n/10.95 Sensores de Pista (33 dim): \OT1/cmr/m/n/10.95 31 raycast
-s polarizados normalizados y metricas geometricas
- []
-
-
-Overfull \hbox (6.01407pt too wide) in paragraph at lines 85--87
-\OT1/cmr/m/n/10.95 sobredimensionar la red (one-hot vectors). El \OT1/cmr/m/it/
-10.95 pool \OT1/cmr/m/n/10.95 de rivales se unifica matematicamente utilizando
-
- []
-
-
 
 [3] (entorno_y_agente.aux
-LaTeX Info: Redefining \. on input line 18.
-LaTeX Info: Redefining \% on input line 18.
+LaTeX Info: Redefining \. on input line 16.
+LaTeX Info: Redefining \% on input line 16.
 )
  ***********
 LaTeX2e <2025-11-01>
@@ -541,22 +540,28 @@ L3 programming layer <2026-01-19>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 11921 strings out of 469806
- 189560 string characters out of 2467099
- 608573 words of memory out of 3000000
- 40409 multiletter control sequences out of 15000+600000
- 636707 words of font info for 73 fonts, out of 8000000 for 9000
+ 11931 strings out of 469806
+ 189744 string characters out of 2467099
+ 609573 words of memory out of 3000000
+ 40415 multiletter control sequences out of 15000+600000
+ 638548 words of font info for 79 fonts, out of 8000000 for 9000
  0 hyphenation exceptions out of 8191
- 75i,7n,79p,704b,472s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 75i,10n,79p,909b,480s stack positions out of 5000i,500n,10000p,200000b,80000s
 </Users/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/install/fo
-nts/type1/public/amsfonts/cm/cmbx10.pfb></Users/juanmanuelprieto/Library/Applic
-ation Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmbx12.pfb><
-/Users/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/install/fonts
-/type1/public/amsfonts/cm/cmex10.pfb></Users/juanmanuelprieto/Library/Applicati
-on Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmmi10.pfb></Us
+nts/type1/public/amsfonts/cm/cmbsy10.pfb></Users/juanmanuelprieto/Library/Appli
+cation Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmbx10.pfb>
+</Users/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/install/font
+s/type1/public/amsfonts/cm/cmbx12.pfb></Users/juanmanuelprieto/Library/Applicat
+ion Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmbx8.pfb></Us
 ers/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/install/fonts/ty
-pe1/public/amsfonts/cm/cmmi6.pfb></Users/juanmanuelprieto/Library/Application S
-upport/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmmi8.pfb></Users/j
+pe1/public/amsfonts/cm/cmex10.pfb></Users/juanmanuelprieto/Library/Application 
+Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmmi10.pfb></Users
+/juanmanuelprieto/Library/Application Support/MiKTeX/texmfs/install/fonts/type1
+/public/amsfonts/cm/cmmi6.pfb></Users/juanmanuelprieto/Library/Application Supp
+ort/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmmi8.pfb></Users/juan
+manuelprieto/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/publ
+ic/amsfonts/cm/cmmib10.pfb></Users/juanmanuelprieto/Library/Application Support
+/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cmextra/cmmib8.pfb></Users/j
 uanmanuelprieto/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/p
 ublic/amsfonts/cm/cmr10.pfb></Users/juanmanuelprieto/Library/Application Suppor
 t/MiKTeX/texmfs/install/fonts/type1/public/amsfonts/cm/cmr12.pfb></Users/juanma
@@ -567,10 +572,11 @@ rieto/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/public/amsf
 onts/cm/cmsy8.pfb></Users/juanmanuelprieto/Library/Application Support/MiKTeX/t
 exmfs/install/fonts/type1/public/amsfonts/cm/cmti10.pfb></Users/juanmanuelpriet
 o/Library/Application Support/MiKTeX/texmfs/install/fonts/type1/public/amsfonts
-/symbols/msbm10.pfb>
-Output written on entorno_y_agente.pdf (3 pages, 188324 bytes).
+/symbols/msam10.pfb></Users/juanmanuelprieto/Library/Application Support/MiKTeX
+/texmfs/install/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
+Output written on entorno_y_agente.pdf (3 pages, 231539 bytes).
 PDF statistics:
- 153 PDF objects out of 1000 (max. 8388607)
- 20 named destinations out of 1000 (max. 500000)
- 129 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 160 PDF objects out of 1000 (max. 8388607)
+ 18 named destinations out of 1000 (max. 500000)
+ 89 words of extra memory for PDF output out of 10000 (max. 10000000)
 

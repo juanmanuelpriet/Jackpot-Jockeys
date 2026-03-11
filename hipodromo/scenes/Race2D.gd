@@ -73,8 +73,9 @@ func reset_environment(config: EnvironmentConfig, custom_seed: int = -1) -> Arra
 	seed(env_config.base_seed)
 	print("[ag-race] Reset Env | Seed: %d | Config: %s | Agents: %d" % [env_config.base_seed, env_config.config_hash, env_config.num_agents])
 	
-	# 2. Reconstrucción Semilla Estricta
+	# Reconstrucción Semilla Estricta
 	track_generator.generate_track(env_config.base_seed)
+	track_generator.build_visuals() # Forzar baking sincrónicamente para evitar transform nulo
 	
 	for v in vehicles: if is_instance_valid(v): v.queue_free()
 	for b in brains: if is_instance_valid(b): b.queue_free()

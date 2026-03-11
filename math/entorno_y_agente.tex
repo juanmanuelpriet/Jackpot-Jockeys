@@ -17,86 +17,73 @@
 \maketitle
 
 \section{Introducción}
-Este documento describe el modelo matemático que rige las físicas del vehículo (\textit{Hovercraft}) y las observaciones que el agente de Inteligencia Artificial (IA) realiza dentro del entorno \textbf{AG-RACE}. El sistema está diseñado tanto para ser evaluado por heurísticas matemáticas (\textit{Pure Pursuit}) como para entrenar políticas de Aprendizaje por Refuerzo (RL).
+Este documento establece la formalización matemática rigurosa del entorno \textbf{AG-RACE}. Este entorno está diseñado para entrenar agentes autónomos (\textit{Hovercrafts}) bajo el paradigma de Aprendizaje por Refuerzo Multi-Agente (MARL) o Neuroevolución. Describimos la generación geométrica de la pista, la cinemática del vehículo, la configuración estricta del vector de observaciones y el objetivo de optimización final.
 
-\section{Fundamentos Matemáticos y Determinismo}
-Para garantizar una evaluación justa y reproducible durante el entrenamiento RL, el entorno AG-RACE exige \textbf{determinismo absoluto}. Todos los cálculos espaciales y pseudoaleatorios se generan a partir de una \textit{Semilla Inicial} ($S_0$), garantizando que dos episodios ejecutados bajo la misma secuencia de acciones produzcan idénticas observaciones y recompensas.
+\section{Formulación del Entorno como un POMDP}
+AG-RACE se modela formalmente como un Proceso de Decisión de Markov Parcialmente Observable (POMDP) definido por la tupla $\langle S, A, T, R, \Omega, O, \gamma \rangle$, acondicionado por una semilla inicial de caos $\omega$:
 
-\subsection{Generación Procedural de Pistas (Splines Hermite)}
-La curva central paramétrica de la pista $C(s)$ se genera interpolando $N$ puntos de control generados aleatoriamente dentro de rangos cilíndricos controlados por la semilla determinista. La interpolación se modela usando splines cúbicos de tipo Hermite, donde el segmento $P_i(u)$ para $u \in [0, 1]$ se define como:
-$$ P_i(u) = (2u^3 - 3u^2 + 1)P_0 + (u^3 - 2u^2 + u)M_0 + (-2u^3 + 3u^2)P_1 + (u^3 - u^2)M_1 $$
-Donde $P_0, P_1$ son puntos de control y $M_0, M_1$ son sus respectivas tangentes parametrizadas.
-
-\section{Dinámica del Vehículo y Motor Físico Jolt}
-El vehículo se modela en un espacio bidimensional (2D) sujeto a aceleraciones lineales y atenuación de derrapes.
-
-\subsection{Estado del Vehículo y Vectores}
-El estado dinámico del vehículo se define por su posición global $\mathbf{p}$, su velocidad lineal $\mathbf{v}$ y su rotación $\theta$.
-Los vectores direccionales frontales y laterales se definen como:
-$$ \hat{\mathbf{f}} = \begin{bmatrix} \cos\theta \\ \sin\theta \end{bmatrix}, \quad \hat{\mathbf{r}} = \begin{bmatrix} -\sin\theta \\ \cos\theta \end{bmatrix} $$
-
-\subsection{Actualización de Movimiento y Giro}
-El agente proporciona tres valores escalares de acción: Aceleración ($T \in [0, 1]$), Freno ($B \in [0, 1]$) y Giro ($S \in [-1, 1]$).
-La orientación y la aceleración se actualizan discretamente:
-$$ \theta_{t+\Delta t} = \theta_t + (S \cdot \omega_{turn} \cdot \Delta t) $$
-$$ \mathbf{v}_{t+\Delta t} = \mathbf{v}_t + \left( \hat{\mathbf{f}} \cdot T \cdot a_{max} \cdot \mu_{fric} \cdot \Delta t \right) $$
-
-\subsection{Derrape (Drift) y Velocidad Transversal}
-Para simular el efecto \textit{Hovercraft}, se descompone la velocidad en frontal ($v_f$) y lateral ($v_l$):
-$$ v_f = \mathbf{v} \cdot \hat{\mathbf{f}} \quad \text{y} \quad v_l = \mathbf{v} \cdot \hat{\mathbf{r}} $$
-La velocidad lateral se atenúa mediante un coeficiente $K_{grip}$ sujeto a deterioro ambiental $\mu_{drift}$:
-$$ v_{l, new} = v_l - \text{sgn}(v_l) \cdot \min(|v_l|, K_{grip} \cdot \mu_{drift} \cdot |v_l| \cdot \Delta t) $$
-
-\section{Métricas del Entorno y Recompensas (RL)}
-
-\subsection{Progreso en la Pista}
-El progreso del agente, $s \in [0, 1]$, se calcula normalizando el avance sobre la longitud de la spline $L$:
-El recompensa por paso $t$ es la del diferencial transcurrido:
-$$ R_{avance} = (s_t - s_{t-1}) \cdot L $$
-
-\subsection{Error Lateral (Track Distance) y Penalización}
-Para determinar si el vehículo está en la pista, calculamos la distancia eucíldea residual hacia el centro de la spline $C(s)$:
-$$ err_{lateral} = \| \mathbf{p} - C(s_{closest}) \| - \frac{Track_{Width}}{2} $$
-Si $err_{lateral} > 0$, el agente sale de la pista. Se le aplica una severa penalización proporcional para obligarlo a regresar:
-$$ R_{off\_track} = -\alpha \cdot e^{\beta \cdot err_{lateral}} $$
-
-\section{Condiciones Variables y Perturbaciones (World Events)}
-El entorno dinámico inyecta fallos y ruidos matemáticos (World Events) para entrenar la generalización del agente:
-
-\subsection{Evento: LOW\_GRIP (Baja Adherencia)}
-Al desencadenarse, la fricción base disminuye proporcional a la \textit{severidad} del evento:
-$$ \mu_{nuevo}(t_0) = \mu_{base} \cdot (1.0 - severity) $$
-El recupero de tracción es progresivo y sigue una función lineal por cada $\Delta t$:
-$$ \mu_{drift}(t) = \min( \mu_{base}, \mu_{drift}(t-\Delta t) + recovery_{rate} \cdot \Delta t ) $$
-
-\section{Arquitectura Neuronal y Neuroevolución}
-Para resolver este proceso de toma de decisiones no estacionario se emplea una política neuronal compacta de unos 12,000 parámetros entrenada mediante Neuroevolución (ES/ARS o CMA-ES), lo que permite optimizar parámetros al tiempo que se evitan discontinuidades causadas por caídas o salidas de pista abruptas.
-
-\subsection{Estructura de Observaciones (85 Dimensiones)}
-El vector estocástico que recibe el cerebro comprende:
 \begin{itemize}
-    \item \textbf{Sensores de Pista (33 dim):} 31 raycasts polarizados normalizados y métricas geométricas ($e_\theta$, $err_{lateral}$).
-    \item \textbf{Estado Propio (10 dim):} Velocidad, aceleración, rumbo polarizado $\sin / \cos(\theta)$, y estado de derrape.
-    \item \textbf{Rivales (18 dim):} Pooling de características para 3 rivales usando métricas relativas (distancia, velocidad relativa, ángulos).
-    \item \textbf{Eventos y Condiciones (24 dim):} Inyecciones condicionales de variables climáticas, \textit{embeddings} parametrizados de \textit{hazards} en pista y duraciones de los \textit{debuffs} sufridos.
+    \item $S$: Espacio de estados globales (Posiciones, velocidades, deformación de pista, eventos activos).
+    \item $A$: Espacio de acciones continuas del vehículo $\mathbf{a} \in [-1, 1]^3$.
+    \item $T(s_{t+1} | s_t, a_t; \omega)$: Función de transición \textbf{determinista} controlada por la semilla $\omega$.
+    \item $R(s_t, a_t)$: Recompensa escalar basada en progreso topológico y penalizaciones.
+    \item $O$: Espacio de observación compuesto por sensores locales.
+    \item $\Omega(o_t | s_t)$ Función determinista que extrae la vista parcial del agente a partir del estado real.
 \end{itemize}
 
-\subsection{Política Multi-Habilidad (Multi-Skill Policy)}
-La red neuronal procesa los \textit{embeddings} de los eventos de forma individual para evitar sobredimensionar la red (one-hot vectors). El \textit{pool} de rivales se unifica matemáticamente utilizando \textit{Max-Pooling}.
-El corazón de la red se diseña con una \textbf{arquitectura bicéfala} que consta de:
-\begin{itemize}
-    \item Un tronco compartido con capas tipo \textit{tanh}.
-    \item Una cabeza entrenada enfocada a la conducción en solitario (Driving: $\mathbf{u}^{(d)}$).
-    \item Una cabeza enfocada al adelantamiento defensivo u ofensivo (Overtaking: $\mathbf{u}^{(o)}$).
-\end{itemize}
+\section{Generación Procedural de Pistas (Curvas Hérmite)}
+Para inducir políticas que generalicen sobre geometrías nunca vistas, la pista se genera proceduralmente en $N$ \textit{waypoints} $P_i$.
+La trayectoria suave y continua $C(s)$ se modela utilizando \textbf{Splines de Hermite Cúbicos}. 
+Dado un parámetro de interpolación $u \in [0, 1]$ entre dos puntos $P_0$ y $P_1$, la curva evalúa a:
+$$ C(u) = (2u^3 - 3u^2 + 1)P_0 + (u^3 - 2u^2 + u)M_0 + (-2u^3 + 3u^2)P_1 + (u^3 - u^2)M_1 $$
+Donde $M_0$ y $M_1$ son las tangentes direccionales:
+$$ M_i = \nabla P_i \approx \frac{1}{2}(P_{i+1} - P_{i-1}) $$
 
-Se emplea una compuerta sigmoidal (\textit{Gate Controller} $g$) calculada sobre las distancias hacia los rivales para mezclar la salida de forma suave:
-$$ \mathbf{u} = (1 - g) \cdot \mathbf{u}^{(d)} + g \cdot \mathbf{u}^{(o)} $$
+\subsection{Curvatura Estimada y Vector Ideal}
+El agente necesita percibir la topología venidera. Se calcula un vector ideal normalizado de \textit{Heading} diferenciando la spline respecto al progreso $s$:
+$$ \hat{\mathbf{h}}_{ideal}(s) = \frac{\frac{d}{ds} C(s)}{\left\| \frac{d}{ds} C(s) \right\|} $$
+La tasa de cambio direccional entre dos vectores de rotación $\Delta \theta$ separados por una distancia pequeña $\Delta s$ otorga la \textbf{Curvatura Local} observada:
+$$ \kappa(s) = \frac{\Delta \theta}{\Delta s} \quad \text{(rad/m)} $$
 
-\subsection{Fitness Multi-objetivo y Varianza}
-La función de \textit{fitness} para los métodos CMA-ES engloba un \textit{Trade-off} entre competitividad y seguridad, combinando el avance por tick ($\Delta s_t$) y variables penalizantes (colisión, off-track, stuck, zig-zag). 
+\section{Dinámica de Actuación y Física (Hovercraft)}
+La nave no opera como un coche tradicional; obedece al movimiento 2D resbaladizo.
 
-Crucialmente, para fomentar la generalización y combatir las trampas procedurales que causan fallos catastróficos, se impone un término estabilizador de \textbf{varianza inter-seed} en el objetivo esperado:
-$$ J(\theta) = \mathbb{E}_{\omega} \left[ \dots - \lambda_{v} Var_{\omega}(R_{\omega}(\theta)) \right] $$
+\subsection{Aplicación del Vector de Control}
+El vector de acción $\mathbf{a}_t = [\mathbf{u}_{throttle}, \mathbf{u}_{brake}, \mathbf{u}_{steer}]$ influye directamente en la posición $\mathbf{p}_t = \begin{bmatrix} x_t \\ y_t \end{bmatrix}$. Las variables están constreñidas al rango normalizado: $T, B \in [0, 1]$ y $S \in [-1, 1]$.
+
+$$ \theta_{t+\Delta t} = \theta_t + (\mathbf{u}_{steer} \cdot V_{turn\_ratio} \cdot \Delta t) $$
+La aceleración lineal ocurre sobre el eje \textit{Forward} rotado localmente a $\theta_{t+\Delta t}$:
+$$ \mathbf{v}_{t+\Delta t} = \mathbf{v}_t + \left( \begin{bmatrix} \cos\theta \\ \sin\theta \end{bmatrix} \cdot \mathbf{u}_{throttle} \cdot A_{max} \cdot \Delta t \right) $$
+
+\subsection{Atenuación Transversal (Drift) Acoplado al Clima}
+Una fracción de la velocidad transversal $v_{l}$ respecto a la inercia debe atenuarse para evitar que el hovercraft gire infinitamente. Esto se gobierna mediante la Fricción Lateral Constante $\mu_{L\_base}$:
+$$ v_{l, new} = v_l - \text{sgn}(v_l) \cdot \min(|v_l|, \mu_{L\_base} \cdot (1 - \lambda_{clima}) \cdot \Delta t) $$
+Donde $\lambda_{clima}$ es el decaimiento inducido por Eventos de Mundo como pistas congeladas o aceite.
+
+\section{Espacios de IA: Observación y Recompensa}
+
+\subsection{Estructura Base del Vector de Observaciones (OBS\_SCHEMA\_V1 = 15 Dims)}
+El agente capta un vector normalizado continuo $o_t \in \mathcal{R}^{15}$ de rápida inferencia, estructurado jerárquicamente:
+\begin{enumerate}
+    \item \textbf{Estado Interno (6D):} Magnitud de Velocidad Normalizada, Eje $V_X$, Eje $V_Y$, Progreso Topológico Escalar $s$, Distancia de Desvío Lateral y Contador de Atascamiento ($Stuck$).
+    \item \textbf{Errores Topológicos (2D):} \textit{Heading Error} Normalizado ( $\frac{\theta - \angle \hat{\mathbf{h}}_{ideal}}{\pi}$ ) y Curvatura Adelantada $\kappa(s+\Delta s)$.
+    \item \textbf{Eventos de Mundo Abstractos (7D):} Array \textit{One-Hot} de duración y severidad que inyecta percepción de ráfagas de viento colaterales y variaciones en frenado invertido.
+\end{enumerate}
+
+\subsection{Capa de Seguridad (Rule-Based Fallback)}
+Para acelerar la convergencia en el RL Inicial (Evitar quedarse girando de frente al muro), la inferencia neuronal se reescribe determinísticamente bajo las siguientes condiciones ineludibles de seguridad temporal $F(s_t, \mathbf{a}_t)$:
+$$ 
+\mathbf{a}^*_t = 
+\begin{cases} 
+[-1, 1, -\text{sgn}(\mathbf{u}_{steer})], & \text{si } stuck\_timer > 1.5\text{s (Fuerza Reversa)}\\
+[0.2, 0.8, \mathbf{K}_p \cdot \text{Dir}], & \text{si } err_{lateral} > 50\text{m (Fuerza Retorno Auto-Steering)} \\
+\mathbf{a}_t, & \text{en cualquier otro caso (Output Neuronal Libre)} 
+\end{cases}
+$$
+
+\subsection{Función de Fitness Multi-Objetivo (Neuroevolución)}
+AG-RACE implementa recompensas continuas de avance (Dense Rewards). Entrenaremos con ES/ARS o Covariance Matrix Adaptation (CMA-ES). Definimos el retorno esperado global para el vector de pesos neuronales $\Phi$:
+$$ J(\Phi) = \mathbb{E}_{\omega} \left[ \sum_{t=0}^{T} \left( \alpha \Delta s_t - \beta_{o\_track}(err_{lateral}) - \gamma_{stuck}(s_t) \right) \boldsymbol{- \lambda_{V} Var_{\omega}(R_{\omega}(\Phi))} \right] $$
+Donde la \textbf{Varianza de Generalización} $Var_{\omega}$ obliga a la Neuroevolución a descartar cerebros súper-eficientes en una sola pista, premiando políticas moderadas pero robustas en los 100 \textit{seeds} de test.
 
 \end{document}

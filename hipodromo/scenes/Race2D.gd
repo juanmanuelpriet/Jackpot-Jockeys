@@ -1,6 +1,7 @@
 extends Node2D
 
 @onready var track_generator = $TrackGenerator
+@onready var camera = $Camera2D
 
 var env_config: EnvironmentConfig
 var world_event_manager: WorldEventManager
@@ -26,6 +27,15 @@ var agent_total_reward: Array[float] = []
 var agent_total_off_track_time: Array[float] = []
 var agent_total_collisions: Array[int] = []
 var agent_stuck_events: Array[int] = []
+
+# --- Free Camera ---
+var cam_zoom_level: float = 0.3
+var cam_zoom_min: float = 0.05
+var cam_zoom_max: float = 2.0
+var cam_zoom_step: float = 0.06
+var cam_pan_speed: float = 800.0  # pixels/sec at zoom 1.0
+var cam_dragging: bool = false
+var cam_drag_start: Vector2 = Vector2.ZERO
 
 func _ready():
 	_setup_background()
@@ -53,17 +63,31 @@ func _ready():
 func _setup_background():
 	var bg = ParallaxBackground.new()
 	bg.layer = -10
-	var bl = ParallaxLayer.new()
 	
+	# Primary layer: dark grid
+	var bl = ParallaxLayer.new()
 	var spr = Sprite2D.new()
-	spr.texture = preload("res://assets/sprites/track_background_grid.png")
+	spr.texture = preload("res://assets/sprites/bg_dark_grid.png")
 	spr.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	spr.region_enabled = true
 	spr.region_rect = Rect2(-10000, -10000, 20000, 20000)
 	spr.centered = true
-	
 	bl.add_child(spr)
 	bg.add_child(bl)
+	
+	# Secondary layer: slight parallax for depth
+	var bl2 = ParallaxLayer.new()
+	bl2.motion_scale = Vector2(0.95, 0.95)
+	var spr2 = Sprite2D.new()
+	spr2.texture = preload("res://assets/sprites/bg_dark_grid.png")
+	spr2.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	spr2.region_enabled = true
+	spr2.region_rect = Rect2(-10000, -10000, 20000, 20000)
+	spr2.centered = true
+	spr2.modulate = Color(0.6, 0.6, 0.8, 0.3)
+	bl2.add_child(spr2)
+	bg.add_child(bl2)
+	
 	add_child(bg)
 
 # ============================================================================
@@ -138,7 +162,7 @@ func _spawn_agents_sync():
 		
 		v.global_position = start_transform.get_origin() + offset_pos
 		v.rotation = start_transform.get_rotation()
-		v.get_node("Visual").modulate = colors[i % colors.size()]
+		v.set_color(colors[i % colors.size()])
 		
 		vehicles_parent.add_child(v)
 		vehicles.append(v)
@@ -153,6 +177,45 @@ func _spawn_agents_sync():
 		
 	world_event_manager.initialize(env_config, vehicles)
 	is_running = true
+
+# ============================================================================
+# FREE CAMERA — zoom (scroll), pan (WASD/arrows/middle-drag)
+# ============================================================================
+
+func _unhandled_input(event):
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			cam_zoom_level = clampf(cam_zoom_level * 1.15, cam_zoom_min, cam_zoom_max)
+			camera.zoom = Vector2(cam_zoom_level, cam_zoom_level)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			cam_zoom_level = clampf(cam_zoom_level / 1.15, cam_zoom_min, cam_zoom_max)
+			camera.zoom = Vector2(cam_zoom_level, cam_zoom_level)
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed:
+				cam_dragging = true
+				cam_drag_start = event.position
+			else:
+				cam_dragging = false
+				
+	elif event is InputEventMouseMotion and cam_dragging:
+		var delta_px = event.position - cam_drag_start
+		cam_drag_start = event.position
+		camera.position -= delta_px / cam_zoom_level
+
+func _process(delta):
+	# WASD / Arrow key panning
+	var pan_dir = Vector2.ZERO
+	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+		pan_dir.y -= 1.0
+	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+		pan_dir.y += 1.0
+	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+		pan_dir.x -= 1.0
+	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+		pan_dir.x += 1.0
+	
+	if pan_dir != Vector2.ZERO:
+		camera.position += pan_dir.normalized() * cam_pan_speed * delta / cam_zoom_level
 
 # ============================================================================
 # PHYSICS LOOP — Demo mode with action hold

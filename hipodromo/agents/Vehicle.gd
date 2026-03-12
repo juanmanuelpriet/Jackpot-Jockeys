@@ -20,8 +20,16 @@ var stun_timer: float = 0.0
 var drift_impairment: float = 1.0
 var _collisions_this_frame: int = 0
 
+# --- Visual nodes (resolved in _ready) ---
 @onready var visual = $Visual
 @onready var particles = $EngineParticles
+@onready var speed_lines = $SpeedLines
+@onready var heading_indicator = $HeadingIndicator
+@onready var agent_ring = $AgentRing
+@onready var event_overlay = $EventOverlay
+
+# --- Visual state ---
+var _stun_flash_timer: float = 0.0
 
 func _physics_process(delta):
 	# Decrement stun timer
@@ -31,10 +39,8 @@ func _physics_process(delta):
 			stun_timer = 0.0
 	
 	_collisions_this_frame = 0
-	# Girar la nave dependiente de la velocidad a veces ayuda a sentirse bien, pero en hovercrafts se puede rotar sobre el propio eje.
-	# Añadiremos rotación libre sobre el eje z.
+	
 	if abs(steer) > 0.01:
-		# Optionally, make turn speed slightly dependent on current velocity to avoid completely stationary turns, but hovercrafts can do stationary turns
 		rotation += steer * turn_speed * delta
 
 	# Dirección hacia la que apunta la nave
@@ -60,24 +66,15 @@ func _physics_process(delta):
 	var lateral_velocity = velocity.project(right_dir)
 	var forward_velocity = velocity.project(forward_dir)
 	
-	# Aplicamos el agarre reduciendo la velocidad lateral
 	lateral_velocity = lateral_velocity.move_toward(Vector2.ZERO, final_grip * lateral_velocity.length() * delta)
-	
-	# Aplicamos drag a la velocidad frontal
 	forward_velocity = forward_velocity.move_toward(Vector2.ZERO, final_drag * forward_velocity.length() * delta)
 	
-	# Reconstruimos la velocidad
 	velocity = forward_velocity + lateral_velocity
 	
 	# Clamp speed
 	if velocity.length() > max_speed:
 		velocity = velocity.limit_length(max_speed)
-		
-	if throttle > 0:
-		particles.emitting = true
-	else:
-		particles.emitting = false
-		
+	
 	move_and_slide()
 	
 	for i in get_slide_collision_count():
@@ -86,8 +83,69 @@ func _physics_process(delta):
 		velocity = velocity.bounce(n) * 0.7
 		_collisions_this_frame += 1
 		break
+	
+	# --- Visual feedback (purely cosmetic, no physics impact) ---
+	_update_visuals(delta)
 
-# Funciones públicas para ser llamadas por un Controller o un AI Brain
+# ============================================================================
+# VISUAL FEEDBACK — cosmetic only, does NOT affect simulation
+# ============================================================================
+
+func _update_visuals(delta: float):
+	var speed_ratio = velocity.length() / max(1.0, max_speed)
+	
+	# Engine particles: scale with speed
+	if particles:
+		particles.emitting = throttle > 0
+		particles.initial_velocity_max = lerpf(100.0, 400.0, speed_ratio)
+		particles.amount = int(lerpf(5, 30, speed_ratio))
+	
+	# Speed lines: only at high speeds
+	if speed_lines:
+		speed_lines.emitting = speed_ratio > 0.7
+	
+	# Micro-tilt: lean visual into turns (max ±5°)
+	if visual:
+		var target_tilt = steer * speed_ratio * deg_to_rad(5.0)
+		visual.rotation = lerpf(visual.rotation, target_tilt, 6.0 * delta)
+	
+	# Event overlay icons
+	_update_event_overlay()
+	
+	# Stun flash effect
+	if stun_timer > 0.0:
+		_stun_flash_timer += delta
+		if visual:
+			if fmod(_stun_flash_timer, 0.15) < 0.075:
+				visual.modulate = Color(3.0, 3.0, 3.0, 1.0)  # bright flash
+			else:
+				visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	else:
+		_stun_flash_timer = 0.0
+		if visual:
+			visual.modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+func _update_event_overlay():
+	if not event_overlay:
+		return
+	
+	var icons: Array[String] = []
+	if stun_timer > 0.0:
+		icons.append("⚡")
+	if control_inverted:
+		icons.append("↕")
+	if friction_modifier < 0.9:
+		icons.append("⚠")
+	if sensor_noise > 0.1:
+		icons.append("◎")
+	# Wind is transient, shown by disturbance velocity changes
+	
+	event_overlay.text = " ".join(icons)
+
+# ============================================================================
+# PUBLIC API — called by Controllers / AI Brains
+# ============================================================================
+
 func apply_inputs(in_throttle: float, in_brake: float, in_steer: float):
 	if stun_timer > 0.0:
 		self.throttle = 0.0
@@ -103,10 +161,13 @@ func apply_inputs(in_throttle: float, in_brake: float, in_steer: float):
 	self.brake_input = clamp(in_brake, 0.0, 1.0)
 	self.steer = clamp(final_steer, -1.0, 1.0)
 
-# Personalizar el color de la nave
 func set_color(c: Color):
-	if visual:
-		visual.color = c
+	# Color the agent ring (identification halo)
+	if agent_ring:
+		agent_ring.modulate = Color(c.r, c.g, c.b, 0.45)
+	# Also tint heading indicator
+	if heading_indicator:
+		heading_indicator.default_color = Color(c.r, c.g, c.b, 0.5)
 
 func reset_modifiers():
 	friction_modifier = 1.0
@@ -129,7 +190,6 @@ func set_drift_impairment(val: float):
 func set_sensor_noise(val: float):
 	sensor_noise = max(0.0, val)
 
-# Lógica pública para inyectar fuerzas externas (viento, choques forzados)
 func apply_disturbance(force_vector: Vector2):
 	velocity += force_vector
 

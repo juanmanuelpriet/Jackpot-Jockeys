@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://df6s3rae2g3l"]
 
 [ext_resource type="Script" path="res://agents/Vehicle.gd" id="1_xxx"]
-[ext_resource type="Texture2D" path="res://assets/sprites/vehicle_cyber_horse.png" id="2_yyy"]
+[ext_resource type="Texture2D" path="res://assets/sprites/vehicle_racer_top.png" id="2_racer"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_abc123"]
 radius = 16.0
@@ -11,23 +11,53 @@ collision_mask = 3
 motion_mode = 1
 script = ExtResource("1_xxx")
 
+[node name="AgentRing" type="Sprite2D" parent="."]
+z_index = -1
+scale = Vector2(0.08, 0.08)
+modulate = Color(1, 1, 1, 0.4)
+
 [node name="Visual" type="Sprite2D" parent="."]
-rotation = 1.5708
-scale = Vector2(0.12, 0.12)
-texture = ExtResource("2_yyy")
+scale = Vector2(0.06, 0.06)
+texture = ExtResource("2_racer")
+
+[node name="HeadingIndicator" type="Line2D" parent="."]
+points = PackedVector2Array(0, 0, 24, 0)
+width = 2.0
+default_color = Color(1, 1, 1, 0.35)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_abc123")
 
 [node name="EngineParticles" type="CPUParticles2D" parent="."]
 position = Vector2(-16, 0)
-amount = 40
-lifetime = 0.3
+amount = 20
+lifetime = 0.2
 gravity = Vector2(0, 0)
-initial_velocity_min = 150.0
-initial_velocity_max = 300.0
+initial_velocity_min = 100.0
+initial_velocity_max = 250.0
 direction = Vector2(-1, 0)
-spread = 20.0
-scale_amount_min = 3.0
-scale_amount_max = 8.0
-color = Color(0.3, 0.8, 1, 0.8)
+spread = 15.0
+scale_amount_min = 2.0
+scale_amount_max = 4.0
+color = Color(0.3, 0.8, 1, 0.5)
+
+[node name="SpeedLines" type="CPUParticles2D" parent="."]
+emitting = false
+amount = 10
+lifetime = 0.1
+gravity = Vector2(0, 0)
+initial_velocity_min = 200.0
+initial_velocity_max = 400.0
+direction = Vector2(-1, 0)
+spread = 5.0
+scale_amount_min = 1.0
+scale_amount_max = 2.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="EventOverlay" type="Label" parent="."]
+offset_left = -20.0
+offset_top = -28.0
+offset_right = 20.0
+offset_bottom = -12.0
+horizontal_alignment = 1
+text = ""

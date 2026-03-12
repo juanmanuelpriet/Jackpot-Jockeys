@@ -7,6 +7,9 @@ extends Node2D
 
 var path: Path2D
 var visual_line: Line2D
+var edge_line_inner: Line2D
+var edge_line_outer: Line2D
+var center_line: Line2D
 var static_body: StaticBody2D
 var col_inner: CollisionPolygon2D
 var col_outer: CollisionPolygon2D
@@ -18,9 +21,10 @@ func _init():
 	path.curve = Curve2D.new()
 	add_child(path)
 	
+	# --- Track surface (base layer) ---
 	visual_line = Line2D.new()
 	visual_line.width = track_width
-	visual_line.default_color = Color(1.0, 1.0, 1.0)
+	visual_line.default_color = Color(0.55, 0.55, 0.55)
 	visual_line.texture = preload("res://assets/sprites/track_texture_scifi.png")
 	visual_line.texture_mode = Line2D.LINE_TEXTURE_TILE
 	visual_line.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
@@ -28,8 +32,43 @@ func _init():
 	visual_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	visual_line.end_cap_mode = Line2D.LINE_CAP_ROUND
 	visual_line.closed = true
+	visual_line.z_index = 0
 	add_child(visual_line)
+	
+	# --- Edge lines (border glow) ---
+	edge_line_inner = Line2D.new()
+	edge_line_inner.width = 3.0
+	edge_line_inner.default_color = Color(0.0, 0.85, 1.0, 0.55)
+	edge_line_inner.joint_mode = Line2D.LINE_JOINT_ROUND
+	edge_line_inner.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	edge_line_inner.end_cap_mode = Line2D.LINE_CAP_ROUND
+	edge_line_inner.closed = true
+	edge_line_inner.antialiased = true
+	edge_line_inner.z_index = 1
+	add_child(edge_line_inner)
+	
+	edge_line_outer = Line2D.new()
+	edge_line_outer.width = 3.0
+	edge_line_outer.default_color = Color(0.0, 0.85, 1.0, 0.55)
+	edge_line_outer.joint_mode = Line2D.LINE_JOINT_ROUND
+	edge_line_outer.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	edge_line_outer.end_cap_mode = Line2D.LINE_CAP_ROUND
+	edge_line_outer.closed = true
+	edge_line_outer.antialiased = true
+	edge_line_outer.z_index = 1
+	add_child(edge_line_outer)
+	
+	# --- Center line (dashed effect via alpha) ---
+	center_line = Line2D.new()
+	center_line.width = 1.0
+	center_line.default_color = Color(1.0, 1.0, 1.0, 0.12)
+	center_line.joint_mode = Line2D.LINE_JOINT_ROUND
+	center_line.closed = true
+	center_line.antialiased = true
+	center_line.z_index = 1
+	add_child(center_line)
 
+	# --- Collision walls ---
 	static_body = StaticBody2D.new()
 	static_body.collision_layer = 1
 	add_child(static_body)
@@ -47,6 +86,7 @@ func generate_track(seed_val: int, config_track_width: float = -1.0):
 	seed(active_seed)
 	if config_track_width > 0.0:
 		track_width = config_track_width
+		visual_line.width = track_width
 	
 	path.curve.clear_points()
 	waypoints.clear()
@@ -92,8 +132,10 @@ func build_visuals():
 	var baked = path.curve.get_baked_points()
 	waypoints = Array(baked)
 	
+	# --- Track surface ---
 	visual_line.points = baked
 	
+	# --- Edge lines and collision ---
 	var inner_pts = PackedVector2Array()
 	var outer_pts = PackedVector2Array()
 	var p_count = baked.size()
@@ -111,13 +153,40 @@ func build_visuals():
 			var dir = (p_next - p_curr).normalized()
 			var normal = Vector2(-dir.y, dir.x)
 			
-			# Usamos un ancho ligeramente menor al visual para que reboten dentro de la pista
-			var offset = (track_width / 2.0) - 15.0
-			inner_pts.append(p_curr + normal * offset)
-			outer_pts.append(p_curr - normal * offset)
-			
+			var collision_offset = (track_width / 2.0) - 15.0
+			inner_pts.append(p_curr + normal * collision_offset)
+			outer_pts.append(p_curr - normal * collision_offset)
+	
+	# Set collision polygons
 	col_inner.polygon = inner_pts
 	col_outer.polygon = outer_pts
+	
+	# Set edge lines (at visual track edge, slightly inside collision)
+	var edge_offset = (track_width / 2.0) - 5.0
+	var edge_inner_pts = PackedVector2Array()
+	var edge_outer_pts = PackedVector2Array()
+	
+	if p_count > 2:
+		for i in range(p_count):
+			var p_curr = baked[i]
+			var next_idx = (i + 1) % p_count
+			var p_next = baked[next_idx]
+			
+			if p_curr.distance_squared_to(p_next) < 1.0:
+				next_idx = (next_idx + 1) % p_count
+				p_next = baked[next_idx]
+			
+			var dir = (p_next - p_curr).normalized()
+			var normal = Vector2(-dir.y, dir.x)
+			
+			edge_inner_pts.append(p_curr + normal * edge_offset)
+			edge_outer_pts.append(p_curr - normal * edge_offset)
+	
+	edge_line_inner.points = edge_inner_pts
+	edge_line_outer.points = edge_outer_pts
+	
+	# Center line: same as baked center path
+	center_line.points = baked
 
 
 func get_waypoints() -> Array:

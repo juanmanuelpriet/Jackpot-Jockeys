@@ -182,14 +182,12 @@ func _spawn_agents_sync():
 # FREE CAMERA — zoom (scroll), pan (WASD/arrows/middle-drag)
 # ============================================================================
 
-func _unhandled_input(event):
+func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			cam_zoom_level = clampf(cam_zoom_level * 1.15, cam_zoom_min, cam_zoom_max)
-			camera.zoom = Vector2(cam_zoom_level, cam_zoom_level)
+			_adjust_zoom(1.15)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			cam_zoom_level = clampf(cam_zoom_level / 1.15, cam_zoom_min, cam_zoom_max)
-			camera.zoom = Vector2(cam_zoom_level, cam_zoom_level)
+			_adjust_zoom(1.0 / 1.15)
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			if event.pressed:
 				cam_dragging = true
@@ -201,6 +199,10 @@ func _unhandled_input(event):
 		var delta_px = event.position - cam_drag_start
 		cam_drag_start = event.position
 		camera.position -= delta_px / cam_zoom_level
+
+func _adjust_zoom(factor: float):
+	cam_zoom_level = clampf(cam_zoom_level * factor, cam_zoom_min, cam_zoom_max)
+	camera.zoom = Vector2(cam_zoom_level, cam_zoom_level)
 
 func _process(delta):
 	# WASD / Arrow key panning
@@ -216,6 +218,12 @@ func _process(delta):
 	
 	if pan_dir != Vector2.ZERO:
 		camera.position += pan_dir.normalized() * cam_pan_speed * delta / cam_zoom_level
+		
+	# Keyboard Zoom (E to zoom in, Q to zoom out)
+	if Input.is_key_pressed(KEY_E):
+		_adjust_zoom(1.0 + 2.0 * delta)
+	if Input.is_key_pressed(KEY_Q):
+		_adjust_zoom(1.0 - 2.0 * delta)
 
 # ============================================================================
 # PHYSICS LOOP — Demo mode with action hold

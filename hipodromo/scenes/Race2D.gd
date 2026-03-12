@@ -197,6 +197,9 @@ func _input(event):
 				
 	elif event is InputEventMagnifyGesture:
 		_adjust_zoom(event.factor)
+	
+	elif event is InputEventPanGesture:
+		camera.position += event.delta * (20.0 / cam_zoom_level)
 				
 	elif event is InputEventMouseMotion and cam_dragging:
 		var delta_px = event.position - cam_drag_start

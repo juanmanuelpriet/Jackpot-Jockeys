@@ -22,6 +22,10 @@ var action_repeat: int:
 
 # --- Agents ---
 @export var num_agents: int = 1
+@export var agent_type: String = "baseline"  ## "baseline" | "neural"
+@export var neural_weights_path: String = "" ## Path to weights JSON (empty = dummy policy)
+@export var bridge_port: int = 9090
+@export var headless_training: bool = false
 
 # --- World Events ---
 @export var enable_events: bool = false
@@ -58,10 +62,12 @@ func setup_curriculum():
 	_compute_hash()
 
 func _compute_hash():
-	var raw = "%d_%d_%d_%d_%d_%.2f_%.2f_%.1f" % [
+	var raw = "%d_%d_%d_%d_%d_%.2f_%.2f_%.1f_%s" % [
 		base_seed, curriculum_phase, num_agents,
 		physics_fps, inference_fps,
-		hazard_frequency, max_hazard_severity, track_width
+		hazard_frequency, max_hazard_severity, track_width,
+		agent_type
 	]
 	config_hash = "AG-RACE-v1-%d" % hash(raw)
+
 

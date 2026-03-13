@@ -146,7 +146,7 @@ func _update_event_overlay():
 # PUBLIC API — called by Controllers / AI Brains
 # ============================================================================
 
-func apply_inputs(in_throttle: float, in_brake: float, in_steer: float):
+func apply_inputs(in_throttle: float, in_brake: float, in_steer: float, in_drift: float = 0.0, in_stabilize: float = 0.0):
 	if stun_timer > 0.0:
 		self.throttle = 0.0
 		self.brake_input = 0.0
@@ -160,6 +160,13 @@ func apply_inputs(in_throttle: float, in_brake: float, in_steer: float):
 	self.throttle = clamp(in_throttle, 0.0, 1.0)
 	self.brake_input = clamp(in_brake, 0.0, 1.0)
 	self.steer = clamp(final_steer, -1.0, 1.0)
+	
+	# Drift/Stabilize modulation (only applies when non-zero)
+	# drift reduces lateral grip, stabilize increases it
+	if in_drift > 0.01 or in_stabilize > 0.01:
+		var drift_factor = 1.0 - (clamp(in_drift, 0.0, 1.0) * 0.6)   # up to 40% less grip
+		var stab_factor = 1.0 + (clamp(in_stabilize, 0.0, 1.0) * 0.3) # up to 30% more grip
+		drift_impairment = clamp(drift_impairment * drift_factor * stab_factor, 0.3, 1.5)
 
 func set_color(c: Color):
 	# Color the agent ring (identification halo)

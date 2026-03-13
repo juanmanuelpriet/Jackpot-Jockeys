@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dna1neu2ral3"]
+
+[ext_resource type="Script" path="res://agents/NeuralAgent.gd" id="1_neural"]
+
+[node name="NeuralAgent" type="Node"]
+script = ExtResource("1_neural")

@@ -149,12 +149,19 @@ func reset_environment(config: EnvironmentConfig, custom_seed: int = -1) -> Arra
 func _spawn_agents_sync():
 	var start_transform = track_generator.get_start_transform()
 	var vehicle_scene = preload("res://agents/Vehicle.tscn")
-	var brain_scene = preload("res://agents/BaselineAgent.tscn")
+	var baseline_brain_scene = preload("res://agents/BaselineAgent.tscn")
+	var neural_brain_scene = preload("res://agents/NeuralAgent.tscn")
 	var colors = [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW]
 	
 	for i in range(env_config.num_agents):
 		var v = vehicle_scene.instantiate() as Node2D
-		var brain = brain_scene.instantiate()
+		var brain: Node
+		
+		# Select brain type from config
+		if env_config.agent_type == "neural":
+			brain = neural_brain_scene.instantiate()
+		else:
+			brain = baseline_brain_scene.instantiate()
 		
 		# Stable lateral offset anchored to base_seed
 		var y_offset = (i - (env_config.num_agents - 1) / 2.0) * 50.0 
@@ -174,7 +181,11 @@ func _spawn_agents_sync():
 	for b in brains:
 		b.vehicle = b.get_parent()
 		b.setup(track_generator, world_event_manager, vehicles)
-		
+		# If neural agent, optionally load weights
+		if env_config.agent_type == "neural" and b is NeuralAgent:
+			if env_config.neural_weights_path != "":
+				b.load_weights_from_json(env_config.neural_weights_path)
+	
 	world_event_manager.initialize(env_config, vehicles)
 	is_running = true
 
@@ -242,10 +253,14 @@ func _physics_process(delta):
 	var inference_dt = 1.0 / float(env_config.inference_fps)
 	
 	if time_since_last_inference >= inference_dt:
-		# Compute new actions from baseline policy
+		# Compute new actions from agent policy
 		var actions: Array[Dictionary] = []
 		for i in range(env_config.num_agents):
-			actions.append(brains[i].compute_baseline_action(time_since_last_inference))
+			var b = brains[i]
+			if b is NeuralAgent:
+				actions.append(b.compute_action(time_since_last_inference))
+			else:
+				actions.append(b.compute_baseline_action(time_since_last_inference))
 		
 		# Store for action hold
 		last_actions = []
@@ -267,7 +282,11 @@ func _physics_process(delta):
 			if i < last_actions.size():
 				var v = vehicles[i]
 				var act = last_actions[i]
-				v.apply_inputs(act["throttle"], act["brake"], act["steer"])
+				v.apply_inputs(
+					act.get("throttle", 0.0),
+					act.get("brake", 0.0),
+					act.get("steer", 0.0)
+				)
 
 # ============================================================================
 # GYMNASIUM-LIKE STEP
@@ -286,7 +305,13 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 	for i in range(vehicles.size()):
 		var v = vehicles[i]
 		var act = actions[i]
-		v.apply_inputs(act["throttle"], act["brake"], act["steer"])
+		v.apply_inputs(
+			act.get("throttle", 0.0),
+			act.get("brake", 0.0),
+			act.get("steer", 0.0),
+			act.get("drift", 0.0),
+			act.get("stabilize", 0.0)
+		)
 		
 	# 3. Extract rewards, observations, and info
 	for i in range(vehicles.size()):

@@ -17,47 +17,43 @@
 \maketitle
 
 \section{Introducción}
-Este documento explica los fundamentos matemáticos del entorno AG-RACE, detallando el modelo de física tipo \textit{hovercraft} y el proceso de aprendizaje por neuroevolución utilizando el algoritmo CMA-ES.
+Este documento explica los fundamentos matemáticos del entorno AG-RACE, detallando el modelo de física tipo \textit{hovercraft} y el proceso de aprendizaje por neuroevolución utilizando el algoritmo CMA-ES con una arquitectura de red neuronal profunda.
 
 \section{Resumen de Objetivos}
 El objetivo principal del entrenamiento es crear un piloto que:
 \begin{itemize}
     \item \textbf{Maximice la velocidad} sin perder el control (\textit{Drifting} controlado).
-    \item \textbf{Mantenga la inercia}: Se penaliza el uso excesivo del freno para fomentar el paso por curva fluido.
-    \item \textbf{Sea agresivo} con otros competidores (el contacto físico entre naves es táctico).
-    \item \textbf{Evite a toda costa los muros}, ya que el contacto con el límite de pista resulta en la eliminación.
+    \item \textbf{Mantenga la inercia}: Se penaliza el uso del freno para fomentar el flujo en curvas.
+    \item \textbf{Sea agresivo} con otros competidores (el contacto físico es táctico).
+    \item \textbf{Evite los muros}: El contacto con los límites resulta en eliminación inmediata.
 \end{itemize}
 
 \section{Física de Vuelo (Hover Physics)}
-A diferencia de un coche tradicional, los vehículos en AG-RACE operan sin fricción de ruedas, utilizando fuerzas de empuje e inercia lateral para el derrape.
-
 \subsection{Dinámica Longitudinal}
-La velocidad de avance $v_f$ se calcula en cada frame (60Hz) mediante:
+La velocidad de avance $v_f$ se calcula mediante:
 \[ v_{f, t+1} = (v_{f, t} + A \cdot \tau \cdot \Delta t) \cdot \mu_{f} \cdot \delta \]
-Donde:
-\begin{itemize}
-    \item $A$: Aceleración máxima del motor.
-    \item $\tau \in [0, 1]$: Entrada de acelerador (\textit{throttle}).
-    \item $\mu_{f}$: Fricción longitudinal.
-\end{itemize}
+Donde $\tau$ es el acelerador y $\mu_{f}$ la fricción longitudinal.
 
-\section{Entrenamiento Neuroevolutivo (CMA-ES)}
-\subsection{Función de Recompensa Refinada (Fitness)}
-El puntaje de fitness $F$ ha sido optimizado para priorizar la fluidez sobre la frenada:
-\[ F = (\text{Progreso} \times 2000) - (\text{Uso de Freno} \times 10) + (\text{Intento de Giro} \times 20) - \text{Penalizaciones} \]
+\section{Entrenamiento Neuroevolutivo}
+Utilizamos el algoritmo CMA-ES para optimizar una red neuronal profunda.
 
-\textbf{Componentes de Recompensa:}
-\begin{itemize}
-    \item \textbf{Progreso Lineal}: Recompensa principal por avanzar metros en el eje central de la pista.
-    \item \textbf{Penalización de Freno}: Se resta puntaje si el agente activa el freno, obligándolo a usar la inercia y el \textit{steering} para girar.
-    \item \textbf{Bono de Curva}: Se premia el ángulo de giro mientras hay velocidad de avance, incentivando la búsqueda del "vértice" de la curva.
-    \item \textbf{Multi-Semilla}: Cada agente se evalúa en 3 configuraciones de pista distintas (42, 999, 1234) para garantizar un aprendizaje generalista y no memorístico.
-\end{itemize}
+\subsection{Arquitectura Neuronal Gen 2 (Deep Scaling)}
+La red \texttt{RacerPolicy} cuenta con **13,374 parámetros** distribuidos en 5 capas internas. Esta profundidad permite representar comportamientos más complejos.
 
-\textbf{Reglas de Colisión:}
-\begin{itemize}
-    \item \textbf{Nave vs Nave}: No hay penalización. Se permite el rebote físico.
-    \item \textbf{Nave vs Muro}: Eliminación inmediata (\textit{Permadeath}) tras el periodo inicial de gracia de 2 segundos.
-\end{itemize}
+\subsection{¿Hay Mutación y Reproducción?}
+Aunque CMA-ES es un algoritmo estadístico, sus componentes mapean directamente a conceptos biológicos:
+
+\begin{enumerate}
+    \item \textbf{Reproducción (Muestreo)}: En lugar de "padre y madre", la reproducción ocurre mediante el muestreo de una distribución normal. Cada nuevo individuo es un "descendiente" de la media actual de la población.
+    \item \textbf{Mutación (Sigma y Covarianza)}: 
+    \begin{itemize}
+        \item El parámetro $\sigma$ (step-size) controla la intensidad de la mutación global.
+        \item La matriz de covarianza adapta la dirección de la mutación para "estirarse" hacia donde los resultados son mejores.
+    \end{itemize}
+    \item \textbf{Recombinación}: Al actualizar la media basándose en los mejores individuos, el algoritmo combina las mejores características de toda la generación.
+\end{enumerate}
+
+\subsection{Función de Fitness}
+\[ F = (\text{Progreso} \times 2000) - (\text{Uso de Freno} \times 10) + (\text{Giro en Curva} \times 20) \]
 
 \end{document}

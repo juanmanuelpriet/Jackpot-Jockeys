@@ -1,16 +1,23 @@
 extends CharacterBody2D
 class_name Vehicle
 
-@export var max_speed: float = 1400.0
-@export var acceleration: float = 1800.0
-@export var turn_speed: float = 3.5
-@export var lateral_grip: float = 4.0 
-@export var drag: float = 1.0 
-@export var braking: float = 2000.0
+@export var max_speed: float = 600.0
+@export var max_acceleration: float = 1200.0
+@export var turn_speed: float = 2.8
+@export var friction_longitudinal: float = 0.98
+@export var friction_lateral: float = 0.92
+@export var hover_damping: float = 0.99
 
 var throttle: float = 0.0 # 0.0 a 1.0
 var brake_input: float = 0.0 # 0.0 a 1.0
 var steer: float = 0.0 # -1.0 a 1.0
+var drift_input: float = 0.0 # 0.0 a 1.0
+var stabilize_input: float = 0.0 # 0.0 a 1.0
+
+# Internal velocity components (Hover physics)
+var velocity_forward: float = 0.0
+var velocity_lateral: float = 0.0
+var angular_velocity: float = 0.0
 
 # --- Modificadores del Entorno (World Events) ---
 var friction_modifier: float = 1.0
@@ -19,6 +26,7 @@ var sensor_noise: float = 0.0
 var stun_timer: float = 0.0
 var drift_impairment: float = 1.0
 var _collisions_this_frame: int = 0
+var is_dead: bool = false
 
 # --- Visual nodes (resolved in _ready) ---
 @onready var visual = $Visual
@@ -32,6 +40,11 @@ var _collisions_this_frame: int = 0
 var _stun_flash_timer: float = 0.0
 
 func _physics_process(delta):
+	if is_dead:
+		velocity = velocity.move_toward(Vector2.ZERO, 3000.0 * delta)
+		move_and_slide()
+		return
+
 	# Decrement stun timer
 	if stun_timer > 0.0:
 		stun_timer -= delta
@@ -41,46 +54,73 @@ func _physics_process(delta):
 	_collisions_this_frame = 0
 	
 	if abs(steer) > 0.01:
-		rotation += steer * turn_speed * delta
+		# 4. Dirección: steer produce cambio de heading proporcional a velocidad.
+		var speed_norm = clamp(abs(velocity_forward) / max_speed, 0.0, 1.0)
+		var turn_rate = steer * turn_speed * speed_norm
+		rotation += turn_rate * delta
+		
+		# 5. Inercia lateral (Drift antigravity)
+		# Cuando el vehículo gira a velocidad, genera velocidad lateral proporcional al cambio de heading.
+		velocity_lateral -= turn_rate * velocity_forward * 0.02
 
-	# Dirección hacia la que apunta la nave
 	var forward_dir = Vector2.RIGHT.rotated(rotation)
 	var right_dir = Vector2.DOWN.rotated(rotation)
 	
 	# Fuerzas aplicadas (considerando modificadores de RL)
-	var final_acceleration = acceleration * friction_modifier
-	var final_braking = braking * friction_modifier
-	var final_grip = lateral_grip * drift_impairment
-	var final_drag = drag * friction_modifier
+	var final_acceleration = max_acceleration * friction_modifier
+	var final_fric_long = friction_longitudinal
+	var final_fric_lat = friction_lateral * drift_impairment
 
+	# 1. Propulsión
 	if throttle > 0:
-		velocity += forward_dir * throttle * final_acceleration * delta
+		velocity_forward += throttle * final_acceleration * delta
 	
 	if brake_input > 0:
-		var current_speed = velocity.length()
-		var brake_amount = min(final_braking * delta * brake_input, current_speed)
-		if current_speed > 0:
-			velocity -= (velocity / current_speed) * brake_amount
+		velocity_forward = move_toward(velocity_forward, 0.0, max_acceleration * 1.5 * brake_input * delta)
 
-	# Fricción lateral (Drift recovery / Grip)
-	var lateral_velocity = velocity.project(right_dir)
-	var forward_velocity = velocity.project(forward_dir)
-	
-	lateral_velocity = lateral_velocity.move_toward(Vector2.ZERO, final_grip * lateral_velocity.length() * delta)
-	forward_velocity = forward_velocity.move_toward(Vector2.ZERO, final_drag * forward_velocity.length() * delta)
-	
-	velocity = forward_velocity + lateral_velocity
+	# 2. Fricción longitudinal
+	velocity_forward *= final_fric_long
+
+	# 3. Fricción lateral (hover drift)
+	# Si drift_input > 0, reducir fricción lateral para permitir derrape.
+	var mod_fric_lat = final_fric_lat
+	if drift_input > 0.0:
+		# Reduce friction closer to 1.0 (less friction because it multiplies velocity reducing it less)
+		# Wait, multiplier is 0.92 (92% retained). To slide more, multiplier should be closer to 1.0.
+		mod_fric_lat = lerp(final_fric_lat, 0.99, drift_input)
+		
+	# 6. Estabilización
+	# stabilize_input aumenta la fricción lateral y reduce drift.
+	if stabilize_input > 0.0:
+		# Increase friction (multiplier closer to 0.0 means it stops faster laterally)
+		mod_fric_lat = lerp(mod_fric_lat, 0.80, stabilize_input)
+
+	velocity_lateral *= mod_fric_lat
+
+	# 7. Hover damping
+	velocity_forward *= hover_damping
+	velocity_lateral *= hover_damping
 	
 	# Clamp speed
-	if velocity.length() > max_speed:
-		velocity = velocity.limit_length(max_speed)
+	var current_speed = sqrt(velocity_forward**2 + velocity_lateral**2)
+	if current_speed > max_speed:
+		var scale_f = max_speed / current_speed
+		velocity_forward *= scale_f
+		velocity_lateral *= scale_f
 	
+	# Actualizar posición
+	velocity = forward_dir * velocity_forward + right_dir * velocity_lateral
 	move_and_slide()
 	
+	# Handle Collisions (Bounce)
 	for i in get_slide_collision_count():
 		var col = get_slide_collision(i)
 		var n = col.get_normal()
-		velocity = velocity.bounce(n) * 0.7
+		# Reflect velocity visually/physically in global space
+		velocity = velocity.bounce(n) * 0.5
+		# Re-project to internal local velocities
+		velocity_forward = velocity.dot(forward_dir)
+		velocity_lateral = velocity.dot(right_dir)
 		_collisions_this_frame += 1
 		break
 	
@@ -147,7 +187,7 @@ func _update_event_overlay():
 # ============================================================================
 
 func apply_inputs(in_throttle: float, in_brake: float, in_steer: float, in_drift: float = 0.0, in_stabilize: float = 0.0):
-	if stun_timer > 0.0:
+	if is_dead or stun_timer > 0.0:
 		self.throttle = 0.0
 		self.brake_input = 0.0
 		self.steer = 0.0
@@ -160,13 +200,8 @@ func apply_inputs(in_throttle: float, in_brake: float, in_steer: float, in_drift
 	self.throttle = clamp(in_throttle, 0.0, 1.0)
 	self.brake_input = clamp(in_brake, 0.0, 1.0)
 	self.steer = clamp(final_steer, -1.0, 1.0)
-	
-	# Drift/Stabilize modulation (only applies when non-zero)
-	# drift reduces lateral grip, stabilize increases it
-	if in_drift > 0.01 or in_stabilize > 0.01:
-		var drift_factor = 1.0 - (clamp(in_drift, 0.0, 1.0) * 0.6)   # up to 40% less grip
-		var stab_factor = 1.0 + (clamp(in_stabilize, 0.0, 1.0) * 0.3) # up to 30% more grip
-		drift_impairment = clamp(drift_impairment * drift_factor * stab_factor, 0.3, 1.5)
+	self.drift_input = clamp(in_drift, 0.0, 1.0)
+	self.stabilize_input = clamp(in_stabilize, 0.0, 1.0)
 
 func set_color(c: Color):
 	# Color the agent ring (identification halo)
@@ -198,8 +233,38 @@ func set_sensor_noise(val: float):
 	sensor_noise = max(0.0, val)
 
 func apply_disturbance(force_vector: Vector2):
-	velocity += force_vector
+	var forward_dir = Vector2.RIGHT.rotated(rotation)
+	var right_dir = Vector2.DOWN.rotated(rotation)
+	velocity_forward += force_vector.dot(forward_dir)
+	velocity_lateral += force_vector.dot(right_dir)
+
 
 ## Number of wall collisions detected this physics frame.
 func get_collision_count_this_frame() -> int:
 	return _collisions_this_frame
+
+func die():
+	is_dead = true
+	throttle = 0.0
+	brake_input = 1.0
+	steer = 0.0
+	
+	if visual:
+		visual.modulate = Color(0.3, 0.3, 0.3, 0.5) # Darker and transparent
+	
+	if particles:
+		particles.emitting = false
+		
+	if heading_indicator:
+		heading_indicator.visible = false
+		
+	if agent_ring:
+		agent_ring.visible = false
+		
+	if event_overlay:
+		event_overlay.visible = false
+		
+	# Disable collisions so other agents don't get stuck on corpses
+	var coll_shape = get_node_or_null("CollisionShape2D")
+	if coll_shape:
+		coll_shape.set_deferred("disabled", true)

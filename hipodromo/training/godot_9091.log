@@ -1,0 +1,91 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+Metal 4.0 - Forward+ - Using Device #0: Apple - Apple M5 (Apple9)
+
+[PythonBridge] Listening on port 9091
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3786589023 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+=== EPISODE END ===
+  seed:                42
+  config_hash:         AG-RACE-v1-3786589023
+  track_hash:          346025456
+  event_schedule_hash: 515628646
+  total_steps:         15
+  terminated_cause:    all_agents_done
+  truncated_cause:     none
+  --- Agent 0 ---
+    reward_total:     +321.501
+    final_progress:   0.0147
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+  --- Agent 1 ---
+    reward_total:     +325.923
+    final_progress:   0.0149
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3786589023 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+=== EPISODE END ===
+  seed:                42
+  config_hash:         AG-RACE-v1-3786589023
+  track_hash:          346025456
+  event_schedule_hash: 515628646
+  total_steps:         15
+  terminated_cause:    all_agents_done
+  truncated_cause:     none
+  --- Agent 0 ---
+    reward_total:     +321.501
+    final_progress:   0.0147
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+  --- Agent 1 ---
+    reward_total:     +325.923
+    final_progress:   0.0149
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3786589023 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+=== EPISODE END ===
+  seed:                42
+  config_hash:         AG-RACE-v1-3786589023
+  track_hash:          346025456
+  event_schedule_hash: 515628646
+  total_steps:         15
+  terminated_cause:    all_agents_done
+  truncated_cause:     none
+  --- Agent 0 ---
+    reward_total:     +321.501
+    final_progress:   0.0147
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+  --- Agent 1 ---
+    reward_total:     +325.923
+    final_progress:   0.0149
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3786589023 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+=== EPISODE END ===
+  seed:                42
+  config_hash:         AG-RACE-v1-3786589023
+  track_hash:          346025456
+  event_schedule_hash: 515628646
+  total_steps:         15
+  terminated_cause:    all_agents_done
+  truncated_cause:     none
+  --- Agent 0 ---
+    reward_total:     +321.501
+    final_progress:   0.0147
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+  --- Agent 1 ---
+    reward_total:     +325.923
+    final_progress:   0.0149
+    off_track_time:   0.00s
+    collisions:       1
+    stuck_events:     0
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3786589023 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+[PythonBridge] Client connected from 127.0.0.1
+[ag-race] Reset | Seed: 999 | Config: AG-RACE-v1-1368570187 | Agents: 5 | Track hash: 17285406 | Events hash: 3395179083

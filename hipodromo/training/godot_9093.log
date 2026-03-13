@@ -1,0 +1,46 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+Metal 4.0 - Forward+ - Using Device #0: Apple - Apple M5 (Apple9)
+
+[PythonBridge] Listening on port 9093
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3786589023 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+[PythonBridge] Client connected from 127.0.0.1
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-2866404454 | Agents: 5 | Track hash: 346025456 | Events hash: 515628646
+=== EPISODE END ===
+  seed:                42
+  config_hash:         AG-RACE-v1-2866404454
+  track_hash:          346025456
+  event_schedule_hash: 515628646
+  total_steps:         2000
+  terminated_cause:    none
+  truncated_cause:     max_steps_2000
+  --- Agent 0 ---
+    reward_total:     -4893.600
+    final_progress:   1.0000
+    off_track_time:   133.33s
+    collisions:       0
+    stuck_events:     82
+  --- Agent 1 ---
+    reward_total:     -643.308
+    final_progress:   1.0000
+    off_track_time:   0.00s
+    collisions:       0
+    stuck_events:     82
+  --- Agent 2 ---
+    reward_total:     -636.000
+    final_progress:   0.0000
+    off_track_time:   0.00s
+    collisions:       0
+    stuck_events:     82
+  --- Agent 3 ---
+    reward_total:     -643.000
+    final_progress:   0.0000
+    off_track_time:   0.00s
+    collisions:       0
+    stuck_events:     82
+  --- Agent 4 ---
+    reward_total:     -4892.999
+    final_progress:   0.0000
+    off_track_time:   133.33s
+    collisions:       0
+    stuck_events:     82
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-2866404454 | Agents: 5 | Track hash: 346025456 | Events hash: 515628646

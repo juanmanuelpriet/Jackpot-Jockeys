@@ -1,0 +1,59 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+\title{AG-RACE: Antigravity Training \& Hover Physics}
+\author{Senior RL Systems Engineer}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This document outlines the mathematical foundation for the Antigravity Racing (AG-RACE) environment, specifically focusing on the newly implemented Hovercraft Physics model and the CMA-ES (Covariance Matrix Adaptation Evolution Strategy) training pipeline.
+
+\section{Antigravity Hover Physics}
+The vehicle movement is no longer kinematic. It is governed by separate longitudinal and lateral velocity components, allowing for realistic inertia and drifting.
+
+\subsection{Forward Dynamics}
+The longitudinal velocity $v_f$ is updated via:
+\[ v_{f, t+1} = (v_{f, t} + \alpha_{max} \cdot \tau \cdot \Delta t) \cdot \gamma_{long} \cdot \delta_{hover} \]
+Where:
+\begin{itemize}
+    \item $\alpha_{max}$: Maximum acceleration force.
+    \item $\tau \in [0, 1]$: Throttle input.
+    \item $\gamma_{long}$: Longitudinal friction (damping).
+    \item $\delta_{hover}$: Hover stabilization factor.
+\end{itemize}
+
+\subsection{Lateral Dynamics (Drifting)}
+Lateral velocity $v_l$ is governed by:
+\[ v_{l, t+1} = (v_{l, t} - \Delta \theta \cdot v_f \cdot \kappa_{inertia}) \cdot \gamma_{lat} \]
+Where:
+\begin{itemize}
+    \item $\Delta \theta$: Change in rotation (heading) per frame.
+    \item $\kappa_{inertia}$: Centrifugal inertia coefficient.
+    \item $\gamma_{lat}$: Lateral friction, modified by \textit{drift} and \textit{stabilize} inputs.
+\end{itemize}
+
+\section{Training via CMA-ES}
+The \texttt{NeuralAgent} is trained using the CMA-ES algorithm, which is highly efficient for non-differentiable black-box optimization in continuous parameter spaces.
+
+\subsection{Fitness Function}
+The objective is to maximize the mathematical fitness $F$:
+\[ F = (\text{Progress} \times 1000) + (\text{Reward} \times 10) - (\text{Collisions} \times 50) - (\text{OffTrack} \times 1) \]
+This ensures the agent learns to:
+\begin{enumerate}
+    \item Progress as far as possible on the track.
+    \item Avoid walls (permadeath penalty).
+    \item Maintain stability on the asphalt.
+\end{enumerate}
+
+\subsection{Neuroevolution}
+The policy network $\pi_\omega$ maps the 59-dimensional observation space to 5 control outputs. CMA-ES optimizes the weights $\omega$ by adapting a multivariate normal distribution based on the performance of the population in each generation.
+
+\end{document}

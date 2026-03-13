@@ -16,8 +16,10 @@ var config_hash: String = ""
 var action_repeat: int:
 	get: return max(1, physics_fps / inference_fps)
 
-# --- Physics ---
-@export var base_friction: float = 1.0
+# --- Physics (Hover) ---
+@export var friction_longitudinal: float = 0.98
+@export var friction_lateral: float = 0.92
+@export var hover_damping: float = 0.99
 @export var track_width: float = 300.0
 
 # --- Agents ---
@@ -62,10 +64,11 @@ func setup_curriculum():
 	_compute_hash()
 
 func _compute_hash():
-	var raw = "%d_%d_%d_%d_%d_%.2f_%.2f_%.1f_%s" % [
+	var raw = "%d_%d_%d_%d_%d_%.3f_%.3f_%.1f_%.3f_%.3f_%.3f_%s" % [
 		base_seed, curriculum_phase, num_agents,
 		physics_fps, inference_fps,
 		hazard_frequency, max_hazard_severity, track_width,
+		friction_longitudinal, friction_lateral, hover_damping,
 		agent_type
 	]
 	config_hash = "AG-RACE-v1-%d" % hash(raw)

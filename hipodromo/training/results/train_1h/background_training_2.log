@@ -1,0 +1,37 @@
+╔══════════════════════════════════════╗
+║   AG-RACE NeuralAgent Training       ║
+║   CMA-ES  |  7438 params            ║
+║   Pop: 4  |  Seeds: 1  |  1 hour  ║
+╚══════════════════════════════════════╝
+[GodotEnv] Starting Godot on port 9090: godot --path /Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo -- --port 9090
+[GodotEnv] Failed to connect to Godot: [Errno 61] Connection refused
+[GodotEnv] Godot output:
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+Metal 4.0 - Forward+ - Using Device #0: Apple - Apple M5 (Apple9)
+
+[PythonBridge] Listening on port 9090
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3880605578 | Agents: 2 | Track hash: 346025456 | Events hash: 515628646
+[PythonBridge] Client connected from 127.0.0.1
+[ag-race] Reset | Seed: 42 | Config: AG-RACE-v1-3880605578 | Agents: 100 | Track hash: 346025456 | Events hash: 515628646
+[ag-race] Reset | Seed: 999 | Config: AG-RACE-v1-1991707951 | Agents: 100 | Track hash: 17285406 | Events hash: 3395179083
+[ag-race] Reset | Seed: 1234 | Config: AG-RACE-v1-1386419566 | Agents: 100 | Track hash: 1672062366 | Events hash: 1310767434
+
+Traceback (most recent call last):
+  File "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/train_1h.py", line 190, in <module>
+    main()
+    ~~~~^^
+  File "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/train_1h.py", line 115, in main
+    f = evaluate_genome(x, env, policy)
+  File "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/train_1h.py", line 32, in evaluate_genome
+    obs, _ = env.reset(seed=seed, options={"phase": 2})
+             ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/godot_env.py", line 67, in reset
+    cmd = {
+        ^^^
+  File "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/godot_env.py", line 63, in _start_godot
+    def reset(self, seed=None, options=None):
+            ^^^^^^^
+  File "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/godot_env.py", line 57, in _start_godot
+    print(f"[GodotEnv] Failed to connect to Godot: {e}")
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionRefusedError: [Errno 61] Connection refused

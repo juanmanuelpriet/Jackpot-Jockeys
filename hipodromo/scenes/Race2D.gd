@@ -7,6 +7,7 @@ var env_config: EnvironmentConfig
 var world_event_manager: WorldEventManager
 var reward_manager: RewardManager
 var hud: Node
+var python_bridge: PythonBridge
 
 var vehicles: Array = []
 var brains: Array = []
@@ -55,6 +56,12 @@ func _ready():
 	var hud_scene = preload("res://ui/HUD.tscn")
 	hud = hud_scene.instantiate()
 	add_child(hud)
+
+	# --- Setup Python Bridge for training ---
+	python_bridge = PythonBridge.new()
+	python_bridge.port = env_config.bridge_port if env_config else 9090
+	python_bridge.command_received.connect(_on_bridge_command)
+	add_child(python_bridge)
 
 	# Standalone/Demo mode init
 	var demo_config = EnvironmentConfig.new(42, 2, "train")
@@ -153,6 +160,10 @@ func _spawn_agents_sync():
 	var neural_brain_scene = preload("res://agents/NeuralAgent.tscn")
 	var colors = [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW]
 	
+	var cols = 5
+	var spacing_x = 120.0
+	var spacing_y = 100.0
+
 	for i in range(env_config.num_agents):
 		var v = vehicle_scene.instantiate() as Node2D
 		var brain: Node
@@ -163,13 +174,25 @@ func _spawn_agents_sync():
 		else:
 			brain = baseline_brain_scene.instantiate()
 		
-		# Stable lateral offset anchored to base_seed
-		var y_offset = (i - (env_config.num_agents - 1) / 2.0) * 50.0 
-		var offset_pos = start_transform.basis_xform(Vector2(0, y_offset))
+		# Grid Spawning: col (lateral), row (longitudinal backwards)
+		var col = i % cols
+		var row = i / cols
+		
+		var x_off = -row * spacing_x
+		var y_off = (col - (cols - 1) / 2.0) * spacing_y
+		
+		var offset_pos = start_transform.basis_xform(Vector2(x_off, y_off))
 		
 		v.global_position = start_transform.get_origin() + offset_pos
 		v.rotation = start_transform.get_rotation()
 		v.set_color(colors[i % colors.size()])
+		
+		# Apply Hover Parameters from Config
+		v.max_speed = 600.0 # Default Tuning
+		v.max_acceleration = 1200.0
+		v.friction_longitudinal = env_config.friction_longitudinal
+		v.friction_lateral = env_config.friction_lateral
+		v.hover_damping = env_config.hover_damping
 		
 		vehicles_parent.add_child(v)
 		vehicles.append(v)
@@ -247,7 +270,8 @@ func _process(delta):
 # ============================================================================
 
 func _physics_process(delta):
-	if not is_running: return
+	# If logic is being driven by bridge (training), skip automatic AI processing
+	if not is_running or (env_config and env_config.headless_training): return
 	
 	time_since_last_inference += delta
 	var inference_dt = 1.0 / float(env_config.inference_fps)
@@ -267,7 +291,7 @@ func _physics_process(delta):
 		for a in actions:
 			last_actions.append(a.duplicate())
 		
-		var step_data = step_environment(actions, time_since_last_inference)
+		var step_data = await step_environment(actions, time_since_last_inference)
 		time_since_last_inference -= inference_dt
 		
 		if is_instance_valid(hud) and env_config.debug_hud:
@@ -313,6 +337,12 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 			act.get("stabilize", 0.0)
 		)
 		
+	# Let Godot natively process N physics ticks
+	if env_config and env_config.headless_training:
+		var ticks_per_step = int(Engine.physics_ticks_per_second / float(env_config.inference_fps))
+		for index in range(ticks_per_step):
+			await get_tree().physics_frame
+			
 	# 3. Extract rewards, observations, and info
 	for i in range(vehicles.size()):
 		var v = vehicles[i]
@@ -334,6 +364,11 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 		var off_track_dist = track_generator.get_off_track_distance(v.global_position)
 		var collisions_this_tick = v.get_collision_count_this_frame()
 		
+		# Permadeath Check (with 2.0s grace period)
+		var race_time = float(current_step) / float(env_config.inference_fps)
+		if collisions_this_tick > 0 and not v.is_dead and race_time > 2.0:
+			v.die()
+			
 		# Track accumulators
 		if off_track_dist > 0.0:
 			agent_total_off_track_time[i] += dt
@@ -365,8 +400,14 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 		})
 		
 	var truncated = current_step >= env_config.max_steps_per_episode
-	var terminated = false  # Expandable: all agents dead, etc.
 	
+	# Terminate if all vehicles are dead
+	var terminated = true
+	for v in vehicles:
+		if not v.is_dead:
+			terminated = false
+			break
+			
 	return {
 		"observations": observations,
 		"rewards": rewards,
@@ -403,3 +444,67 @@ func _log_episode_stats(terminated: bool, truncated: bool):
 		print("    off_track_time:   %.2fs" % agent_total_off_track_time[i])
 		print("    collisions:       %d" % agent_total_collisions[i])
 		print("    stuck_events:     %d" % agent_stuck_events[i])
+# ============================================================================
+# BRIDGE COMMAND HANDLER
+# ============================================================================
+
+func _on_bridge_command(cmd: Dictionary):
+	var type = cmd.get("type", cmd.get("cmd", ""))
+	
+	match type:
+		"reset":
+			var seed_val = cmd.get("seed", 42)
+			var phase = cmd.get("phase", 1)
+			var cfg = EnvironmentConfig.new(seed_val, phase)
+			cfg.num_agents = cmd.get("num_agents", cfg.num_agents)
+			cfg.agent_type = cmd.get("agent_type", "neural")
+			# Only set headless_training if we are actually headless
+			cfg.headless_training = DisplayServer.get_name() == "headless"
+			cfg._compute_hash()
+			
+			var obs = reset_environment(cfg)
+			python_bridge.send_response({"type": "reset_result", "obs": obs})
+			
+		"step":
+			if not is_running:
+				python_bridge.send_response({"error": "Environment not running. Call reset first."})
+				return
+				
+			var action_arrays = cmd.get("actions", [])
+			var actions_dicts: Array[Dictionary] = []
+			
+			for i in range(env_config.num_agents):
+				var b = brains[i]
+				# If baseline, use internal AI. If neural, use provided actions if any.
+				if env_config.agent_type != "baseline" and action_arrays.size() > i:
+					var raw = action_arrays[i]
+					actions_dicts.append({
+						"throttle": raw[0],
+						"brake": raw[1],
+						"steer": raw[2],
+						"drift": raw[3] if raw.size() > 3 else 0.0,
+						"stabilize": raw[4] if raw.size() > 4 else 0.0
+					})
+				else:
+					# Fallback to internal AI
+					if b is NeuralAgent:
+						actions_dicts.append(b.compute_action(1.0/60.0))
+					else:
+						actions_dicts.append(b.compute_baseline_action(1.0/60.0))
+			
+			# Step the environment for one inference tick (covers N physics steps)
+			var result = await step_environment(actions_dicts, 1.0 / float(env_config.inference_fps))
+			
+			# Prepare response (convert observations to serializable format)
+			var response = {
+				"type": "step_result",
+				"obs": result["observations"],
+				"rewards": result["rewards"],
+				"terminated": result["terminated"],
+				"truncated": result["truncated"],
+				"info": result["info"]
+			}
+			python_bridge.send_response(response)
+			
+		"close":
+			get_tree().quit()

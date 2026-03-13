@@ -1,59 +1,75 @@
 \documentclass[12pt]{article}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{geometry}
+\usepackage{xcolor}
 \geometry{a4paper, margin=1in}
 
-\title{AG-RACE: Antigravity Training \& Hover Physics}
-\author{Senior RL Systems Engineer}
+\title{\textbf{Guía Técnica AG-RACE}\\ Física de Hovercraft y Entrenamiento RL}
+\author{Senior Physics \& RL Engineer}
 \date{\today}
 
 \begin{document}
 
 \maketitle
 
-\section{Introduction}
-This document outlines the mathematical foundation for the Antigravity Racing (AG-RACE) environment, specifically focusing on the newly implemented Hovercraft Physics model and the CMA-ES (Covariance Matrix Adaptation Evolution Strategy) training pipeline.
+\section{Introducción}
+Este documento explica los fundamentos matemáticos del entorno AG-RACE, detallando el modelo de física tipo \textit{hovercraft} y el proceso de aprendizaje por neuroevolución utilizando el algoritmo CMA-ES.
 
-\section{Antigravity Hover Physics}
-The vehicle movement is no longer kinematic. It is governed by separate longitudinal and lateral velocity components, allowing for realistic inertia and drifting.
-
-\subsection{Forward Dynamics}
-The longitudinal velocity $v_f$ is updated via:
-\[ v_{f, t+1} = (v_{f, t} + \alpha_{max} \cdot \tau \cdot \Delta t) \cdot \gamma_{long} \cdot \delta_{hover} \]
-Where:
+\section{Resumen de Objetivos}
+El objetivo principal del entrenamiento es crear un piloto que:
 \begin{itemize}
-    \item $\alpha_{max}$: Maximum acceleration force.
-    \item $\tau \in [0, 1]$: Throttle input.
-    \item $\gamma_{long}$: Longitudinal friction (damping).
-    \item $\delta_{hover}$: Hover stabilization factor.
+    \item \textbf{Maximice la velocidad} sin perder el control (\textit{Drifting} controlado).
+    \item \textbf{Sea agresivo} con otros competidores (permitimos el contacto físico).
+    \item \textbf{Evite a toda costa los muros}, ya que el contacto con el límite de pista resulta en la eliminación del agente.
 \end{itemize}
 
-\subsection{Lateral Dynamics (Drifting)}
-Lateral velocity $v_l$ is governed by:
-\[ v_{l, t+1} = (v_{l, t} - \Delta \theta \cdot v_f \cdot \kappa_{inertia}) \cdot \gamma_{lat} \]
-Where:
+\section{Física de Vuelo (Hover Physics)}
+A diferencia de un coche tradicional, los vehículos en AG-RACE operan sin fricción de ruedas, utilizando fuerzas de empuje e inercia lateral para el derrape.
+
+\subsection{Dinámica Longitudinal}
+La velocidad de avance $v_f$ se calcula en cada frame (60Hz) mediante:
+\[ v_{f, t+1} = (v_{f, t} + A \cdot \tau \cdot \Delta t) \cdot \mu_{f} \cdot \delta \]
+Donde:
 \begin{itemize}
-    \item $\Delta \theta$: Change in rotation (heading) per frame.
-    \item $\kappa_{inertia}$: Centrifugal inertia coefficient.
-    \item $\gamma_{lat}$: Lateral friction, modified by \textit{drift} and \textit{stabilize} inputs.
+    \item $A$: Aceleración máxima del motor.
+    \item $\tau \in [0, 1]$: Entrada de acelerador (\textit{throttle}).
+    \item $\mu_{f}$: Fricción longitudinal (resistencia al aire/deslizamiento).
+    \item $\delta$: Amortiguación de vuelo constante.
 \end{itemize}
 
-\section{Training via CMA-ES}
-The \texttt{NeuralAgent} is trained using the CMA-ES algorithm, which is highly efficient for non-differentiable black-box optimization in continuous parameter spaces.
+\subsection{Dinámica Lateral e Inercia}
+La inercia lateral $v_l$ define el comportamiento de derrape:
+\[ v_{l, t+1} = (v_{l, t} - \omega \cdot v_f \cdot \kappa) \cdot \mu_{l} \]
+Donde:
+\begin{itemize}
+    \item $\omega$: Velocidad angular (giro del vehículo).
+    \item $\kappa$: Coeficiente de inercia que "empuja" el vehículo hacia afuera en las curvas.
+    \item $\mu_{l}$: Fricción lateral, reducida drásticamente durante el \textit{drift}.
+\end{itemize}
 
-\subsection{Fitness Function}
-The objective is to maximize the mathematical fitness $F$:
-\[ F = (\text{Progress} \times 1000) + (\text{Reward} \times 10) - (\text{Collisions} \times 50) - (\text{OffTrack} \times 1) \]
-This ensures the agent learns to:
+\section{Entrenamiento Neuroevolutivo (CMA-ES)}
+El cerebro de cada nave es una Red Neuronal (\texttt{RacerPolicy}) de 7,438 parámetros que mapea sensores (distancia a muros, naves rivales) a controles de conducción.
+
+\subsection{El Algoritmo: CMA-ES}
+Utilizamos la \textit{Estrategia de Evolución con Adaptación de la Matriz de Covarianza}. En lugar de gradientes, este método:
 \begin{enumerate}
-    \item Progress as far as possible on the track.
-    \item Avoid walls (permadeath penalty).
-    \item Maintain stability on the asphalt.
+    \item Genera una población de "pesos" aleatorios siguiendo una campana de Gauss.
+    \item Evalúa qué pilotos sobreviven mejor en la pista.
+    \item Re-centra y ensancha la campana de Gauss hacia los mejores resultados.
 \end{enumerate}
 
-\subsection{Neuroevolution}
-The policy network $\pi_\omega$ maps the 59-dimensional observation space to 5 control outputs. CMA-ES optimizes the weights $\omega$ by adapting a multivariate normal distribution based on the performance of the population in each generation.
+\subsection{Función de Recompensa (Fitness)}
+Para que el agente aprenda a ser competitivo, se utiliza el puntaje $F$:
+\[ F = (\text{Progreso} \times 2000) - (\text{Choques en Muros} \times 150) - (\text{Tiempo Fuera de Pista}) \]
+\textbf{Reglas Especiales:}
+\begin{itemize}
+    \item \textbf{Choques entre naves:} Permitidos y no penalizados con muerte. Fomentan la agresividad.
+    \item \textbf{Choques en muros:} Causan "Muerte Permanente" y gran penalización después del arranque.
+    \item \textbf{Multi-Semilla:} Cada agente se evalúa en 3 semillas distintas (42, 999, 1234) para asegurar que aprenda a \textbf{conducir} y no solo a memorizar un mapa.
+\end{itemize}
 
 \end{document}

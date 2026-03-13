@@ -13,8 +13,9 @@ def evaluate_genome(weights, env, policy, num_seeds=3):
     
     policy.set_flat_weights(weights)
     
-    for seed in range(num_seeds):
-        obs, _ = env.reset(seed=seed, options={"phase": 2}) # Phase 2 for training (2 agents, events)
+    seeds_to_test = [42, 999, 1234]
+    for seed in seeds_to_test:
+        obs, _ = env.reset(seed=seed, options={"phase": 2, "num_agents": 5}) # Multi-agent to test bumping
         terminated = False
         truncated = False
         
@@ -26,7 +27,7 @@ def evaluate_genome(weights, env, policy, num_seeds=3):
         steps = 0
         
         while not (terminated or truncated):
-            action = policy(obs[np.newaxis, :]).numpy()[0]
+            action = policy(obs).numpy()
             obs, reward, terminated, truncated, info = env.step(action)
             
             ep_reward += reward

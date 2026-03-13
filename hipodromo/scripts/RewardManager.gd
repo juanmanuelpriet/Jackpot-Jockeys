@@ -2,7 +2,7 @@ extends Node
 class_name RewardManager
 
 # Configurable reward weights (can be tuned per curriculum phase via set_weights)
-@export var w_progress: float = 2.0
+@export var w_progress: float = 5.0
 @export var w_reverse: float = 1.5       ## Multiplier on w_progress when going backward
 @export var w_off_track: float = -0.5
 @export var w_stuck: float = -1.0

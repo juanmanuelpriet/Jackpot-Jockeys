@@ -26,6 +26,7 @@ var sensor_noise: float = 0.0
 var stun_timer: float = 0.0
 var drift_impairment: float = 1.0
 var _collisions_this_frame: int = 0
+var _wall_collisions_this_frame: int = 0
 var is_dead: bool = false
 
 # --- Visual nodes (resolved in _ready) ---
@@ -52,6 +53,7 @@ func _physics_process(delta):
 			stun_timer = 0.0
 	
 	_collisions_this_frame = 0
+	_wall_collisions_this_frame = 0
 	
 	if abs(steer) > 0.01:
 		# 4. Dirección: steer produce cambio de heading proporcional a velocidad.
@@ -112,16 +114,28 @@ func _physics_process(delta):
 	velocity = forward_dir * velocity_forward + right_dir * velocity_lateral
 	move_and_slide()
 	
-	# Handle Collisions (Bounce)
+	# Handle Collisions (Bounce & Push)
 	for i in get_slide_collision_count():
 		var col = get_slide_collision(i)
+		var collider = col.get_collider()
 		var n = col.get_normal()
-		# Reflect velocity visually/physically in global space
-		velocity = velocity.bounce(n) * 0.5
+		
+		_collisions_this_frame += 1
+		
+		if collider is Vehicle:
+			# Agent-to-agent: high elasticity (0.9) to "push" them
+			velocity = velocity.bounce(n) * 0.9
+			# Apply physical impulse to the other vehicle
+			var push_force = (forward_dir * velocity_forward).length() * 0.3
+			collider.apply_disturbance(-n * push_force)
+		else:
+			# Wall/Obstacle: low elasticity (0.5), triggers death in Race2D
+			velocity = velocity.bounce(n) * 0.5
+			_wall_collisions_this_frame += 1
+			
 		# Re-project to internal local velocities
 		velocity_forward = velocity.dot(forward_dir)
 		velocity_lateral = velocity.dot(right_dir)
-		_collisions_this_frame += 1
 		break
 	
 	# --- Visual feedback (purely cosmetic, no physics impact) ---
@@ -242,6 +256,10 @@ func apply_disturbance(force_vector: Vector2):
 ## Number of wall collisions detected this physics frame.
 func get_collision_count_this_frame() -> int:
 	return _collisions_this_frame
+
+## Number of wall/track collisions detected this physics frame.
+func get_wall_collision_count_this_frame() -> int:
+	return _wall_collisions_this_frame
 
 func die():
 	is_dead = true

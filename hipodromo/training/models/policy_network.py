@@ -12,9 +12,12 @@ class RacerPolicy(tf.keras.Model):
         # 1. Rival Encoder (Small MLP applied to each rival slot)
         self.rival_dense = tf.keras.layers.Dense(16, activation='tanh', name='rival_encoder')
         
-        # 2. Shared Trunk
+        # 2. Shared Trunk (Expanded to 5 layers for deeper hierarchical processing)
         self.trunk_l1 = tf.keras.layers.Dense(64, activation='tanh', name='trunk_l1')
-        self.trunk_l2 = tf.keras.layers.Dense(48, activation='tanh', name='trunk_l2')
+        self.trunk_l2 = tf.keras.layers.Dense(64, activation='tanh', name='trunk_l2')
+        self.trunk_l3 = tf.keras.layers.Dense(48, activation='tanh', name='trunk_l3')
+        self.trunk_l4 = tf.keras.layers.Dense(32, activation='tanh', name='trunk_l4')
+        self.trunk_l5 = tf.keras.layers.Dense(16, activation='tanh', name='trunk_l5')
         
         # 3. Policy Heads
         # steer (tanh), throttle (sig), brake (sig), drift (sig), stabilize (sig)
@@ -62,6 +65,9 @@ class RacerPolicy(tf.keras.Model):
         
         x = self.trunk_l1(trunk_input)
         x = self.trunk_l2(x)
+        x = self.trunk_l3(x)
+        x = self.trunk_l4(x)
+        x = self.trunk_l5(x)
         
         # Heads
         driving_raw = self.driving_head(x)

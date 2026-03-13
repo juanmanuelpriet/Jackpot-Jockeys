@@ -387,7 +387,8 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 			lap_completed,
 			actions[i]["steer"] - b.prev_steer_action,
 			actions[i].get("brake", 0.0),
-			actions[i].get("steer", 0.0)
+			actions[i].get("steer", 0.0),
+			actions[i].get("drift", 0.0)
 		)
 		b.prev_steer_action = actions[i]["steer"]
 		agent_total_reward[i] += r

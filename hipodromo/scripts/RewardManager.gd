@@ -12,6 +12,7 @@ class_name RewardManager
 @export var w_zigzag_no_progress: float = -0.2  ## Extra penalty for zigzag without forward movement
 @export var w_brake: float = -0.1                ## New: Penalty for using the brake
 @export var w_steering_bonus: float = 0.02      ## New: Small bonus for steering in curves
+@export var w_drift: float = 0.05               ## New: Bonus for active drifting
 @export var survival_bonus: float = 0.01
 
 ## Calculate reward for one agent at one inference tick.
@@ -30,7 +31,8 @@ func calculate_reward(
 	lap_complete: bool,
 	steer_change: float = 0.0,
 	brake_input: float = 0.0,
-	steer_input: float = 0.0
+	steer_input: float = 0.0,
+	drift_input: float = 0.0
 ) -> float:
 	var r = survival_bonus
 	
@@ -66,6 +68,10 @@ func calculate_reward(
 	# Steering "usage" bonus (rewarding the intent to turn)
 	if abs(steer_input) > 0.1 and delta_s > 0.1:
 		r += abs(steer_input) * w_steering_bonus
+		
+	# Drift bonus (only if steering and moving forward)
+	if drift_input > 0.1 and abs(steer_input) > 0.1 and delta_s > 0.1:
+		r += drift_input * w_drift
 
 	# Lap completion bonus
 	if lap_complete:

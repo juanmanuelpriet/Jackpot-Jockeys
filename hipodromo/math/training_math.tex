@@ -41,7 +41,12 @@ Para fomentar el combate táctico, las colisiones entre agentes se han modificad
 La red \texttt{RacerPolicy} cuenta con **13,374 parámetros** distribuidos en 5 capas internas.
 
 \subsection{Función de Fitness}
-El sistema ahora premia masivamente el avance lineal:
-\[ F = (\text{Metros Extra} \times 5000) - (\text{Uso de Freno} \times 10) \]
+El sistema ahora premia masivamente el avance lineal y la técnica de derrape:
+\[ F = (\text{Metros Extra} \times 5000) - (\text{Uso de Freno} \times 10) + (\text{Uso de Drift} \times 5) \]
+
+\textbf{Componentes de Técnica:}
+\begin{itemize}
+    \item \textbf{Bono de Drift}: Se otorga puntaje adicional por activar el sistema de derrape (\textit{drift}) mientras se gira en curvas a alta velocidad. Esto enseña a los agentes a mantener el \textit{momentum} angular sin frenar.
+\end{itemize}
 
 \end{document}

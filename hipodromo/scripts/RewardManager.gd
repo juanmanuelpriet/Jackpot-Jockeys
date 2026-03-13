@@ -2,14 +2,16 @@ extends Node
 class_name RewardManager
 
 # Configurable reward weights (can be tuned per curriculum phase via set_weights)
-@export var w_progress: float = 1.0
+@export var w_progress: float = 2.0
 @export var w_reverse: float = 1.5       ## Multiplier on w_progress when going backward
 @export var w_off_track: float = -0.5
 @export var w_stuck: float = -1.0
-@export var w_collision: float = -0.5
+@export var w_collision: float = -1.5
 @export var w_lap_complete: float = 10.0
 @export var w_erratic_steer: float = -0.05
 @export var w_zigzag_no_progress: float = -0.2  ## Extra penalty for zigzag without forward movement
+@export var w_brake: float = -0.1                ## New: Penalty for using the brake
+@export var w_steering_bonus: float = 0.02      ## New: Small bonus for steering in curves
 @export var survival_bonus: float = 0.01
 
 ## Calculate reward for one agent at one inference tick.
@@ -26,7 +28,9 @@ func calculate_reward(
 	is_stuck: bool,
 	collisions: int,
 	lap_complete: bool,
-	steer_change: float = 0.0
+	steer_change: float = 0.0,
+	brake_input: float = 0.0,
+	steer_input: float = 0.0
 ) -> float:
 	var r = survival_bonus
 	
@@ -55,6 +59,14 @@ func calculate_reward(
 		if delta_s <= 0.0:
 			r += w_zigzag_no_progress
 		
+	# Brake penalty
+	if brake_input > 0.05:
+		r += brake_input * w_brake
+		
+	# Steering "usage" bonus (rewarding the intent to turn)
+	if abs(steer_input) > 0.1 and delta_s > 0.1:
+		r += abs(steer_input) * w_steering_bonus
+
 	# Lap completion bonus
 	if lap_complete:
 		r += w_lap_complete

@@ -63,6 +63,8 @@ def train():
     parser.add_argument("--pop_size", type=int, default=12)
     parser.add_argument("--generations", type=int, default=50)
     parser.add_argument("--seeds", type=int, default=3)
+    parser.add_argument("--visual", action="store_true", help="Run with Godot window visible")
+    parser.add_argument("--port", type=int, default=9090)
     args = parser.parse_args()
     
     # Initialize policy to get parameter count
@@ -77,7 +79,7 @@ def train():
     optimizer = CMA(mean=mean, sigma=0.1, population_size=args.pop_size)
     
     # Initialize Env
-    env = GodotRaceEnv(headless=True)
+    env = GodotRaceEnv(headless=not args.visual, port=args.port)
     
     best_fitness = -np.inf
     

@@ -23,8 +23,9 @@ Este documento explica los fundamentos matemáticos del entorno AG-RACE, detalla
 El objetivo principal del entrenamiento es crear un piloto que:
 \begin{itemize}
     \item \textbf{Maximice la velocidad} sin perder el control (\textit{Drifting} controlado).
-    \item \textbf{Sea agresivo} con otros competidores (permitimos el contacto físico).
-    \item \textbf{Evite a toda costa los muros}, ya que el contacto con el límite de pista resulta en la eliminación del agente.
+    \item \textbf{Mantenga la inercia}: Se penaliza el uso excesivo del freno para fomentar el paso por curva fluido.
+    \item \textbf{Sea agresivo} con otros competidores (el contacto físico entre naves es táctico).
+    \item \textbf{Evite a toda costa los muros}, ya que el contacto con el límite de pista resulta en la eliminación.
 \end{itemize}
 
 \section{Física de Vuelo (Hover Physics)}
@@ -37,39 +38,26 @@ Donde:
 \begin{itemize}
     \item $A$: Aceleración máxima del motor.
     \item $\tau \in [0, 1]$: Entrada de acelerador (\textit{throttle}).
-    \item $\mu_{f}$: Fricción longitudinal (resistencia al aire/deslizamiento).
-    \item $\delta$: Amortiguación de vuelo constante.
-\end{itemize}
-
-\subsection{Dinámica Lateral e Inercia}
-La inercia lateral $v_l$ define el comportamiento de derrape:
-\[ v_{l, t+1} = (v_{l, t} - \omega \cdot v_f \cdot \kappa) \cdot \mu_{l} \]
-Donde:
-\begin{itemize}
-    \item $\omega$: Velocidad angular (giro del vehículo).
-    \item $\kappa$: Coeficiente de inercia que "empuja" el vehículo hacia afuera en las curvas.
-    \item $\mu_{l}$: Fricción lateral, reducida drásticamente durante el \textit{drift}.
+    \item $\mu_{f}$: Fricción longitudinal.
 \end{itemize}
 
 \section{Entrenamiento Neuroevolutivo (CMA-ES)}
-El cerebro de cada nave es una Red Neuronal (\texttt{RacerPolicy}) de 7,438 parámetros que mapea sensores (distancia a muros, naves rivales) a controles de conducción.
+\subsection{Función de Recompensa Refinada (Fitness)}
+El puntaje de fitness $F$ ha sido optimizado para priorizar la fluidez sobre la frenada:
+\[ F = (\text{Progreso} \times 2000) - (\text{Uso de Freno} \times 10) + (\text{Intento de Giro} \times 20) - \text{Penalizaciones} \]
 
-\subsection{El Algoritmo: CMA-ES}
-Utilizamos la \textit{Estrategia de Evolución con Adaptación de la Matriz de Covarianza}. En lugar de gradientes, este método:
-\begin{enumerate}
-    \item Genera una población de "pesos" aleatorios siguiendo una campana de Gauss.
-    \item Evalúa qué pilotos sobreviven mejor en la pista.
-    \item Re-centra y ensancha la campana de Gauss hacia los mejores resultados.
-\end{enumerate}
-
-\subsection{Función de Recompensa (Fitness)}
-Para que el agente aprenda a ser competitivo, se utiliza el puntaje $F$:
-\[ F = (\text{Progreso} \times 2000) - (\text{Choques en Muros} \times 150) - (\text{Tiempo Fuera de Pista}) \]
-\textbf{Reglas Especiales:}
+\textbf{Componentes de Recompensa:}
 \begin{itemize}
-    \item \textbf{Choques entre naves:} Permitidos y no penalizados con muerte. Fomentan la agresividad.
-    \item \textbf{Choques en muros:} Causan "Muerte Permanente" y gran penalización después del arranque.
-    \item \textbf{Multi-Semilla:} Cada agente se evalúa en 3 semillas distintas (42, 999, 1234) para asegurar que aprenda a \textbf{conducir} y no solo a memorizar un mapa.
+    \item \textbf{Progreso Lineal}: Recompensa principal por avanzar metros en el eje central de la pista.
+    \item \textbf{Penalización de Freno}: Se resta puntaje si el agente activa el freno, obligándolo a usar la inercia y el \textit{steering} para girar.
+    \item \textbf{Bono de Curva}: Se premia el ángulo de giro mientras hay velocidad de avance, incentivando la búsqueda del "vértice" de la curva.
+    \item \textbf{Multi-Semilla}: Cada agente se evalúa en 3 configuraciones de pista distintas (42, 999, 1234) para garantizar un aprendizaje generalista y no memorístico.
+\end{itemize}
+
+\textbf{Reglas de Colisión:}
+\begin{itemize}
+    \item \textbf{Nave vs Nave}: No hay penalización. Se permite el rebote físico.
+    \item \textbf{Nave vs Muro}: Eliminación inmediata (\textit{Permadeath}) tras el periodo inicial de gracia de 2 segundos.
 \end{itemize}
 
 \end{document}

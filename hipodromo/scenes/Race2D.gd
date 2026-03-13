@@ -160,9 +160,9 @@ func _spawn_agents_sync():
 	var neural_brain_scene = preload("res://agents/NeuralAgent.tscn")
 	var colors = [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW]
 	
-	var cols = 5
-	var spacing_x = 120.0
-	var spacing_y = 100.0
+	var cols = 3
+	var spacing_x = 100.0
+	var spacing_y = 60.0
 
 	for i in range(env_config.num_agents):
 		var v = vehicle_scene.instantiate() as Node2D
@@ -364,9 +364,10 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 		var off_track_dist = track_generator.get_off_track_distance(v.global_position)
 		var collisions_this_tick = v.get_collision_count_this_frame()
 		
-		# Permadeath Check (with 2.0s grace period)
+		# Permadeath Check (only on wall hits and with 2.0s grace period)
 		var race_time = float(current_step) / float(env_config.inference_fps)
-		if collisions_this_tick > 0 and not v.is_dead and race_time > 2.0:
+		var wall_hits = v.get_wall_collision_count_this_frame()
+		if wall_hits > 0 and not v.is_dead and race_time > 2.0:
 			v.die()
 			
 		# Track accumulators
@@ -377,13 +378,16 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 			agent_stuck_events[i] += 1
 		
 		# Compute reward
+		# User priority: "premise por mas distancia en menos tiempo" -> increase progress weight
 		var r = reward_manager.calculate_reward(
 			ds_meters, 
 			off_track_dist, 
 			b.stuck_timer > 1.0, 
-			collisions_this_tick,
+			wall_hits, # Punishment focus on wall hits
 			lap_completed,
-			actions[i]["steer"] - b.prev_steer_action
+			actions[i]["steer"] - b.prev_steer_action,
+			actions[i].get("brake", 0.0),
+			actions[i].get("steer", 0.0)
 		)
 		b.prev_steer_action = actions[i]["steer"]
 		agent_total_reward[i] += r

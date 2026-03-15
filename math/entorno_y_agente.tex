@@ -84,8 +84,19 @@ $$
 \end{cases}
 $$
 
-AG-RACE implementa recompensas continuas de avance (Dense Rewards). Entrenaremos con \textbf{Separable CMA-ES (SepCMA)} para manejar eficientemente los 13,374 parámetros de la red. Definimos el retorno esperado global para el vector de pesos neuronales $\Phi$:
-$$ J(\Phi) = \mathbb{E}_{\omega} \left[ \sum_{t=0}^{T} \left( \alpha \Delta s_t - \beta_{o\_track}(err_{lateral}) - \gamma_{stuck}(s_t) + \delta_{drift} - \epsilon_{brake} \right) \right] $$
-Donde $\delta_{drift}$ premia curvas a alta velocidad (multiplicador x100) y $\epsilon_{brake}$ penaliza la pérdida de inercia innecesaria. El entrenamiento evalúa múltiples semillas aleatorias por generación para asegurar la robustez de la política.
+AG-RACE implementa recompensas densas de avance y una métrica de aptitud (\textit{Fitness}) comparativa. El entrenamiento se realiza mediante \textbf{Separable CMA-ES (SepCMA)}, optimizando los 13,374 parámetros de la red neuronal.
+
+Definimos la función de Aptitud Global $F$ para una red con pesos $\Phi$:
+$$ F(\Phi) = \bar{R}_{agent} + w_g \cdot \max(0, \bar{R}_{agent} - \bar{R}_{base}) - w_v \cdot \sigma_{R} $$
+
+Donde:
+\begin{itemize}
+    \item $\bar{R}_{agent}$: Recompensa media del agente sobre $K=5$ semillas de evaluación.
+    \item $\bar{R}_{base}$: Rendimiento medio del \textbf{Baseline Agent} (Profesor) en las mismas pistas.
+    \item $w_g$: Peso del \textit{Gap} respecto al baseline (Fomenta superar al experto).
+    \item $w_v$: Penalización por varianza $\sigma_{R}$ (Fomenta la estabilidad y generalización).
+\end{itemize}
+
+El límite de simulación se establece en 300 pasos por episodio a 60 FPS, incentivando políticas de alta velocidad y eficiencia.
 
 \end{document}

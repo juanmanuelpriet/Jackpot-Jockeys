@@ -50,14 +50,15 @@ Para permitir un entrenamiento a velocidad extrema (**x16**), se han implementad
     \item \textbf{Imitation Teacher Caching}: Optimización de la lógica de sugerencia (imitation reward) mediante el reciclaje de nodos en memoria, reduciendo el micro-stutter en la simulación.
 \end{itemize}
 
-\section{Función de Fitness (Actualizado)}
-El sistema ahora aplica un multiplicador agresivo al derrape técnico:
-\[ F = (\Delta s \times 5000) + (\text{Drift\_Check} \times 100) - (\text{Brake\_Usage} \times 50) \]
+\section{Función de Fitness (Actualizado v2)}
+El sistema utiliza una métrica de aptitud compuesta que premia no solo el avance, sino la consistencia y la superación del experto:
+\[ F = \text{Media}(R_{ia}) + 2.0 \cdot \max(0, \text{IA} - \text{Base}) - 1.5 \cdot \text{Std}(R_{ia}) \]
 
-\textbf{Lógica de Entrenamiento:}
+\textbf{Lógica de Entrenamiento Robusto:}
 \begin{itemize}
-    \item \textbf{Evaluación Multi-Semilla}: Cada individuo de la población se prueba en pistas con diferentes configuraciones de curvas para evitar el \textit{overfitting}.
-    \item \textbf{Reporte PDF en Vivo}: Generación de informes matemáticos tras cada generación completada.
+    \item \textbf{Evaluación Multi-Semilla}: Cada individuo se prueba en 5 pistas deterministas por generación.
+    \item \textbf{Validación Estricta}: El mejor individuo de cada generación se re-evalúa en 12 pistas totalmente nuevas (\textit{Unseen}) para confirmar su capacidad de generalización antes de ser guardado.
+    \item \textbf{Reporte PDF en Vivo}: El archivo \texttt{resultados.pdf} se genera automáticamente cada 2 generaciones, mostrando el progreso de la IA vs el Baseline.
 \end{itemize}
 
 \end{document}

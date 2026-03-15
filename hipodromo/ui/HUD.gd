@@ -4,17 +4,28 @@ class_name HUD
 @onready var info_label = $PanelContainer/VBoxContainer/InfoLabel
 @onready var agents_label = $PanelContainer/VBoxContainer/AgentsLabel
 
-func update_telemetry(config, step: int, agents: Array, brains: Array, last_rewards: Array):
+func update_telemetry(config, step: int, agents: Array, brains: Array, last_rewards: Array, gen: int = 0):
 	if not config.debug_hud:
 		info_label.text = ""
 		agents_label.text = ""
 		return
 	
-	info_label.text = "AG-RACE RL ENV\n"
+	info_label.text = "AG-RACE RL ENV | GEN: %d\n" % gen
+	var status = "ESPERANDO CEREBRO (PYTHON)..."
+	if agents.size() > 0:
+		status = "ENTRENANDO: %d AGENTES EN PISTA" % agents.size()
+	
+	info_label.text += "STATUS: [ %s ]\n" % status
 	info_label.text += "Config: %s | Seed: %d | Phase: %d\n" % [config.config_hash, config.base_seed, config.curriculum_phase]
 	info_label.text += "Step: %4d / %d | Inf FPS: %d | Act Repeat: %d\n" % [step, config.max_steps_per_episode, config.inference_fps, config.action_repeat]
 	info_label.text += "Events: %s | Freq: %.2f | Sev: %.2f\n" % ["ON" if config.enable_events else "OFF", config.hazard_frequency, config.max_hazard_severity]
 	info_label.text += "Zoom: Q/E/Scroll/Pinch | Pan: WASD/Arrows/Drag/Scroll\n"
+	info_label.text += "\n--- CICLO DE ENTRENAMIENTO ---\n"
+	info_label.text += "1. Python calcula cerebros (Pesos)\n"
+	info_label.text += "2. Godot corre pistas (Semillas: %d)\n" % config.base_seed
+	info_label.text += "3. Godot devuelve Recompensas (Fitness)\n"
+	info_label.text += "4. Python evoluciona a la siguiente GEN\n"
+	info_label.text += "------------------------------\n"
 	
 	var txt = ""
 	for i in range(agents.size()):

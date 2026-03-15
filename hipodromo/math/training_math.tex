@@ -36,17 +36,28 @@ Para fomentar el combate táctico, las colisiones entre agentes se han modificad
     \item \textbf{Impulso}: El vehículo atacante transfiere parte de su inercia al colisionado, "empujándolo" fuera de la trayectoria ideal.
 \end{itemize}
 
-\section{Entrenamiento Neuroevolutivo}
-\subsection{Arquitectura Neuronal Gen 2 (Deep Scaling)}
-La red \texttt{RacerPolicy} cuenta con **13,374 parámetros** distribuidos en 5 capas internas.
+\subsection{Modo Obstáculo de Restos (Wreckage)}
+En la Generación actual, los vehículos destruidos **no desaparecen** ni se vuelven intangibles. Permanecen en la pista como obstáculos físicos permanentes, obligando a los supervivientes a realizar maniobras de esquiva dinámica.
 
-\subsection{Función de Fitness}
-El sistema ahora premia masivamente el avance lineal y la técnica de derrape:
-\[ F = (\text{Metros Extra} \times 5000) - (\text{Uso de Freno} \times 10) + (\text{Uso de Drift} \times 5) \]
+\subsection{Algoritmo SepCMA (Separable CMA-ES)}
+Dada la alta dimensionalidad de la red (**13,374 parámetros**), se utiliza la variante \textit{Separable} de CMA-ES. Esto permite optimizar el "cerebro" de forma lineal en lugar de cuadrática, permitiendo generaciones rápidas incluso en hardware estándar.
 
-\textbf{Componentes de Técnica:}
+\section{Optimizaciones de Motor Godot}
+Para permitir un entrenamiento a velocidad extrema (**x16**), se han implementado:
 \begin{itemize}
-    \item \textbf{Bono de Drift}: Se otorga puntaje adicional por activar el sistema de derrape (\textit{drift}) mientras se gira en curvas a alta velocidad. Esto enseña a los agentes a mantener el \textit{momentum} angular sin frenar.
+    \item \textbf{HUD Telemetría}: Visualización en tiempo real de la Generación de IA y estado del servidor Python.
+    \item \textbf{Capa de Protección x16}: Bucles defensivos que evitan desbordamientos de memoria cuando los agentes se reinician a alta velocidad.
+    \item \textbf{Imitation Teacher Caching}: Optimización de la lógica de sugerencia (imitation reward) mediante el reciclaje de nodos en memoria, reduciendo el micro-stutter en la simulación.
+\end{itemize}
+
+\section{Función de Fitness (Actualizado)}
+El sistema ahora aplica un multiplicador agresivo al derrape técnico:
+\[ F = (\Delta s \times 5000) + (\text{Drift\_Check} \times 100) - (\text{Brake\_Usage} \times 50) \]
+
+\textbf{Lógica de Entrenamiento:}
+\begin{itemize}
+    \item \textbf{Evaluación Multi-Semilla}: Cada individuo de la población se prueba en pistas con diferentes configuraciones de curvas para evitar el \textit{overfitting}.
+    \item \textbf{Reporte PDF en Vivo}: Generación de informes matemáticos tras cada generación completada.
 \end{itemize}
 
 \end{document}

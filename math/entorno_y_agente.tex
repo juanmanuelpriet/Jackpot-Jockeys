@@ -62,12 +62,15 @@ Donde $\lambda_{clima}$ es el decaimiento inducido por Eventos de Mundo como pis
 
 \section{Espacios de IA: Observación y Recompensa}
 
-\subsection{Estructura Base del Vector de Observaciones (OBS\_SCHEMA\_V1 = 15 Dims)}
-El agente capta un vector normalizado continuo $o_t \in \mathcal{R}^{15}$ de rápida inferencia, estructurado jerárquicamente:
+\subsection{Estructura Base del Vector de Observaciones (OBS\_SCHEMA\_V2 = 59 Dims)}
+El agente capta un vector normalizado continuo $o_t \in \mathcal{R}^{59}$ de alta fidelidad, estructurado jerárquicamente:
 \begin{enumerate}
-    \item \textbf{Estado Interno (6D):} Magnitud de Velocidad Normalizada, Eje $V_X$, Eje $V_Y$, Progreso Topológico Escalar $s$, Distancia de Desvío Lateral y Contador de Atascamiento ($Stuck$).
-    \item \textbf{Errores Topológicos (2D):} \textit{Heading Error} Normalizado ( $\frac{\theta - \angle \hat{\mathbf{h}}_{ideal}}{\pi}$ ) y Curvatura Adelantada $\kappa(s+\Delta s)$.
-    \item \textbf{Eventos de Mundo Abstractos (7D):} Array \textit{One-Hot} de duración y severidad que inyecta percepción de ráfagas de viento colaterales y variaciones en frenado invertido.
+    \item \textbf{Estado Propio (6D):} Velocidad (X, Y, Mag), Progreso Topológico, Desvío Lateral y Contador de Atascamiento ($Stuck$).
+    \item \textbf{Relación de Pista (4D):} Ángulo ideal vs real (\textit{Heading Error}), Curvatura local y ancho de pista.
+    \item \textbf{Sensores LIDAR (20D):} Rayos de distancia a los límites de la pista en un radio de 360 grados.
+    \item \textbf{Percepción de Rivales (18D):} Datos relativos de los 3 rivales más cercanos (Distancia, Ángulo, Velocidad Relativa).
+    \item \textbf{Eventos y Peligros (7D):} Estado de ráfagas de viento y zonas de baja fricción detectadas.
+    \item \textbf{Parámetros Globales (4D):} Gravedad local, fricción base y configuración de empuje.
 \end{enumerate}
 
 \subsection{Capa de Seguridad (Rule-Based Fallback)}
@@ -81,9 +84,8 @@ $$
 \end{cases}
 $$
 
-\subsection{Función de Fitness Multi-Objetivo (Neuroevolución)}
-AG-RACE implementa recompensas continuas de avance (Dense Rewards). Entrenaremos con ES/ARS o Covariance Matrix Adaptation (CMA-ES). Definimos el retorno esperado global para el vector de pesos neuronales $\Phi$:
-$$ J(\Phi) = \mathbb{E}_{\omega} \left[ \sum_{t=0}^{T} \left( \alpha \Delta s_t - \beta_{o\_track}(err_{lateral}) - \gamma_{stuck}(s_t) \right) \boldsymbol{- \lambda_{V} Var_{\omega}(R_{\omega}(\Phi))} \right] $$
-Donde la \textbf{Varianza de Generalización} $Var_{\omega}$ obliga a la Neuroevolución a descartar cerebros súper-eficientes en una sola pista, premiando políticas moderadas pero robustas en los 100 \textit{seeds} de test.
+AG-RACE implementa recompensas continuas de avance (Dense Rewards). Entrenaremos con \textbf{Separable CMA-ES (SepCMA)} para manejar eficientemente los 13,374 parámetros de la red. Definimos el retorno esperado global para el vector de pesos neuronales $\Phi$:
+$$ J(\Phi) = \mathbb{E}_{\omega} \left[ \sum_{t=0}^{T} \left( \alpha \Delta s_t - \beta_{o\_track}(err_{lateral}) - \gamma_{stuck}(s_t) + \delta_{drift} - \epsilon_{brake} \right) \right] $$
+Donde $\delta_{drift}$ premia curvas a alta velocidad (multiplicador x100) y $\epsilon_{brake}$ penaliza la pérdida de inercia innecesaria. El entrenamiento evalúa múltiples semillas aleatorias por generación para asegurar la robustez de la política.
 
 \end{document}

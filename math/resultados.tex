@@ -1,0 +1,58 @@
+
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\geometry{a4paper, margin=1in}
+
+\title{\color{red}Reporte de Entrenamiento 5 Horas \\ \huge AG-RACE}
+\author{Antigravity AI Assistant}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Configuración de la Sesión}
+Esta sesión de entrenamiento se diseñó para optimizar el comportamiento de derrape (drift) y la interacción competitiva.
+
+\begin{itemize}
+    \item \textbf{Unidades en pista:} 5 Agentes Neuronales + 1 Baseline (Referencia).
+    \item \textbf{Modificadores de Fitness:}
+        \begin{itemize}
+            \item Drift: x100 de recompensa para incentivar curvas agresivas.
+            \item Colisiones entre agentes: Bonificadas (puntos por contacto).
+            \item Colisiones con paredes: Penalizadas (supervivencia).
+        \end{itemize}
+    \item \textbf{Algoritmo:} CMA-ES.
+\end{itemize}
+
+\section{Métricas Finales}
+\begin{itemize}
+    \item \textbf{Generaciones totales:} 1
+    \item \textbf{Tiempo total:} 2.23 minutos
+    \item \textbf{Mejor Fitness alcanzado:} 1993.78
+    \item \textbf{Peso de parámetros:} 13374
+\end{itemize}
+
+\section{Evolución Histórica}
+Se muestran las últimas generaciones del proceso:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Gen} & \textbf{Máx Fitness} & \textbf{Promedio} & \textbf{Sigma} & \textbf{Tiempo (s)} \\ \midrule
+0 & 1165.85 & 316.00 & 0.4999 & 133.2 \\
+1 & 1993.78 & 831.45 & 0.4997 & 133.1 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Análisis de Comportamiento}
+Con el multiplicador de drift x100, se espera que los agentes hayan aprendido a iniciar derrapes laterales para mantener la velocidad en las curvas. La presencia de un agente Baseline sirve como objetivo constante de superación para la población evolucionada.
+
+\end{document}

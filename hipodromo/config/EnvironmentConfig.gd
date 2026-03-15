@@ -14,7 +14,7 @@ var config_hash: String = ""
 @export var inference_fps: int = 15
 ## Derived: how many physics frames per inference tick.
 var action_repeat: int:
-	get: return max(1, physics_fps / inference_fps)
+	get: return max(1, int(float(physics_fps) / inference_fps))
 
 # --- Physics (Hover) ---
 @export var friction_longitudinal: float = 0.98
@@ -72,5 +72,3 @@ func _compute_hash():
 		agent_type
 	]
 	config_hash = "AG-RACE-v1-%d" % hash(raw)
-
-

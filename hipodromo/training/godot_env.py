@@ -7,7 +7,7 @@ import subprocess
 import time
 
 class GodotRaceEnv(gym.Env):
-    def __init__(self, godot_binary="godot", headless=True, port=9090):
+    def __init__(self, godot_binary="/Applications/Godot.app/Contents/MacOS/Godot", headless=True, port=9090):
         super(GodotRaceEnv, self).__init__()
         self.godot_binary = godot_binary
         self.headless = headless
@@ -30,42 +30,60 @@ class GodotRaceEnv(gym.Env):
 
     def _start_godot(self):
         import os
+        import sys
         project_path = os.path.abspath("../") # The 'hipodromo' folder is in ../
         if not os.path.exists(os.path.join(project_path, "project.godot")):
-            # Try current directory if not in ../ hipodromo
             project_path = os.path.abspath(".")
             
-        cmd = [self.godot_binary, "--path", project_path]
-        if self.headless:
-            cmd.append("--headless")
+        # En Mac, 'open' es más fiable para que la ventana aparezca al frente
+        if sys.platform == "darwin" and not self.headless:
+            cmd = ["open", "-a", self.godot_binary, "--args", "--path", project_path, "--windowed", "--resolution", "1280x720"]
+            print(f"[GodotEnv] Lanzando Godot visualmente con 'open'...")
+            subprocess.run(cmd)
+        else:
+            cmd = [self.godot_binary, "--path", project_path]
+            if self.headless:
+                cmd.append("--headless")
+            else:
+                cmd.extend(["--windowed", "--always-on-top", "--resolution", "1280x720"])
+            
+            # Prepare environment with the port (more reliable than args)
+            env = os.environ.copy()
+            env["GODOT_BRIDGE_PORT"] = str(self.port)
+            
+            # Unique log file per port to avoid conflicts
+            log_name = f"godot_{self.port}.log"
+            print(f"[GodotEnv] Starting Godot on port {self.port}")
+            log_file = open(log_name, "w")
+            self.proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, env=env)
         
-        # Prepare environment with the port (more reliable than args)
-        env = os.environ.copy()
-        env["GODOT_BRIDGE_PORT"] = str(self.port)
-        
-        # Unique log file per port to avoid conflicts
-        log_name = f"godot_{self.port}.log"
-        print(f"[GodotEnv] Starting Godot on port {self.port} (env: {env['GODOT_BRIDGE_PORT']})")
-        log_file = open(log_name, "w")
-        self.proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, env=env)
-        
-        # Wait for Godot to start and listen (be generous on Mac with multiple windows)
-        time.sleep(15.0)
-        
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.settimeout(10.0)
-            self.sock.connect(("127.0.0.1", self.port))
-        except Exception as e:
-            print(f"[GodotEnv] Failed to connect to Godot: {e}")
-            if os.path.exists("godot_output.log"):
-                with open("godot_output.log", "r") as f:
-                    print("[GodotEnv] Godot output:\n" + f.read())
-            raise e
+        # Esperar a que el servidor de Godot esté listo
+        for i in range(15):
+            time.sleep(1.0)
+            try:
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.sock.settimeout(5.0)
+                self.sock.connect(("127.0.0.1", self.port))
+                print(f"[GodotEnv] ¡Conectado con éxito!")
+                return
+            except:
+                continue
+        raise Exception("No se pudo conectar a Godot después de varios intentos.")
 
     def reset(self, seed=None, options=None):
         if self.sock is None:
-            self._start_godot()
+            # 1. Intentar conectar a una instancia que el usuario ya tenga abierta
+            try:
+                print(f"[GodotEnv] Buscando instancia de Godot en puerto {self.port}...")
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.sock.settimeout(10.0)  # Timeout generoso para x16
+                self.sock.connect(("127.0.0.1", self.port))
+                print(f"[GodotEnv] ¡Instancia encontrada!")
+            except:
+                # 2. Si no hay nada, lanzar una nueva
+                print(f"[GodotEnv] No se encontró instancia. Lanzando una nueva...")
+                self.sock = None
+                self._start_godot()
             
         cmd = {
             "cmd": "reset",
@@ -76,6 +94,8 @@ class GodotRaceEnv(gym.Env):
         
         if options and "num_agents" in options:
             cmd["num_agents"] = options["num_agents"]
+        if options and "gen" in options:
+            cmd["gen"] = options["gen"]
             
         self._send(cmd)
         resp = self._receive()
@@ -98,8 +118,12 @@ class GodotRaceEnv(gym.Env):
             "cmd": "step",
             "actions": actions_to_send
         }
+        start_t = time.time()
         self._send(cmd)
         resp = self._receive()
+        latency = time.time() - start_t
+        if latency > 2.0:
+            print(f"⚠️ Latencia alta en step: {latency:.2f}s")
         
         obs = np.array(resp["obs"], dtype=np.float32)
         # Avg reward across all agents for simplicity, or return list
@@ -115,6 +139,8 @@ class GodotRaceEnv(gym.Env):
             "collisions": np.sum([i.get("collisions", 0) for i in agent_infos]),
             "off_track_dist": np.mean([i.get("off_track_dist", 0) for i in agent_infos]),
             "stuck_timer": np.max([i.get("stuck_timer", 0) for i in agent_infos]),
+            "raw_rewards": resp["rewards"], # Added raw rewards for filtering
+            "agent_collisions": np.sum([i.get("agent_collisions", 0) for i in agent_infos]),
         }
         
         return obs, reward, terminated, truncated, info

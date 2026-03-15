@@ -97,12 +97,18 @@ class GodotRaceEnv(gym.Env):
         if options and "gen" in options:
             cmd["gen"] = options["gen"]
             
-        self._send(cmd)
-        resp = self._receive()
+        for attempt in range(3):
+            try:
+                self._send(cmd)
+                resp = self._receive()
+                
+                obs = np.array(resp["obs"], dtype=np.float32)
+                return obs, {}
+            except socket.timeout:
+                print(f"⚠️ Timeout en reset (intento {attempt+1}/3). Reintentando...")
+                time.sleep(2.0)
         
-        # Return all agents' observations as a batch
-        obs = np.array(resp["obs"], dtype=np.float32)
-        return obs, {}
+        raise socket.timeout("Godot no respondió al reset tras 3 intentos.")
 
     def step(self, actions):
         # Format actions as a list of lists (one per agent)

@@ -36,43 +36,35 @@ MATH_DIR          = os.path.join(BASE_DIR, "math")
 # ─────────────────────────────────────────────────────────────────────────────
 
 def evaluate_genome(weights, env, policy, gen):
-    """Evalúa un genoma. Retorna el fitness."""
+    """Evalúa un genoma. Retorna (fitness_ia, reward_baseline)."""
     policy.set_flat_weights(weights)
-    seed_fitnesses = []
+    seed_ia_fitnesses = []
+    seed_baseline_rewards = []
     
     for i in range(NUM_EVAL_SEEDS):
         eval_seed = np.random.randint(0, 1000000)
         print(f"\n  [Gen {gen}] Evaluando Seed {i+1}/{NUM_EVAL_SEEDS} (Pista: {eval_seed})... ", end="", flush=True)
         obs, _ = env.reset(seed=eval_seed, options={"phase": 3, "num_agents": NUM_AGENTS, "gen": gen})
         
-        ep_total_reward = 0.0
-        # Métricas agregadas (el env devuelve la media en info)
-        ep_progress = 0.0
-        ep_wall_collisions = 0
-        ep_agent_collisions = 0
+        ep_nn_reward = 0.0
+        ep_baseline_reward = 0.0
         
         for step in range(MAX_STEPS_PER_EP):
             action = policy(obs.astype(np.float32)).numpy()
             obs, reward, terminated, truncated, info = env.step(action)
             
-            # Solo sumar las recompensas de los primeros 5 agentes (los NN)
-            # El 6to es el Baseline y no debe influir en el fitness de los NN.
-            nn_rewards = info.get("raw_rewards", [reward])[:5]
-            ep_total_reward += np.mean(nn_rewards)
-            
-            ep_progress = info.get("progress", ep_progress)
-            ep_wall_collisions += info.get("collisions", 0)
-            ep_agent_collisions += info.get("agent_collisions", 0)
+            # 5 NN + 1 Baseline
+            raw = info.get("raw_rewards", [reward] * 6)
+            ep_nn_reward += np.mean(raw[:5])
+            ep_baseline_reward += raw[5] if len(raw) > 5 else 0.0
             
             if terminated or truncated:
                 break
         
-        # El fitness ya viene influenciado por la recompensa de Godot (donde drift es x100 y agentes+).
-        # Aquí podemos añadir un bono extra por superar al promedio o simplemente usar la recompensa acumulada.
-        fitness = ep_total_reward
-        seed_fitnesses.append(fitness)
+        seed_ia_fitnesses.append(ep_nn_reward)
+        seed_baseline_rewards.append(ep_baseline_reward)
     
-    return np.mean(seed_fitnesses)
+    return np.mean(seed_ia_fitnesses), np.mean(seed_baseline_rewards)
 
 
 def generate_pdf_report(summary, log_entries):
@@ -119,19 +111,21 @@ Esta sesión de entrenamiento se diseñó para optimizar el comportamiento de de
     \item \textbf{Peso de parámetros:} """ + str(summary['num_params']) + r"""
 \end{itemize}
 
-\section{Evolución Histórica}
-Se muestran las últimas generaciones del proceso:
+\section{Evolución Histórica y Comparativa}
+Se muestran las últimas generaciones comparadas con el Baseline (Referencia):
 
 \begin{table}[h!]
 \centering
-\begin{tabular}{@{}ccccc@{}}
+\begin{tabular}{@{}cccccc@{}}
 \toprule
-\textbf{Gen} & \textbf{Máx Fitness} & \textbf{Promedio} & \textbf{Sigma} & \textbf{Tiempo (s)} \\ \midrule
+\textbf{Gen} & \textbf{IA (Max)} & \textbf{IA (Avg)} & \textbf{Baseline} & \textbf{Delta} & \textbf{Sigma} \\ \midrule
 """
     # Mostrar las últimas 30 generaciones
     relevant_entries = log_entries[-30:]
     for entry in relevant_entries:
-        tex_content += f"{entry['gen']} & {entry['max_fitness']:.2f} & {entry['avg_fitness']:.2f} & {entry['sigma']:.4f} & {entry['gen_time_s']:.1f} \\\\\n"
+        delta = entry['max_fitness'] - entry.get('baseline_reward', 0)
+        baseline = entry.get('baseline_reward', 0)
+        tex_content += f"{entry['gen']} & {entry['max_fitness']:.1f} & {entry['avg_fitness']:.1f} & {baseline:.1f} & {delta:+.1f} & {entry['sigma']:.4f} \\\\\n"
 
     tex_content += r"""
 \bottomrule
@@ -192,10 +186,12 @@ def main():
             solutions = [optimizer.ask() for _ in range(optimizer.population_size)]
             
             fitnesses = []
+            baseline_rewards = []
             print(f"Gen {gen:3d} | Evaluando pop: ", end="", flush=True)
             for i, x in enumerate(solutions):
-                f = evaluate_genome(x, env, policy, gen)
-                fitnesses.append(f)
+                f_ia, f_base = evaluate_genome(x, env, policy, gen)
+                fitnesses.append(f_ia) 
+                baseline_rewards.append(f_base)
                 print(f"[{i+1}/{POP_SIZE}] ", end="", flush=True)
             
             optimizer.tell([(x, -f) for x, f in zip(solutions, fitnesses)])
@@ -203,6 +199,7 @@ def main():
             gen_time = time.time() - gen_start
             max_f = max(fitnesses)
             avg_f = np.mean(fitnesses)
+            avg_base = np.mean(baseline_rewards)
             
             if max_f > best_fitness_ever:
                 best_fitness_ever = max_f
@@ -214,6 +211,7 @@ def main():
                 "gen": gen,
                 "max_fitness": float(max_f),
                 "avg_fitness": float(avg_f),
+                "baseline_reward": float(avg_base),
                 "sigma": float(optimizer._sigma),
                 "gen_time_s": gen_time
             }
@@ -222,7 +220,8 @@ def main():
             log_f.flush()
             
             rem_h = (MAX_TIME_SECONDS - elapsed) / 3600.0
-            print(f" | Máx: {max_f:8.2f} | σ={optimizer._sigma:.4f} | Restante: {rem_h:.2f}h")
+            delta = max_f - avg_base
+            print(f" | IA: {max_f:7.1f} | Base: {avg_base:7.1f} | Δ: {delta:+7.1f} | σ={optimizer._sigma:.4f}")
             
             if gen % CHECKPOINT_EVERY == 0:
                 generate_pdf_report({

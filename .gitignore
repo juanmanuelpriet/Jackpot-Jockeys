@@ -1,0 +1,27 @@
+# Godot
+.godot/
+*.uid
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env/
+
+# Training Artifacts
+hipodromo/training/results/
+hipodromo/training/godot_*.log
+hipodromo/training/*.log
+math/*.aux
+math/*.log
+math/*.fls
+math/*.fdb_latexmk
+math/*.synctex.gz
+training_math.aux
+training_math.log
+
+# Mac noise
+.DS_Store

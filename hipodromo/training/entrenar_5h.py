@@ -24,7 +24,7 @@ except ImportError as e:
 # CONFIGURACION
 # ============================================================================
 
-MAX_TIME_SECONDS = 18000*2          # 5 horas
+MAX_TIME_SECONDS = 18000*3          # 5 horas
 POP_SIZE = 8                      # mas estable que 4
 NUM_AGENTS = 6                    # 5 NN + 1 Baseline
 NUM_EVAL_SEEDS = 5                # menos ruido que 2
@@ -35,8 +35,8 @@ CHECKPOINT_EVERY = 2
 SEED_SPACE_MAX = 1_000_000
 
 # Pesos del fitness
-W_BASELINE_GAP = 0.15             # baseline como referencia suave, no dominante
-W_VARIANCE = 0.20                 # penalizacion por inestabilidad inter-seed
+W_BASELINE_GAP = 0.10             # referencia suave, no dominante
+W_VARIANCE = 0.25                 # penalizacion por inestabilidad inter-seed
 
 RESULTS_DIR = "results/train_5h"
 LOG_FILE = os.path.join(RESULTS_DIR, "log_5h.jsonl")
@@ -112,9 +112,9 @@ def compute_fitness(
     ia_mean = float(np.mean(ia_returns))
     ia_std = float(np.std(ia_returns))
     base_mean = float(np.mean(baseline_returns))
-    gap = ia_mean - base_mean
-
-    fitness = ia_mean + (W_BASELINE_GAP * gap) - (W_VARIANCE * ia_std)
+    
+    # Fitness enfocado en progreso neto + bono por superar al baseline
+    fitness = ia_mean - (W_VARIANCE * ia_std) + (W_BASELINE_GAP * max(0, ia_mean - base_mean))
     return fitness, ia_mean, ia_std, base_mean
 
 
@@ -300,8 +300,21 @@ def main() -> None:
     print("╚══════════════════════════════════════════════╝")
     print(f">>> Parámetros de la política: {num_params}")
 
+    init_mean = np.zeros(num_params)
+    if os.path.exists(BEST_MODEL_FILE):
+        print(f">>> Cargando mejor genoma previo de {BEST_MODEL_FILE}...")
+        try:
+            with open(BEST_MODEL_FILE, "r") as f:
+                saved_weights = np.array(json.load(f))
+            if len(saved_weights) == num_params:
+                init_mean = saved_weights
+            else:
+                print(f"⚠️ Tamaño incompatible. Ignorando.")
+        except:
+            print(f"⚠️ Error cargando modelo. Usando ceros.")
+
     optimizer = CMA(
-        mean=np.zeros(num_params),
+        mean=init_mean,
         sigma=SIGMA_INIT,
         population_size=POP_SIZE,
     )
@@ -319,10 +332,10 @@ def main() -> None:
     best_validation = None
 
     start_time = time.time()
-    gen = 0
+    gen = 42
     log_entries: List[dict] = []
 
-    log_f = open(LOG_FILE, "w", encoding="utf-8")
+    log_f = open(LOG_FILE, "a", encoding="utf-8")
 
     try:
         while True:

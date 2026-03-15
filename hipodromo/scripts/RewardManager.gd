@@ -2,18 +2,22 @@ extends Node
 class_name RewardManager
 
 # Configurable reward weights (can be tuned per curriculum phase via set_weights)
-@export var w_progress: float = 5.0
-@export var w_reverse: float = 1.5       ## Multiplier on w_progress when going backward
-@export var w_off_track: float = -0.5
-@export var w_stuck: float = -1.0
-@export var w_collision: float = -1.5
-@export var w_lap_complete: float = 10.0
+@export var w_progress: float = 8.0
+@export var w_reverse: float = 2.0       ## Multiplier on w_progress when going backward
+@export var w_off_track: float = -2.5
+@export var w_stuck: float = -12.0
+@export var w_collision: float = -40.0    ## Choque catastrófico para forzar aprendizaje de giro
+@export var w_lap_complete: float = 50.0
 @export var w_erratic_steer: float = -0.05
-@export var w_zigzag_no_progress: float = -0.2  ## Extra penalty for zigzag without forward movement
-@export var w_brake: float = -0.1                ## New: Penalty for using the brake
-@export var w_steering_bonus: float = 0.02      ## New: Small bonus for steering in curves
-@export var w_drift: float = 0.05               ## New: Bonus for active drifting
-@export var survival_bonus: float = 0.01
+@export var w_zigzag_no_progress: float = -0.5  ## Extra penalty for zigzag without forward movement
+@export var w_brake: float = -0.2                
+@export var w_steering_bonus: float = 0.05      
+@export var w_drift: float = 0.5               ## Bonus secundario, no dominante
+@export var w_agent_collision: float = 2.0      
+@export var w_imitation: float = 0.3            ## Referencia suave, no ancla
+@export var w_idle: float = 4.0                 ## Penalización por no tener "hambre" de distancia
+@export var survival_bonus: float = 0.0         ## Quitamos puntos extra por solo existir
+@export var idle_speed_threshold: float = 35.0
 
 ## Calculate reward for one agent at one inference tick.
 ## delta_s: meters advanced along track center this tick (can be negative).
@@ -32,9 +36,18 @@ func calculate_reward(
 	steer_change: float = 0.0,
 	brake_input: float = 0.0,
 	steer_input: float = 0.0,
-	drift_input: float = 0.0
+	throttle_input: float = 0.0,
+	drift_input: float = 0.0,
+	agent_collisions: int = 0,
+	baseline_steer: float = 0.0,
+	baseline_throttle: float = 0.0,
+	current_speed: float = 0.0
 ) -> float:
-	var r = survival_bonus
+	var r = 0.0
+	
+	# Anti-Idle: Si no se mueve con ganas, castigo
+	if current_speed < idle_speed_threshold:
+		r -= w_idle
 	
 	# Forward progress (positive) / reverse penalty (heavier)
 	if delta_s > 0:
@@ -77,6 +90,16 @@ func calculate_reward(
 	if lap_complete:
 		r += w_lap_complete
 		
+	# Agent-Agent collision bonus (requested as "puntos por golpear a otro")
+	if agent_collisions > 0:
+		r += agent_collisions * w_agent_collision
+		
+	# Imitation Reward: compare steer and throttle with baseline suggestion
+	# Penalty based on L1 distance
+	var steer_diff = abs(steer_input - baseline_steer)
+	var throttle_diff = abs(throttle_input - baseline_throttle)
+	r -= (steer_diff + throttle_diff) * w_imitation
+	
 	return r
 
 ## Override weights from a dictionary (e.g. for curriculum tuning).

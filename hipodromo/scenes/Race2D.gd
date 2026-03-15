@@ -445,7 +445,8 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 			actions[i].get("drift", 0.0),
 			agent_collisions,
 			baseline_hint["steer"],
-			baseline_hint["throttle"]
+			baseline_hint["throttle"],
+			v.linear_velocity.length()
 		)
 		b.prev_steer_action = actions[i]["steer"]
 		agent_total_reward[i] += r

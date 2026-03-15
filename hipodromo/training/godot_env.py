@@ -76,7 +76,7 @@ class GodotRaceEnv(gym.Env):
             try:
                 print(f"[GodotEnv] Buscando instancia de Godot en puerto {self.port}...")
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.settimeout(10.0)  # Timeout generoso para x16
+                self.sock.settimeout(30.0) 
                 self.sock.connect(("127.0.0.1", self.port))
                 print(f"[GodotEnv] ¡Instancia encontrada!")
             except:
@@ -97,18 +97,24 @@ class GodotRaceEnv(gym.Env):
         if options and "gen" in options:
             cmd["gen"] = options["gen"]
             
-        for attempt in range(3):
+        for attempt in range(5):  # Más intentos
             try:
+                if self.sock is None: 
+                    return self.reset(seed, options)
+                
+                # print(f"[GodotEnv] Enviando {cmd['cmd']}...")
                 self._send(cmd)
                 resp = self._receive()
+                # print(f"[GodotEnv] Respuesta de {cmd['cmd']} recibida.")
                 
                 obs = np.array(resp["obs"], dtype=np.float32)
                 return obs, {}
-            except socket.timeout:
-                print(f"⚠️ Timeout en reset (intento {attempt+1}/3). Reintentando...")
-                time.sleep(2.0)
+            except (socket.timeout, socket.error, ConnectionResetError) as e:
+                print(f"⚠️ Error en reset ({type(e).__name__}) (intento {attempt+1}/5). Reintentando conexión...")
+                self.sock = None # Forzar reconexión en el siguiente intento
+                time.sleep(3.0)
         
-        raise socket.timeout("Godot no respondió al reset tras 3 intentos.")
+        raise socket.timeout("Godot no respondió al reset tras 5 intentos.")
 
     def step(self, actions):
         # Format actions as a list of lists (one per agent)
@@ -125,8 +131,16 @@ class GodotRaceEnv(gym.Env):
             "actions": actions_to_send
         }
         start_t = time.time()
-        self._send(cmd)
-        resp = self._receive()
+        try:
+            self.sock.settimeout(10.0) # Asegurar timeout en cada step
+            self._send(cmd)
+            resp = self._receive()
+        except (socket.timeout, socket.error, ConnectionResetError) as e:
+            print(f"⚠️ Error en step ({type(e).__name__}). Intentando recuperar...")
+            self.sock = None
+            obs, _ = self.reset() 
+            return obs, 0.0, False, True, {"error": str(e)} # Retornar truncado por error
+        
         latency = time.time() - start_t
         if latency > 2.0:
             print(f"⚠️ Latencia alta en step: {latency:.2f}s")
@@ -165,6 +179,7 @@ class GodotRaceEnv(gym.Env):
 
     def _send(self, data):
         msg = json.dumps(data) + "\n"
+        # print(f"[GODOT_ENV] SEND: {msg[:60]}...")
         self.sock.sendall(msg.encode("utf-8"))
 
     def _receive(self):
@@ -176,7 +191,9 @@ class GodotRaceEnv(gym.Env):
             data += chunk
             if b"\n" in data:
                 break
-        return json.loads(data.decode("utf-8"))
+        decoded = data.decode("utf-8")
+        # print(f"[GODOT_ENV] RECV: {decoded[:60]}...")
+        return json.loads(decoded)
 
 if __name__ == "__main__":
     # Test script

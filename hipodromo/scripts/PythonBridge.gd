@@ -7,6 +7,9 @@ var server: TCPServer
 var peer: StreamPeerTCP
 var port: int = 9090
 
+func is_client_connected() -> bool:
+	return peer != null and peer.get_status() == StreamPeerTCP.STATUS_CONNECTED
+
 func _ready():
 	# 1. Try environment variable (most reliable for parallel runs)
 	var env_port = OS.get_environment("GODOT_BRIDGE_PORT")
@@ -47,6 +50,7 @@ func _check_for_messages():
 	var available = peer.get_available_bytes()
 	if available > 0:
 		var data = peer.get_utf8_string(available)
+		print("[PythonBridge] RECV: ", data.substr(0, 50))
 		_buffer += data
 		
 		# Process all complete messages delimited by newline

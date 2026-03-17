@@ -6,9 +6,13 @@ signal command_received(cmd_dict: Dictionary)
 var server: TCPServer
 var peer: StreamPeerTCP
 var port: int = 9090
+var last_recv_time: float = 0.0 # Segundos desde inicio de app
 
 func is_client_connected() -> bool:
 	return peer != null and peer.get_status() == StreamPeerTCP.STATUS_CONNECTED
+
+func time_since_last_message() -> float:
+	return (Time.get_ticks_msec() / 1000.0) - last_recv_time
 
 func _ready():
 	# 1. Try environment variable (most reliable for parallel runs)
@@ -42,6 +46,7 @@ func _process(_delta):
 			peer = null
 	elif server.is_connection_available():
 		peer = server.take_connection()
+		last_recv_time = Time.get_ticks_msec() / 1000.0
 		print("[PythonBridge] Client connected from %s" % peer.get_connected_host())
 
 var _buffer: String = ""
@@ -67,6 +72,7 @@ func _check_for_messages():
 			var json = JSON.new()
 			var err = json.parse(msg)
 			if err == OK:
+				last_recv_time = Time.get_ticks_msec() / 1000.0
 				command_received.emit(json.data)
 			else:
 				push_error("[PythonBridge] JSON parse error: %s" % msg)

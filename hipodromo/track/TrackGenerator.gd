@@ -5,6 +5,7 @@ extends Node2D
 @export var min_radius: float = 1500.0
 @export var max_radius: float = 3500.0
 
+
 var path: Path2D
 var visual_line: Line2D
 var edge_line_inner: Line2D
@@ -13,6 +14,8 @@ var center_line: Line2D
 var static_body: StaticBody2D
 var col_inner: CollisionPolygon2D
 var col_outer: CollisionPolygon2D
+var meta_line: Line2D
+var start_line: Line2D
 var waypoints: Array = []
 var active_seed: int = 0
 
@@ -68,6 +71,20 @@ func _init():
 	center_line.z_index = 1
 	add_child(center_line)
 
+	# --- Meta (Finish Line) ---
+	meta_line = Line2D.new()
+	meta_line.width = 15.0
+	meta_line.default_color = Color(1.0, 1.0, 1.0, 0.8) # Blanco semitransparente
+	meta_line.z_index = 2
+	add_child(meta_line)
+	
+	# --- Salida (Start Line) ---
+	start_line = Line2D.new()
+	start_line.width = 25.0
+	start_line.default_color = Color(0.1, 0.1, 0.1, 1.0) # Negro sólido
+	start_line.z_index = 2
+	add_child(start_line)
+
 	# --- Collision walls ---
 	static_body = StaticBody2D.new()
 	static_body.collision_layer = 1
@@ -91,6 +108,18 @@ func generate_track(seed_val: int, config_track_width: float = -1.0):
 	path.curve.clear_points()
 	waypoints.clear()
 	
+	# Detectar subfase vía nombre de la seed o parámetro externo
+	# Para simplificar, si seed_val < 100, usamos currículo
+	if seed_val < 10:
+		_generate_phase_1a_straight()
+		return
+	elif seed_val < 15:
+		_generate_phase_1b_oval(1.0) # CCW (Anti-horario)
+		return
+	elif seed_val < 20:
+		_generate_phase_1b_oval(-1.0) # CW (Horario)
+		return
+		
 	var points = []
 	for i in range(num_points):
 		var angle = (float(i) / num_points) * TAU
@@ -140,22 +169,26 @@ func build_visuals():
 	var outer_pts = PackedVector2Array()
 	var p_count = baked.size()
 	
-	if p_count > 2:
-		for i in range(p_count):
+	if p_count >= 2:
+		var is_closed = center_line.closed
+		for i in range(p_count if is_closed else p_count - 1):
 			var p_curr = baked[i]
 			var next_idx = (i + 1) % p_count
 			var p_next = baked[next_idx]
 			
-			if p_curr.distance_squared_to(p_next) < 1.0:
-				next_idx = (next_idx + 1) % p_count
-				p_next = baked[next_idx]
+			if p_curr.distance_squared_to(p_next) < 0.1: continue
 				
 			var dir = (p_next - p_curr).normalized()
 			var normal = Vector2(-dir.y, dir.x)
-			
 			var collision_offset = (track_width / 2.0) - 15.0
+			
 			inner_pts.append(p_curr + normal * collision_offset)
 			outer_pts.append(p_curr - normal * collision_offset)
+			
+			# Para pistas abiertas, añadir el último punto
+			if not is_closed and i == p_count - 2:
+				inner_pts.append(p_next + normal * collision_offset)
+				outer_pts.append(p_next - normal * collision_offset)
 	
 	# Set collision polygons
 	col_inner.polygon = inner_pts
@@ -166,27 +199,56 @@ func build_visuals():
 	var edge_inner_pts = PackedVector2Array()
 	var edge_outer_pts = PackedVector2Array()
 	
-	if p_count > 2:
-		for i in range(p_count):
+	if p_count >= 2:
+		var is_closed = center_line.closed
+		for i in range(p_count if is_closed else p_count - 1):
 			var p_curr = baked[i]
 			var next_idx = (i + 1) % p_count
 			var p_next = baked[next_idx]
 			
-			if p_curr.distance_squared_to(p_next) < 1.0:
-				next_idx = (next_idx + 1) % p_count
-				p_next = baked[next_idx]
+			if p_curr.distance_squared_to(p_next) < 0.1: continue
 			
 			var dir = (p_next - p_curr).normalized()
 			var normal = Vector2(-dir.y, dir.x)
 			
 			edge_inner_pts.append(p_curr + normal * edge_offset)
 			edge_outer_pts.append(p_curr - normal * edge_offset)
+			
+			if not is_closed and i == p_count - 2:
+				edge_inner_pts.append(p_next + normal * edge_offset)
+				edge_outer_pts.append(p_next - normal * edge_offset)
 	
 	edge_line_inner.points = edge_inner_pts
 	edge_line_outer.points = edge_outer_pts
 	
 	# Center line: same as baked center path
 	center_line.points = baked
+	
+	# --- Meta and Start Line Drawing ---
+	if baked.size() > 1:
+		var p0 = baked[0]
+		var p1 = baked[1]
+		var dir = (p1 - p0).normalized()
+		var normal = Vector2(-dir.y, dir.x)
+		var half_w = track_width / 2.0
+		
+		# Línea de SALIDA (Negra) en el punto exacto de inicio (p0)
+		start_line.points = PackedVector2Array([
+			p0 + normal * half_w,
+			p0 - normal * half_w
+		])
+		
+		# Línea de META (Blanca) un poco ANTES de completar el circuito (vuelta completa)
+		var track_len = get_track_length()
+		if track_len > 100.0:
+			var p_finish = path.curve.sample_baked(track_len - 40.0)
+			var dir_finish = (p0 - p_finish).normalized()
+			var normal_finish = Vector2(-dir_finish.y, dir_finish.x)
+			
+			meta_line.points = PackedVector2Array([
+				p_finish + normal_finish * half_w,
+				p_finish - normal_finish * half_w
+			])
 
 
 func get_waypoints() -> Array:
@@ -266,3 +328,37 @@ func get_track_hash() -> int:
 	for p in waypoints:
 		h = hash(str(h) + str(snapped(p.x, 0.01)) + str(snapped(p.y, 0.01)))
 	return h
+func _generate_phase_1a_straight():
+	var length = 5000.0
+	track_width = 1200.0 # Mucho más ancha para Phase 1A
+	visual_line.width = track_width
+	path.curve.add_point(Vector2(0, 0))
+	path.curve.add_point(Vector2(length, 0))
+	# No es cerrado
+	center_line.closed = false
+	call_deferred("build_visuals")
+
+func _generate_phase_1b_oval(dir_mult: float = 1.0):
+	var radius = 800.0
+	track_width = 600.0
+	visual_line.width = track_width
+	for i in range(8):
+		var a = (float(i)/8.0) * -TAU * dir_mult
+		path.curve.add_point(Vector2(cos(a), sin(a)) * radius)
+	path.curve.add_point(path.curve.get_point_position(0))
+	center_line.closed = true
+	_smooth_tangents()
+	call_deferred("build_visuals")
+
+func _smooth_tangents():
+	var point_count = path.curve.get_point_count()
+	for i in range(point_count):
+		var prev_idx = i - 1
+		if prev_idx < 0: prev_idx = point_count - 2
+		var next_idx = i + 1
+		if next_idx >= point_count: next_idx = 1
+		var p_prev = path.curve.get_point_position(prev_idx)
+		var p_next = path.curve.get_point_position(next_idx)
+		var tangent = (p_next - p_prev) * 0.2
+		path.curve.set_point_in(i, -tangent)
+		path.curve.set_point_out(i, tangent)

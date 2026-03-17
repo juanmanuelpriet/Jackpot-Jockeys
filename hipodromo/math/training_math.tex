@@ -4,12 +4,14 @@
 \usepackage[spanish]{babel}
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{geometry}
 \usepackage{xcolor}
+\usepackage{hyperref}
 \geometry{a4paper, margin=1in}
 
-\title{\textbf{Guía Técnica AG-RACE}\\ Física de Hovercraft y Entrenamiento RL}
-\author{Senior Physics \& RL Engineer}
+\title{\textbf{Guía Técnica AG-RACE}\\ Fase 1B: Aprendizaje de Curvatura y Dinámica de Óvalo}
+\author{Proyecto Jackpot Jockeys}
 \date{\today}
 
 \begin{document}
@@ -17,48 +19,53 @@
 \maketitle
 
 \section{Introducción}
-Este documento explica los fundamentos matemáticos del entorno AG-RACE, detallando el modelo de física tipo \textit{hovercraft} y el proceso de aprendizaje por neuroevolución utilizando el algoritmo CMA-ES con una arquitectura de red neuronal profunda.
+Este documento detalla la formalización matemática y la configuración del entrenamiento para la \textbf{Fase 1B} del entorno AG-RACE. En esta etapa, el objetivo es que el agente aprenda a navegar circuitos curvados (óvalos) mediante el control preciso de la inercia lateral y la aceleración longitudinal, partiendo de los conocimientos básicos adquiridos en la Fase 1A (Rectas).
 
-\section{Resumen de Objetivos}
-El objetivo principal del entrenamiento es crear un piloto que:
+\section{Configuración de la Fase 1B}
+El entorno se configura como un circuito cerrado en forma de óvalo con las siguientes características:
 \begin{itemize}
-    \item \textbf{Maximice la velocidad} sin perder el control (\textit{Drifting} controlado).
-    \item \textbf{Mantenga la inercia}: Se penaliza el uso del freno para fomentar el flujo en curvas.
-    \item \textbf{Sea extremadamente agresivo}: El contacto con otras naves ahora aplica una fuerza de empuje (\textit{Impulse}) sin pérdida de velocidad.
-    \item \textbf{Evite los muros}: El contacto con los límites resulta en eliminación inmediata.
+    \item \textbf{Modo de Simulación}: Multi-Agente Clonado (8 clones paralelos).
+    \item \textbf{Capa de Colisión}: Desactivada entre agentes (\textit{Ghosting}) para eliminar ruido competitivo y centrarse en la trayectoria ideal.
+    \item \textbf{Seeds de Evaluación}: Se utilizan semillas específicas para evaluar sentidos Horario (CW) y Anti-horario (CCW).
 \end{itemize}
 
-\section{Física de Vuelo y Colisiones}
-\subsection{Colisiones entre Naves (Push Physics)}
-Para fomentar el combate táctico, las colisiones entre agentes se han modificado:
+\section{Función de Recompensa (Eficiencia Cinética)}
+Para la Fase 1B, se ha implementado una función de recompensa simplificada diseñada para castigar la pasividad y premiar el flujo constante hacia adelante.
+
+\subsection{Definición de Recompensa por Paso ($R_{step}$)}
+En cada tick de inferencia, el agente recibe una recompensa escalar definida por:
+
+\[ R_{step} = W_{time} + R_{prog} - W_{penalty} \]
+
+Donde los parámetros se han ajustado para prevenir el retroceso (\textit{Backwards Exploit}):
 \begin{itemize}
-    \item \textbf{Elasticidad}: Al chocar con otra nave, se conserva el 90\% de la velocidad.
-    \item \textbf{Impulso}: El vehículo atacante transfiere parte de su inercia al colisionado, "empujándolo" fuera de la trayectoria ideal.
+    \item $W_{time} = -1.0$: Incentivo de velocidad.
+    \item $R_{prog}$: Si $\Delta s > 0$, entonces $+10.0 \cdot \Delta s$. Si $\Delta s < 0$, entonces $+50.0 \cdot \Delta s$ (Penalización).
+    \item $W_{idle} = 30.0$: Castigo si $V < 60$.
+    \item \textbf{Wrong Way Penalty}: $-100.0$ adicional por tick si el movimiento hacia atrás es sostenido ($ds < -0.05$).
+    \item \textbf{Goal Bonus}: $+5000.0$ al completar el circuito.
 \end{itemize}
 
-\subsection{Modo Obstáculo de Restos (Wreckage)}
-En la Generación actual, los vehículos destruidos **no desaparecen** ni se vuelven intangibles. Permanecen en la pista como obstáculos físicos permanentes, obligando a los supervivientes a realizar maniobras de esquiva dinámica.
+\section{Sistema de Protección Anti-Retroceso}
+Para evitar que el agente explote la lógica de proximidad a la meta, se han implementado dos capas de seguridad:
+\begin{enumerate}
+    \item \textbf{Línea de Salida (Negra)}: Se ha definido una barrera lógica e identificador visual (Negro) a 40 unidades detrás del punto de salida.
+    \item \textbf{Respawn por Sentido Contrario}: Si un agente cruza la línea de meta en sentido opuesto (Progreso $0.0 \to 0.9$ sin pasar por el ecuador de la pista), es eliminado inmediatamente, recibe un castigo de $-200.0$ y es devuelto al inicio.
+\end{enumerate}
 
-\subsection{Algoritmo SepCMA (Separable CMA-ES)}
-Dada la alta dimensionalidad de la red (**13,374 parámetros**), se utiliza la variante \textit{Separable} de CMA-ES. Esto permite optimizar el "cerebro" de forma lineal en lugar de cuadrática, permitiendo generaciones rápidas incluso en hardware estándar.
+\section{Algoritmo de Optimización: SepCMA}
+Dado que el controlador neuronal del agente posee miles de parámetros, se utiliza \textbf{CMA-ES Separable}. Este método evolutivo estima la matriz de covarianza de forma diagonal, lo que reduce la carga computacional de $O(N^2)$ a $O(N)$.
 
-\section{Optimizaciones de Motor Godot}
-Para permitir un entrenamiento a velocidad extrema (**x16**), se han implementado:
+\subsection{Criterio de Fitness}
+La aptitud de un genoma $\Phi$ se evalúa como una combinación lineal de su rendimiento medio y su robustez:
+\[ F(\Phi) = \bar{R} - 0.2 \cdot \sigma_R \]
+Donde $\bar{R}$ es la recompensa media entre todas las semillas y $\sigma_R$ es la desviación estándar, penalizando comportamientos que solo funcionan en una pista específica.
+
+\section{Arquitectura del Controlador}
+El agente opera bajo una red neuronal densa (\textit{RacerPolicy}) con:
 \begin{itemize}
-    \item \textbf{HUD Telemetría}: Visualización en tiempo real de la Generación de IA y estado del servidor Python.
-    \item \textbf{Capa de Protección x16}: Bucles defensivos que evitan desbordamientos de memoria cuando los agentes se reinician a alta velocidad.
-    \item \textbf{Imitation Teacher Caching}: Optimización de la lógica de sugerencia (imitation reward) mediante el reciclaje de nodos en memoria, reduciendo el micro-stutter en la simulación.
-\end{itemize}
-
-\section{Función de Fitness (Actualizado v2)}
-El sistema utiliza una métrica de aptitud compuesta que premia no solo el avance, sino la consistencia y la superación del experto:
-\[ F = \text{Media}(R_{ia}) + 2.0 \cdot \max(0, \text{IA} - \text{Base}) - 1.5 \cdot \text{Std}(R_{ia}) \]
-
-\textbf{Lógica de Entrenamiento Robusto:}
-\begin{itemize}
-    \item \textbf{Evaluación Multi-Semilla}: Cada individuo se prueba en 5 pistas deterministas por generación.
-    \item \textbf{Validación Estricta}: El mejor individuo de cada generación se re-evalúa en 12 pistas totalmente nuevas (\textit{Unseen}) para confirmar su capacidad de generalización antes de ser guardado.
-    \item \textbf{Reporte PDF en Vivo}: El archivo \texttt{resultados.pdf} se genera automáticamente cada 2 generaciones, mostrando el progreso de la IA vs el Baseline.
+    \item \textbf{Entrada (59D)}: Incluye LIDAR (20 rayos), estado propio (velocidad, dirección ideal) y sensores de pista.
+    \item \textbf{Salida (5D)}: Vector de control continuo $[Throttle, Brake, Steer, Drift, Stabilize]$.
 \end{itemize}
 
 \end{document}

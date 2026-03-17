@@ -3,9 +3,9 @@ extends Node2D
 @onready var track_generator = $TrackGenerator
 @onready var camera = $Camera2D
 
-@export var auto_start_python_training: bool = false
-@export var python_executable: String = "/Users/juanmanuelprieto/Documents/entorno_jackpot/.venv/bin/python"
-@export var python_training_script: String = "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/entrenar_5h.py"
+@export var auto_start_python_training: bool = true
+@export var python_executable: String = "/opt/miniconda3/bin/python3"
+@export var python_training_script: String = "/Users/juanmanuelprieto/Documents/entorno_jackpot/hipodromo/training/entrenar_fase1.py"
 
 var python_pid: int = -1
 var current_generation: int = 0
@@ -38,6 +38,10 @@ var agent_total_off_track_time: Array[float] = []
 var agent_total_collisions: Array[int] = []
 var agent_total_agent_collisions: Array[int] = []
 var agent_stuck_events: Array[int] = []
+var agent_laps_completed: Array[int] = []
+var agent_is_finished: Array[bool] = []
+
+@export var laps_to_complete: int = 2
 
 # --- Free Camera ---
 var cam_zoom_level: float = 0.3
@@ -50,6 +54,7 @@ var cam_drag_start: Vector2 = Vector2.ZERO
 
 
 func _ready():
+	Engine.time_scale = 2.0 # Velocidad x2 para acelerar la física (A pedido del usuario)
 	_setup_background()
 
 	vehicles_parent = Node2D.new()
@@ -84,8 +89,8 @@ func _ready():
 	else:
 		print("[Race2D] WARNING: PythonBridge no tiene start_server()")
 
-	var random_seed = int(Time.get_ticks_msec())
-	var demo_config = EnvironmentConfig.new(random_seed, 3, "train")
+	var _random_seed = int(Time.get_ticks_msec())
+	var demo_config = EnvironmentConfig.new(0, 1) # Fase 1A (Recta)
 	reset_environment(demo_config)
 
 	if auto_start_python_training:
@@ -154,6 +159,8 @@ func reset_environment(config: EnvironmentConfig, custom_seed: int = -1) -> Arra
 
 	seed(env_config.base_seed)
 
+	reward_manager.current_phase = env_config.curriculum_phase
+	
 	track_generator.generate_track(env_config.base_seed, env_config.track_width)
 	track_generator.build_visuals()
 
@@ -173,6 +180,8 @@ func reset_environment(config: EnvironmentConfig, custom_seed: int = -1) -> Arra
 	agent_total_collisions.clear()
 	agent_total_agent_collisions.clear()
 	agent_stuck_events.clear()
+	agent_laps_completed.clear()
+	agent_is_finished.clear()
 
 	_spawn_agents_sync()
 
@@ -182,6 +191,8 @@ func reset_environment(config: EnvironmentConfig, custom_seed: int = -1) -> Arra
 		agent_total_collisions.append(0)
 		agent_total_agent_collisions.append(0)
 		agent_stuck_events.append(0)
+		agent_laps_completed.append(0)
+		agent_is_finished.append(false)
 		last_actions.append({
 			"throttle": 0.0,
 			"brake": 0.0,
@@ -220,7 +231,10 @@ func _spawn_agents_sync():
 		var v = vehicle_scene.instantiate() as Node2D
 		var brain: Node
 
-		if env_config.agent_type == "neural":
+		if env_config.curriculum_phase == 1:
+			brain = neural_brain_scene.instantiate()
+			print("[spawn] agent %d = Neural Clone (Phase 1)" % i)
+		elif env_config.agent_type == "neural":
 			if i == env_config.num_agents - 1 and env_config.num_agents > 1:
 				brain = baseline_brain_scene.instantiate()
 				print("[spawn] agent %d = Baseline" % i)
@@ -234,7 +248,7 @@ func _spawn_agents_sync():
 		var col = i % cols
 		var row = int(i / float(cols))
 
-		var x_off = -row * spacing_x
+		var x_off = 300.0 - (row * spacing_x)
 		var y_off = (col - (cols - 1) / 2.0) * spacing_y
 
 		var offset_pos = start_transform.basis_xform(Vector2(x_off, y_off))
@@ -312,10 +326,12 @@ func _process(delta):
 	if pan_dir != Vector2.ZERO:
 		camera.position += pan_dir.normalized() * cam_pan_speed * delta / cam_zoom_level
 
-	if Input.is_key_pressed(KEY_E):
-		_adjust_zoom(1.0 + 2.0 * delta)
 	if Input.is_key_pressed(KEY_Q):
 		_adjust_zoom(1.0 - 2.0 * delta)
+
+	# Update HUD live for connection status
+	if is_instance_valid(hud) and env_config:
+		hud.update_telemetry(env_config, current_step, vehicles, brains, agent_total_reward, current_generation)
 
 
 func _physics_process(delta):
@@ -378,10 +394,15 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 
 	world_event_manager.step_events(dt)
 
+	var num_v = vehicles.size()
+	var step_wall_hits: Array[int] = []
+	step_wall_hits.resize(num_v)
+	step_wall_hits.fill(0)
+
 	var ticks_per_step = int(Engine.physics_ticks_per_second / float(env_config.inference_fps))
 	for _index in range(ticks_per_step):
 		# Re-aplicar inputs en cada frame para mantener el empuje/giro constante
-		for i in range(min(vehicles.size(), actions.size())):
+		for i in range(min(num_v, actions.size())):
 			var v = vehicles[i]
 			var act = actions[i]
 			v.apply_inputs(
@@ -392,31 +413,62 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 				act.get("stabilize", 0.0)
 			)
 		await get_tree().physics_frame
+		
+		# Acumular choques durante todos los ticks del step
+		for i in range(min(num_v, vehicles.size())):
+			step_wall_hits[i] += vehicles[i].get_wall_collision_count_this_frame()
 
-	for i in range(min(vehicles.size(), actions.size())):
+	for i in range(min(num_v, min(vehicles.size(), actions.size()))):
 		var v = vehicles[i]
 		var b = brains[i]
+		var wall_hits = step_wall_hits[i]
+		
 		var current_s = track_generator.get_progress_scalar(v.global_position)
 		var ds = current_s - agent_progress_mem[i]
-
+		
+		# --- Laps and Finish Line Logic ---
 		var lap_completed = false
-		if ds < -0.5:
-			ds += 1.0
+		if current_s < 0.1 and agent_progress_mem[i] > 0.9: # Crossed finish line forward
 			lap_completed = true
-		elif ds > 0.5:
-			ds -= 1.0
+			agent_laps_completed[i] += 1
+			print("Agent %d completed lap %d/%d" % [i, agent_laps_completed[i], laps_to_complete])
+			
+			if agent_laps_completed[i] >= laps_to_complete:
+				agent_is_finished[i] = true
+				v.die() # Stop the vehicle
+				if is_instance_valid(v.visual):
+					v.visual.modulate = Color(0.0, 3.0, 0.0, 1.0) # Victory glow
+				print("Agent %d REACHED THE GOAL!" % i)
+		elif current_s > 0.9 and agent_progress_mem[i] < 0.1: # Sentido contrario
+			print("Agent %d is driving BACKWARDS! Respawning..." % i)
+			agent_total_reward[i] -= 200.0 # Castigo por sentido contrario
+			v.respawn(track_generator.get_start_transform())
+			agent_progress_mem[i] = 0.0
+			current_s = 0.0
+			ds = 0.0
 
+		# Wrap-around for reward calculation (ds_meters)
+		var ds_reward = ds
+		if ds_reward < -0.8: ds_reward += 1.0
+		if ds_reward > 0.8: ds_reward -= 1.0
+		var ds_meters = ds_reward * track_generator.get_track_length()
+		
 		agent_progress_mem[i] = current_s
-		var ds_meters = ds * track_generator.get_track_length()
 
 		var off_track_dist = track_generator.get_off_track_distance(v.global_position)
 		var collisions_this_tick = v.get_collision_count_this_frame()
 
 		var race_time = float(current_step) / float(env_config.inference_fps)
-		var wall_hits = v.get_wall_collision_count_this_frame()
-		if wall_hits > 0 and not v.is_dead and race_time > 2.0:
-			print("Agent %d died at step %d (race_time: %.2f)" % [i, current_step, race_time])
-			v.die()
+		# Usamos el acumulado del step
+		if wall_hits > 0 and not v.is_dead and race_time > 0.5:
+			print("Agent %d crashed! Respawning..." % i)
+			if env_config.curriculum_phase == 1:
+				v.respawn(track_generator.get_start_transform())
+				agent_progress_mem[i] = 0.0
+				# Inyectamos penalización manual por choque
+				agent_total_reward[i] -= 50.0 
+			else:
+				v.die()
 
 		if off_track_dist > 0.0:
 			agent_total_off_track_time[i] += dt
@@ -428,26 +480,18 @@ func step_environment(actions: Array[Dictionary], dt: float) -> Dictionary:
 		if b.stuck_timer > 1.5 and b.stuck_timer - dt <= 1.5:
 			agent_stuck_events[i] += 1
 
-		var baseline_hint = {"steer": 0.0, "throttle": 0.0}
 		if not (b is BaselineAgent):
-			baseline_hint = _get_baseline_suggestion_for(v)
+			_get_baseline_suggestion_for(v)
 
-		var r = reward_manager.calculate_reward(
-			ds_meters,
-			off_track_dist,
-			b.stuck_timer > 1.0,
-			wall_hits,
-			lap_completed,
-			actions[i]["steer"] - b.prev_steer_action,
-			actions[i].get("brake", 0.0),
-			actions[i].get("steer", 0.0),
-			actions[i].get("throttle", 0.0),
-			actions[i].get("drift", 0.0),
-			agent_collisions,
-			baseline_hint["steer"],
-			baseline_hint["throttle"],
-			v.linear_velocity.length()
-		)
+		# 4. Usar diccionario para calcular reward.
+		var r = reward_manager.calculate_reward({
+			"delta_s": ds_meters,
+			"off_track_dist": off_track_dist,
+			"is_stuck": b.stuck_timer > 1.5,
+			"collisions": wall_hits,
+			"current_speed": v.velocity.length(),
+			"lap_complete": lap_completed or (env_config.curriculum_phase == 1 and current_s > 0.98) # Meta en recta
+		})
 		b.prev_steer_action = actions[i]["steer"]
 		agent_total_reward[i] += r
 
@@ -560,10 +604,12 @@ func _on_bridge_command(cmd: Dictionary):
 						"stabilize": raw[4] if raw.size() > 4 else 0.0
 					})
 				else:
-					if b is NeuralAgent:
-						actions_dicts.append(b.compute_action(1.0 / 60.0))
-					else:
-						actions_dicts.append(b.compute_baseline_action(1.0 / 60.0))
+					actions_dicts.append(b.compute_baseline_action(1.0 / 60.0))
+
+			if actions_dicts.size() > 0:
+				pass
+				# var a0 = actions_dicts[0]
+				# print("[Race2D] Action0: T=%.2f, S=%.2f, B=%.2f" % [a0.throttle, a0.steer, a0.brake])
 
 			var result = await step_environment(actions_dicts, 1.0 / float(env_config.inference_fps))
 
@@ -576,7 +622,7 @@ func _on_bridge_command(cmd: Dictionary):
 				"info": result["info"]
 			}
 			python_bridge.send_response(response)
-			print("[Race2D] >> STEP completado | Rewards enviados a Python")
+# print("[Race2D] >> STEP completado | Rewards enviados a Python")
 
 		"close":
 			get_tree().quit()

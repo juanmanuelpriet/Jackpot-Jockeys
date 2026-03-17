@@ -15,6 +15,23 @@ func update_telemetry(config, step: int, agents: Array, brains: Array, last_rewa
 	if agents.size() > 0:
 		status = "ENTRENANDO: %d AGENTES EN PISTA" % agents.size()
 	
+	# Monitoreo de Conexión
+	var bridge = get_parent().python_bridge
+	var conn_info = "[ SIN CONEXIÓN ]"
+	var conn_color = "red"
+	if bridge.is_client_connected():
+		var dt = bridge.time_since_last_message()
+		if dt < 0.2:
+			conn_info = "[ CONECTADO | Latencia: %sms ]" % str(int(dt * 1000))
+			conn_color = "lime"
+		elif dt < 1.0:
+			conn_info = "[ LENTO | Latencia: %sms ]" % str(int(dt * 1000))
+			conn_color = "yellow"
+		else:
+			conn_info = "[ DESCONECTADO (Timeout: %s s) ]" % str(int(dt))
+			conn_color = "orange"
+
+	info_label.text += "LINK: [ %s ]\n" % conn_info
 	info_label.text += "STATUS: [ %s ]\n" % status
 	info_label.text += "Config: %s | Seed: %d | Phase: %d\n" % [config.config_hash, config.base_seed, config.curriculum_phase]
 	info_label.text += "Step: %4d / %d | Inf FPS: %d | Act Repeat: %d\n" % [step, config.max_steps_per_episode, config.inference_fps, config.action_repeat]

@@ -1,0 +1,54 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+Metal 4.0 - Forward+ - Using Device #0: Apple - Apple M5 (Apple9)
+
+[PythonBridge] Listening on port 9090
+[Race2D] WARNING: PythonBridge no tiene start_server()
+[spawn] agent 0 = Neural Clone (Phase 1)
+[ag-race] Reset | Seed: 0 | Config: AG-RACE-v1-1801440005 | Agents: 1 | Track hash: 954384114 | Events hash: 4042909520
+[Race2D] Python lanzado con PID: 43437
+[PythonBridge] Client connected from 127.0.0.1
+[PythonBridge] RECV: {"cmd": "reset", "seed": 11, "phase": 1, "agent_ty
+[Race2D] << RESET recibido de Python | Semilla: 11 | Gen: 0
+[spawn] agent 0 = Neural Clone (Phase 1)
+[spawn] agent 1 = Neural Clone (Phase 1)
+[spawn] agent 2 = Neural Clone (Phase 1)
+[spawn] agent 3 = Neural Clone (Phase 1)
+[spawn] agent 4 = Neural Clone (Phase 1)
+[spawn] agent 5 = Neural Clone (Phase 1)
+[spawn] agent 6 = Neural Clone (Phase 1)
+[spawn] agent 7 = Neural Clone (Phase 1)
+[ag-race] Reset | Seed: 11 | Config: AG-RACE-v1-873998658 | Agents: 8 | Track hash: 1929310261 | Events hash: 4188363650
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.5145557522773743, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8970133066177368, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.1483410894870758, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.9136022329330444, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.0751282274723053, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.9370577335357666, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8855372071266174, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[-0.2015339732170105, 
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.35564228892326355, 
+/opt/miniconda3/lib/python3.13/site-packages/keras/src/layers/layer.py:424: UserWarning: `build()` was called on layer 'racer_policy', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.5454697012901306, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.6768156290054321, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.7697657346725464, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.82718825340271, -0.
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8156198263168335, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.7434923648834229, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.7362973093986511, -
+Agent 6 is driving BACKWARDS! Respawning...
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.7706623077392578, -
+Agent 6 is driving BACKWARDS! Respawning...
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.805004358291626, -0
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.9571809768676758, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.7996653318405151, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8195329904556274, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8354231119155884, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.7946760654449463, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8850109577178955, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8903182148933411, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8888294696807861, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8619222640991211, -
+[PythonBridge] RECV: {"cmd": "step", "actions": [[0.8577911853790283, -
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)

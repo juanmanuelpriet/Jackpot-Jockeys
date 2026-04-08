@@ -3,7 +3,9 @@
 
 let NUM_CARS = 30;
 const NUM_SENSORS = 5;
-const HIDDEN_SIZE = 4;
+const HIDDEN_1 = 5;
+const HIDDEN_2 = 3;
+const HIDDEN_3 = 3;
 let MUTATION_RATE = 0.3;
 const SENSOR_LENGTH = 200;
 const CAR_RADIUS = 18;
@@ -298,11 +300,15 @@ class Track {
 class NeuralCar {
   constructor(weights) {
     if (!weights) {
-      this.w1 = this.randomMatrix(NUM_SENSORS, HIDDEN_SIZE);
-      this.w2 = this.randomMatrix(HIDDEN_SIZE, 2);
+      this.w1 = this.randomMatrix(NUM_SENSORS, HIDDEN_1);
+      this.w2 = this.randomMatrix(HIDDEN_1, HIDDEN_2);
+      this.w3 = this.randomMatrix(HIDDEN_2, HIDDEN_3);
+      this.w4 = this.randomMatrix(HIDDEN_3, 2);
     } else {
       this.w1 = weights.w1.map(row => [...row]);
       this.w2 = weights.w2.map(row => [...row]);
+      this.w3 = weights.w3.map(row => [...row]);
+      this.w4 = weights.w4.map(row => [...row]);
     }
   }
 
@@ -318,38 +324,56 @@ class NeuralCar {
   }
 
   think(sensors) {
-    const hidden = [];
-    for (let j = 0; j < HIDDEN_SIZE; j++) {
+    const h1 = [];
+    for (let j = 0; j < HIDDEN_1; j++) {
       let sum = 0;
       for (let i = 0; i < sensors.length; i++) {
         sum += sensors[i] * this.w1[i][j];
       }
-      hidden.push(Math.tanh(sum));
+      h1.push(Math.tanh(sum));
+    }
+
+    const h2 = [];
+    for (let j = 0; j < HIDDEN_2; j++) {
+      let sum = 0;
+      for (let i = 0; i < HIDDEN_1; i++) {
+        sum += h1[i] * this.w2[i][j];
+      }
+      h2.push(Math.tanh(sum));
+    }
+
+    const h3 = [];
+    for (let j = 0; j < HIDDEN_3; j++) {
+      let sum = 0;
+      for (let i = 0; i < HIDDEN_2; i++) {
+        sum += h2[i] * this.w3[i][j];
+      }
+      h3.push(Math.tanh(sum));
     }
 
     const output = [];
     for (let j = 0; j < 2; j++) {
       let sum = 0;
-      for (let i = 0; i < HIDDEN_SIZE; i++) {
-        sum += hidden[i] * this.w2[i][j];
+      for (let i = 0; i < HIDDEN_3; i++) {
+        sum += h3[i] * this.w4[i][j];
       }
       output.push(Math.tanh(sum));
     }
 
-    this._lastHidden = hidden;
+    this._lastH1 = h1;
+    this._lastH2 = h2;
+    this._lastH3 = h3;
     this._lastOutput = output;
     return { steer: output[0], gas: output[1] };
   }
 
   mutate() {
-    for (let i = 0; i < this.w1.length; i++) {
-      for (let j = 0; j < this.w1[i].length; j++) {
-        this.w1[i][j] += randomGaussian(0, 1) * MUTATION_RATE;
-      }
-    }
-    for (let i = 0; i < this.w2.length; i++) {
-      for (let j = 0; j < this.w2[i].length; j++) {
-        this.w2[i][j] += randomGaussian(0, 1) * MUTATION_RATE;
+    const layers = [this.w1, this.w2, this.w3, this.w4];
+    for (const layer of layers) {
+      for (let i = 0; i < layer.length; i++) {
+        for (let j = 0; j < layer[i].length; j++) {
+          layer[i][j] += randomGaussian(0, 1) * MUTATION_RATE;
+        }
       }
     }
   }
@@ -358,6 +382,8 @@ class NeuralCar {
     return {
       w1: this.w1.map(row => [...row]),
       w2: this.w2.map(row => [...row]),
+      w3: this.w3.map(row => [...row]),
+      w4: this.w4.map(row => [...row]),
     };
   }
 }
@@ -539,124 +565,103 @@ function nextGeneration() {
 // ─── Neural Network Visualization ───────────────────
 
 function drawNeuralNet(brain, sensors, bx, by, bw, bh) {
-  // Background panel
   fill(10, 14, 26, 200);
   stroke(60, 130, 200, 40);
   strokeWeight(1);
   rect(bx, by, bw, bh, 8);
 
-  // Title
   noStroke();
   fill(180, 220, 255, 180);
   textSize(11);
   textAlign(CENTER);
-  text('Neural Network', bx + bw / 2, by + 16);
+  text('Neural Network (5-5-3-3-2)', bx + bw / 2, by + 16);
 
-  const padX = 30;
+  const padX = 25;
   const padY = 28;
-  const layerX = [bx + padX, bx + bw / 2, bx + bw - padX];
-  const inputLabels = ['L2', 'L1', 'C', 'R1', 'R2'];
-  const outputLabels = ['Steer', 'Gas'];
+  const numLayers = 5; // input, h1, h2, h3, output
+  const layerX = [];
+  for (let i = 0; i < numLayers; i++) {
+    layerX.push(bx + padX + (i / (numLayers - 1)) * (bw - padX * 2));
+  }
 
-  // Node positions
+  const inputLabels = ['L2', 'L1', 'C', 'R1', 'R2'];
+  const outputLabels = ['St', 'Ga'];
+
   const inputNodes = [];
   for (let i = 0; i < NUM_SENSORS; i++) {
     const y = by + padY + 8 + (i / (NUM_SENSORS - 1)) * (bh - padY * 2 - 16);
     inputNodes.push({ x: layerX[0], y });
   }
 
-  const hiddenNodes = [];
-  for (let i = 0; i < HIDDEN_SIZE; i++) {
-    const y = by + padY + 16 + (i / (HIDDEN_SIZE - 1)) * (bh - padY * 2 - 32);
-    hiddenNodes.push({ x: layerX[1], y });
+  const h1Nodes = [];
+  for (let i = 0; i < HIDDEN_1; i++) {
+    const y = by + padY + 8 + (i / (HIDDEN_1 - 1 || 1)) * (bh - padY * 2 - 16);
+    h1Nodes.push({ x: layerX[1], y });
+  }
+
+  const h2Nodes = [];
+  for (let i = 0; i < HIDDEN_2; i++) {
+    const y = by + padY + 30 + (i / (HIDDEN_2 - 1 || 1)) * (bh - padY * 2 - 60);
+    h2Nodes.push({ x: layerX[2], y });
+  }
+
+  const h3Nodes = [];
+  for (let i = 0; i < HIDDEN_3; i++) {
+    const y = by + padY + 30 + (i / (HIDDEN_3 - 1 || 1)) * (bh - padY * 2 - 60);
+    h3Nodes.push({ x: layerX[3], y });
   }
 
   const outputNodes = [];
   for (let i = 0; i < 2; i++) {
-    const y = by + padY + 30 + (i / 1) * (bh - padY * 2 - 60);
-    outputNodes.push({ x: layerX[2], y });
+    const y = by + padY + 50 + (i / 1) * (bh - padY * 2 - 100);
+    outputNodes.push({ x: layerX[4], y });
   }
 
-  // Draw connections: input → hidden
-  for (let i = 0; i < NUM_SENSORS; i++) {
-    for (let j = 0; j < HIDDEN_SIZE; j++) {
-      const w = brain.w1[i][j];
-      const intensity = Math.min(Math.abs(w) * 80, 255);
-      if (w > 0) {
-        stroke(80, 255, 140, intensity);
-      } else {
-        stroke(255, 80, 80, intensity);
+  // Connections
+  drawLayerConn(inputNodes, h1Nodes, brain.w1);
+  drawLayerConn(h1Nodes, h2Nodes, brain.w2);
+  drawLayerConn(h2Nodes, h3Nodes, brain.w3);
+  drawLayerConn(h3Nodes, outputNodes, brain.w4);
+
+  function drawLayerConn(p1s, p2s, weights) {
+    for (let i = 0; i < p1s.length; i++) {
+      for (let j = 0; j < p2s.length; j++) {
+        const w = weights[i][j];
+        const intensity = Math.min(Math.abs(w) * 80, 255);
+        stroke(w > 0 ? color(80, 255, 140, intensity) : color(255, 80, 80, intensity));
+        strokeWeight(Math.min(Math.abs(w) * 0.8, 2.5));
+        line(p1s[i].x, p1s[i].y, p2s[j].x, p2s[j].y);
       }
-      strokeWeight(Math.min(Math.abs(w) * 0.8, 2.5));
-      line(inputNodes[i].x, inputNodes[i].y, hiddenNodes[j].x, hiddenNodes[j].y);
     }
   }
 
-  // Draw connections: hidden → output
-  for (let i = 0; i < HIDDEN_SIZE; i++) {
-    for (let j = 0; j < 2; j++) {
-      const w = brain.w2[i][j];
-      const intensity = Math.min(Math.abs(w) * 80, 255);
-      if (w > 0) {
-        stroke(80, 255, 140, intensity);
+  // Nodes
+  drawNodes(inputNodes, sensors, inputLabels, 'right');
+  drawNodes(h1Nodes, brain._lastH1, [], 'none');
+  drawNodes(h2Nodes, brain._lastH2, [], 'none');
+  drawNodes(h3Nodes, brain._lastH3, [], 'none');
+  drawNodes(outputNodes, brain._lastOutput, outputLabels, 'left');
+
+  function drawNodes(nodes, values, labels, align) {
+    for (let i = 0; i < nodes.length; i++) {
+      const val = values ? values[i] : 0;
+      noStroke();
+      if (align === 'right' || align === 'none') {
+        const brightness = 80 + val * 175;
+        fill(align === 'right' ? color(brightness, brightness * 0.9, 50) : (val > 0 ? color(80 + val * 175, 255, 140) : color(255, 80 + (-val) * 175, 80)));
       } else {
-        stroke(255, 80, 80, intensity);
+        fill(val > 0 ? color(80 + val * 175, 255, 140) : color(255, 80 + (-val) * 175, 80));
       }
-      strokeWeight(Math.min(Math.abs(w) * 0.8, 2.5));
-      line(hiddenNodes[i].x, hiddenNodes[i].y, outputNodes[j].x, outputNodes[j].y);
+      circle(nodes[i].x, nodes[i].y, align === 'left' ? 12 : 10);
+
+      if (labels[i]) {
+        fill(180, 200, 220, 160);
+        textSize(8);
+        textAlign(align === 'right' ? RIGHT : LEFT);
+        text(labels[i], nodes[i].x + (align === 'right' ? -8 : 10), nodes[i].y + 3);
+      }
     }
   }
-
-  // Draw input nodes
-  for (let i = 0; i < NUM_SENSORS; i++) {
-    const val = sensors ? sensors[i] : 0;
-    const brightness = 80 + val * 175;
-    noStroke();
-    fill(brightness, brightness * 0.9, 50);
-    circle(inputNodes[i].x, inputNodes[i].y, 12);
-    fill(180, 200, 220, 160);
-    textSize(9);
-    textAlign(RIGHT);
-    text(inputLabels[i], inputNodes[i].x - 10, inputNodes[i].y + 3);
-  }
-
-  // Draw hidden nodes
-  const hiddenVals = brain._lastHidden || [];
-  for (let i = 0; i < HIDDEN_SIZE; i++) {
-    const val = hiddenVals[i] || 0;
-    noStroke();
-    if (val > 0) {
-      fill(80 + val * 175, 255, 140);
-    } else {
-      fill(255, 80 + (-val) * 175, 80);
-    }
-    circle(hiddenNodes[i].x, hiddenNodes[i].y, 12);
-  }
-
-  // Draw output nodes
-  const outputVals = brain._lastOutput || [];
-  for (let i = 0; i < 2; i++) {
-    const val = outputVals[i] || 0;
-    noStroke();
-    if (val > 0) {
-      fill(80 + val * 175, 255, 140);
-    } else {
-      fill(255, 80 + (-val) * 175, 80);
-    }
-    circle(outputNodes[i].x, outputNodes[i].y, 14);
-    fill(180, 200, 220, 160);
-    textSize(9);
-    textAlign(LEFT);
-    text(outputLabels[i], outputNodes[i].x + 12, outputNodes[i].y + 3);
-
-    // Value label
-    textAlign(CENTER);
-    fill(255, 255, 255, 200);
-    textSize(8);
-    text((val >= 0 ? '+' : '') + val.toFixed(2), outputNodes[i].x, outputNodes[i].y + 22);
-  }
-
-  textAlign(LEFT);
 }
 
 // ─── Lap Time Graph ─────────────────────────────────

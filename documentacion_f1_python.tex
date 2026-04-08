@@ -1,0 +1,107 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{letterpaper, margin=0.75in}
+
+\title{\textbf{Entorno Óptimo de Neuroevolución para Conducción Autónoma: \\ Perturbaciones Fractales y Robustez Poblacional}}
+\author{Simulación Computacional y Aprendizaje Automático \\ Tesis en Machine Learning y Computación Evolutiva \\ Python, TensorFlow y Geometría Procedimental}
+\date{\vspace{-5ex}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+La implementación de navegación autónoma resiliente mediante aprendizaje no supervisado y métodos libres de gradiente representa un área de gran relevancia en el aprendizaje automático. Este documento describe el diseño, la formulación matemática y el análisis experimental de un entorno bidimensional para la neuroevolución de agentes vehiculares. La infraestructura propuesta se desarrolla en Python, integrando \textit{TensorFlow Metal} para la computación tensorial y la biblioteca \textit{Arcade} para la representación gráfica fundamentada en la GPU. Con el objetivo de mitigar el sobreajuste a topologías específicas, el entorno genera de manera procedimental circuitos mediante Movimiento Browniano Fractal (fBm) y Splines Cúbicos Paramétricos (\textit{Catmull-Rom}). El marco experimental evalúa una red neuronal de tipo perceptrón multicapa (MLP) utilizando una función de aptitud longitudinal. Adicionalmente, se introducen perturbaciones estocásticas extrínsecas para fomentar el desarrollo de políticas de control altamente adaptables.
+\end{abstract}
+
+\section{Introducción}
+El entrenamiento de modelos de conducción autónoma mediante algoritmos evolutivos se enfrenta a la problemática del sobreajuste espacial: agentes evaluados sistemáticamente sobre una única topología tienden a memorizar trayectorias específicas de rotación en lugar de generalizar comportamientos de evasión de obstáculos.
+
+Para resolver este problema, la presente tesis describe un entorno de simulación neuroevolutivo diseñado para proveer variabilidad espacial teóricamente ilimitada. La arquitectura propuesta integra técnicas de renderizado por lotes geométricos (\textit{batch processing}), una formulación cinemática precisa para los agentes autónomos, y una dinámica evolutiva diseñada para garantizar la convergencia del perceptrón ante la presencia de ruido gaussiano y perturbaciones exógenas.
+
+\section{Diseño Perceptivo y Computacional del Agente}
+
+\subsection{Modelo de Locomoción Cinemática}
+El agente simulado emplea un modelo cinemático plano que abstrae los fenómenos friccionales de un modelo dinámico tridimensional, optimizando así los recursos computacionales en simulaciones a gran escala. El estado escalar en un instante temporal $t$ está definido por la posición cartesiana $\mathbf{x}_t \in \mathbb{R}^2$ y la orientación angular $\alpha_t \in \mathbb{R}$.
+
+El modelo neuronal emite iterativamente dos salidas acotadas en el intervalo $[-1, 1]$: la componente de dirección $u_{steer}$ y la magnitud de aceleración tangencial $u_{gas}$. La actualización del estado cinemático se rige por las siguientes ecuaciones:
+\begin{align}
+\alpha_{t+1} &= \alpha_{t} + (u_{steer} \cdot 0.08) \\
+v_{t+1} &= 3 + (u_{gas} + 1) \cdot 3 \label{eq:vel} \\
+\mathbf{x}_{t+1} &= \mathbf{x}_t + \mathbf{\hat{d}}(\alpha_{t+1}) \cdot v_{t+1}
+\end{align}
+Donde el vector unitario direccional se define como $\mathbf{\hat{d}} = \left[ \cos \alpha, \sin \alpha \right]^T$. La ecuación (\ref{eq:vel}) garantiza una velocidad de desplazamiento mínima de $3$ unidades espaciales, forzando la evaluación continua del estímulo inercial.
+
+\subsection{Arquitectura Sensorial}
+El sistema de percepción espacial unidimensional consiste en $N=5$ proyecciones radiales independientes distribuidas asimétricamente respecto al eje frontal del agente $\{-0.4\pi, -0.2\pi, \dots\}$. La colisión geométrica de cada proyección con los límites del entorno determina la distancia libre $d_i$. La medida es normalizada mediante un factor predeterminado de truncamiento escalar $L_{max}$:
+\begin{equation}
+S_i = \frac{\min\left( d_i, L_{max} \right)}{L_{max}}
+\end{equation}
+Las magnitudes observadas $S_i$ conforman el vector de entrada para la evaluación de las capas de procesamiento denso.
+
+\section{Geometría Procedimental y Modelado Topológico}
+Para promover modelos generalizables, el sistema de entrenamiento genera configuraciones estocásticas libres de intersecciones topológicas. Los circuitos emulan morfologías variables compuestas por rectas extensas y curvas asimétricas.
+
+\subsection{Movimiento Browniano Fractal (fBm)}
+La estructura morfológica principal se deriva de un modelo fractal, el cual superpone ondas armónicas (octavas) sobre un radio circular base ($r_0$). Se emplea un conjunto de frecuencias de valores discretos para certificar condiciones de periodicidad al cierre del intervalo angular de $2\pi$. La traslación espacial ortogonal, dependiente del radio, sigue la ecuación:
+\begin{equation}
+r_{offset}(\theta) = \sum_{j=1}^{N_{oct}} A_j \sin(f_j \theta + \phi_j)
+\end{equation}
+Donde la amplitud escalar $A_j$ sufre un decremento exponencial para filtrar variaciones en las iteraciones de alta frecuencia.
+
+\subsection{Sub-Segmentación Asimétrica}
+Se descarta la interpolación polar paramétricamente uniforme que define los contornos poligonales tradicionales. El entorno genera un vector de desplazamientos angulares aleatorios dependientes $\Delta\theta_i$. La varianza probabilística entre los tensores angulares propicia la aparición emergente de trayectos lineales en espacios de muestreo dispersos y sectores angulares curvos en aglomeraciones de muestras elevadas.
+
+\subsection{Interpolación Continua mediante Tensores de Spline}
+Para garantizar una transición geométricamente suave de Clase $C^1$ entre los marcadores bidimensionales $\mathbf{P}_j$ adquiridos desde la modulación fBm, el sistema emplea una Spline Cúbica de Catmull-Rom. Para un intervalo normalizado transversal a $\tau \in [0,1]$ sobre cualquier porción interpolable, se evalúa:
+\begin{equation} 
+\mathbf{P}(\tau) = \frac{1}{2}
+\begin{bmatrix} 1 & \tau & \tau^2 & \tau^3 \end{bmatrix}
+\mathbf{M}_{cr}
+\begin{bmatrix} \mathbf{P}_{i-1} \\ \mathbf{P}_i \\ \mathbf{P}_{i+1} \\ \mathbf{P}_{i+2} \end{bmatrix}
+\end{equation}
+La geometría de colisión resulta en recuadros cartesianos paralelos delimitados por una amplitud transversal designada ($\omega$), obtenidos sobre proyección vectorial afín desde la normal ortogonal $\hat{\mathbf{n}}(\tau)$. Esta aproximación metodológica anula las deficiencias de superposición poligonal del motor de renderizado \textit{Arcade API}.
+
+\section{Dinámica de Neuroevolución Computacional}
+
+\subsection{Topología del Perceptrón Multicapa}
+La inferencia de políticas de control opera bajo un perceptrón multicapa con distribución oculta de dimensiones $5-5-3-3-2$. A fin de posibilitar extrapolaciones direccionales divergentes en un marco centrado en el origen geométrico, se adopta universalmente la función de activación sigmoidea hiperbólica (\textit{Tangente Hiperbólica}):
+\begin{equation}
+\mathbf{a}^{(l)} = \tanh \left( \mathbf{W}^{(l)} \mathbf{a}^{(l-1)} + \mathbf{b}^{(l)} \right)
+\end{equation}
+
+\subsection{Función de Aptitud Diferencial (Fitness)}
+El algoritmo selectivo se disocia deliberadamente de las heurísticas condicionadas por inercia temporal continua (duración de supervivencia del agente). En su lugar, se formula una métrica basada explícitamente en el segmento de progreso acumulativo $\mathcal{C}_{total}$ relativo a la longitud geométrica paramétrica. Como estímulo para minimizar los tiempos de conclusión por vuelta $t_{lap}$, se introduce una bonificación escalar inversamente proporcional para iteraciones perimetrales exitosas:
+\begin{equation}
+\mathcal{F} = \mathcal{C}_{total} + \delta \left( \frac{\kappa}{t_{lap}} \right)
+\end{equation}
+
+\subsection{Sustitución Estocástica Evolutiva}
+Tras alcanzar un techo operacional estricto de 1200 cuadros discretos por iteración fenotípica, el simulador erradica los genomas con evaluaciones estandarizadas inferiores al octil superior (preservando de manera elitista únicamente al 20\% superior de la población actual). Las matrices de ponderación sináptica correspondientes a la élite son propagadas y sometidas a un operador mutacional aditivo. La varianza estocástica para las anomalías paramétricas del descendiente se rige bajo una distribución normal con media nula:
+\begin{equation}
+W^{(l)}_{nuevo} = W^{(l)}_{viejo} + \mathcal{N}\left(0, \sigma^2 \right)
+\end{equation}
+
+\section{Análisis de Resiliencia y Manejo de Estados}
+
+\subsection{Perturbaciones Estocásticas Extrínsecas}
+El aporte transversal durante la evaluación metodológica es la implementación paralela de condiciones límite sintéticas. Éstas son impuestas durante fases transitorias de aprendizaje para reducir sesgos o dependencias de los agentes sobre dinámicas estructurales invariables. Con una probabilidad de incidencia marginal menor al $5\%$, se evalúan paramétricamente:
+\begin{enumerate}
+    \item \textbf{Oclusión Sensorial Simulada:} La supresión aleatoria de componentes del vector sensorial limitando la lectura al nivel inferior admisible, la cual incentiva respuestas predictivas ante deficiencia transitoria de los parámetros visuales circundantes. 
+    \item \textbf{Modulación Temporal de la Inercia Base:} Un escalado multiplicativo repentino ($\times 1.5$) sobre el vector de velocidad nominal induce inestabilidades drásticas de radiación centrífuga en las curvas, garantizando una inducción evolutiva que favorece genomas con sistemas de compensación y frenado rotacional reactivo.
+\end{enumerate}
+
+\subsection{Sistema de Checkpoints y Persistencia}
+Ante la exigencia computacional continuada del procesamiento tensorial en GPU paralela, resulta un requisito indispensable el manejo y persistencia de estados iterativos logrados tras procesos evaluativos ininterrumpidos de largo aliento temporal. El simulador procesa asincrónicamente los registros métricos agregándolos cronológicamente a un registro de valores separados por comas (CSV). En paralelo, formaliza la exportación de matrices topológicas neuronales pre-ensambladas y dominantes como contenedores seriales eficientes \texttt{.h5}. La arquitectura diseñada automatiza el rastreo y restablecimiento autónomo del marco evaluativo iterativo posibilitando la continuación de la convergencia matemática justo desde el estrato fenotípico más avanzado registrado previamente.
+
+\section{Conclusiones y Discusión Analítica Final}
+El enfoque computacional analizado subraya empíricamente las bondades predictivas integrales adquiribles mediante algoritmos genéticos combinados, demostrando rendimientos altamente ventajosos en casos donde la información dimensional referencial carece de escenarios con condiciones estrictamente fijas. La restructuración paramétrica bidimensional ejecutada —trasladando el renderizado de la estructura geométrica al subsistema \textit{Arcade API} mediante interpolación de cuadriláteros exactos— proveyó mitigación crítica del solapamiento transversal. Unificando dichos métodos junto al modelo no lineal asimilado mediante propagación prealimentada por capas, se reflejan tasas métricas progresivas libres de estancamientos subóptimos locales y dependencias algorítmicas indeseadas de simple memorización topográfica.
+
+\end{document}

@@ -1,0 +1,25 @@
+# F1 Racing ML — Dependencias
+# Entorno recomendado: Conda Python 3.10 (jackpots)
+#
+# ⚠️  APPLE SILICON (M1/M2/M3): Instalar con:
+#     conda create -n jackpots python=3.10
+#     conda activate jackpots
+#     pip install tensorflow-macos==2.16.2
+#     pip install tensorflow-metal==1.2.0
+#     pip install arcade numpy
+#
+# ⚠️  INTEL / WINDOWS / LINUX: Reemplazar las dos líneas de TF por:
+#     tensorflow==2.16.2
+
+# --- Core ---
+arcade>=2.6
+numpy==1.26.4
+pandas>=2.0
+matplotlib>=3.8
+seaborn>=0.13
+
+# --- Deep Learning (Apple Silicon Metal GPU) ---
+tensorflow-macos==2.16.2
+tensorflow-metal==1.2.0
+
+# Nota: keras se instala automáticamente como dependencia de tensorflow-macos

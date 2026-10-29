@@ -52,7 +52,10 @@ async function newRoom() {
 }
 
 function findCloudflared() {
-  const candidates = ['/opt/homebrew/bin/cloudflared', '/usr/local/bin/cloudflared', 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe'];
+  const local = process.env.LOCALAPPDATA || '';
+  const candidates = ['/opt/homebrew/bin/cloudflared', '/usr/local/bin/cloudflared',
+    'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe', 'C:\\Program Files\\cloudflared\\cloudflared.exe',
+    path.join(local, 'Microsoft', 'WinGet', 'Links', 'cloudflared.exe')];
   return candidates.find(p => fs.existsSync(p)) || 'cloudflared';
 }
 
@@ -78,7 +81,8 @@ function shareOnline() {
     clearTimeout(timer); tunnel = null;
     dialog.showMessageBox(win, {
       type: 'info', message: 'Para jugar por internet hace falta cloudflared',
-      detail: 'Instálalo una vez con:\n\nbrew install cloudflared\n\nMientras tanto se puede jugar con celulares en la misma WiFi.',
+      detail: `Instálalo una vez con:\n\n${process.platform === 'win32' ? 'winget install --id Cloudflare.cloudflared' : 'brew install cloudflared'}\n\n` +
+        'Después cierra y abre el juego. Mientras tanto se puede jugar con celulares en la misma WiFi.',
     });
   });
   tunnel.on('exit', () => { tunnel = null; delete process.env.PUBLIC_URL; });

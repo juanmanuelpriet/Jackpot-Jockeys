@@ -65,11 +65,17 @@ function createRoom() {
   return room;
 }
 
+// Dirección de esta computadora en la red local (la que va en el QR). Se prefieren las de una red casera
+// y se evitan los adaptadores virtuales (Hyper-V, WSL, VirtualBox, VMware…), comunes en Windows.
 function lanIP() {
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) return a.address;
+  const virtual = /vethernet|virtualbox|vmware|wsl|hyper-v|docker|vbox|utun|bridge|loopback/i;
+  const found = [];
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
+    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) found.push({ name, ip: a.address });
   }
-  return 'localhost';
+  const home = ip => /^192\.168\./.test(ip) ? 0 : /^10\./.test(ip) ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ? 2 : 3;
+  found.sort((a, b) => (virtual.test(a.name) - virtual.test(b.name)) || home(a.ip) - home(b.ip));
+  return found.length ? found[0].ip : 'localhost';
 }
 
 function publicBase(req) {

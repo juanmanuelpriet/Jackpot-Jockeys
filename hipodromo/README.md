@@ -47,6 +47,22 @@ abrirla con clic derecho → Abrir.
 Nada queda corriendo en segundo plano: el juego, la sala y el enlace de internet existen solo mientras la app
 está abierta. Al cerrarla se apagan el servidor y el túnel.
 
+### Windows
+
+`npm run empaquetar-windows` genera `dist/Jackpot Jockeys-win32-x64/` (para pasarla a otra PC, comprímela en un
+zip). En la PC con Windows 10 u 11 (64 bits):
+
+1. Descomprime el zip donde quieras y abre **Jackpot Jockeys.exe** (no hace falta instalar nada más).
+2. Como la app no está firmada, Windows SmartScreen puede avisar: **Más información → Ejecutar de todas formas**.
+3. La primera vez, el Firewall de Windows pregunta si la app puede usar la red: marca **Redes privadas** y
+   permite el acceso; sin eso los celulares no pueden conectarse por WiFi.
+4. Las cuentas se guardan en `%APPDATA%\Jackpot Jockeys`. Pantalla completa con **F11**.
+5. Para jugar por internet, instala cloudflared una vez con `winget install --id Cloudflare.cloudflared` y usa
+   el menú Juego → Compartir por internet.
+
+El QR usa la dirección de la red WiFi/Ethernet de la PC y evita los adaptadores virtuales (Hyper-V, WSL,
+VirtualBox…) que suelen tener las PC con Windows.
+
 ### Jugar por internet
 
 ```bash

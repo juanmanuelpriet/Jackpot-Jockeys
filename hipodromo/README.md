@@ -69,44 +69,45 @@ vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **neta
 | Fase | Duración | Qué pasa |
 |------|----------|----------|
 | Apuestas | Sin reloj: arranca 5 s después de que **todos** tocan "Estoy listo" (si alguien se arrepiente, se cancela) | Ves la pista nueva, el cajón y la forma de cada caballo, y apuestas |
-| Carrera | 25–75 s según la pista | Usas poderes, pides favores a la mafia, haces combos con tu peña |
+| Carrera | 25–75 s según la pista | Usas poderes, sabotajes de la mafia, haces combos con tu peña |
 | Resultados | 25 s | Repetición de la llegada en cámara lenta y pago de los boletos |
 
 La pantalla muestra cuántos están listos y quién falta. Si alguien se distrae, la pantalla que creó la sala tiene el botón **¡Iniciar ya!** para arrancar sin esperar.
 
 **Ritmo:** en el juego la simulación corre al 60 % de su velocidad (`SIM_SPEED` en `sim.js`) para dar tiempo a pensar. La física por paso no cambia, así que las redes se comportan igual; los tiempos de los poderes que muestra el celular ya están en segundos reales.
 
-**Tipos de apuesta**, como en un hipódromo:
+**Tipos de apuesta**, con nombres que entiende cualquiera:
 
-| Apuesta | Eliges | Ganas si… |
-|---|---|---|
-| Ganador | 1 caballo | llega 1º |
-| Placé | 1 caballo | llega 1º o 2º |
-| Podio | 1 caballo | llega entre los 3 primeros |
-| Quiniela | 2 caballos | son 1º y 2º, en cualquier orden |
-| Exacta | 1º y 2º | llegan en ese orden exacto |
-| Trifecta | 1º, 2º y 3º | llegan en ese orden exacto |
+| Apuesta | Eliges | Ganas si… | Paga en la carrera 1 |
+|---|---|---|---|
+| Que gane | 1 caballo | llega 1º | x2 |
+| Top 2 | 1 caballo | llega 1º o 2º | x1.5 |
+| Podio | 1 caballo | llega entre los 3 primeros | x1.2 |
+| Pareja | 2 caballos | son 1º y 2º, en cualquier orden | x4 |
+| 1º y 2º | 2 caballos | llegan en ese orden exacto | x8 |
+| 1º, 2º y 3º | 3 caballos | llegan en ese orden exacto | x30 |
 
-**Cuotas fijas, como en una casa de apuestas.** Antes de cada carrera la casa **simula esa misma carrera 100
-veces** (misma pista, cajones, forma del día y redes neuronales, con un poco de ruido) para estimar la probabilidad
-de que gane cada caballo. Las combinadas salen de la fórmula de Harville, la que usan los hipódromos, y la cuota
-es `(1 − 10 %) / probabilidad`: la casa se queda en promedio el 10 %. Mientras simula (1–2 s), la pantalla muestra
-una presentación de la carrera con un consejo y el celular avisa que está calculando.
+**Cuotas fijas que salen de los resultados** (`cuotas.js`). En la **carrera 1 todos los caballos son iguales** y
+manda el azar: "Que gane" paga x2 en cualquiera. Cada caballo tiene una **forma** que empieza en 0 y, después de
+cada carrera, sube o baja según su puesto (1º +0.6 … 6º −0.5; las carreras viejas pesan menos). La probabilidad de
+ganar sale de esa forma y las combinadas de la fórmula de Harville, la de los hipódromos. Así, **el que gana paga
+menos la próxima vez y el que pierde paga más**: tras ganar dos veces seguidas un caballo baja a x1.4 y el que llegó
+último dos veces sube a x9–x10. Además, el **factor de pago** sube carrera a carrera: en la carrera 1 la casa es
+tacaña (x2) y desde la carrera 5 devuelve en promedio el 85 % de lo apostado, así que la partida se pone más jugosa
+al final. En el Gran Premio todo paga 50 % más. No hay que esperar a ninguna simulación: las cuotas están listas
+apenas empieza la carrera. El celular y la pantalla muestran los últimos puestos de cada caballo (🥇 🥈 🥉 4º…).
 
 **Lo que ves en tu boleto es lo que cobras:** la cuota queda fija al apostar y, si aciertas, cobras monto × cuota,
-sin importar lo que apuesten los demás. El favorito paga poco (x1.3–x3), un caballo sin chance paga x20–x30,
-una Exacta puede pagar x15–x400 y una **Trifecta x80–x3.000**. En el Gran Premio todas las cuotas suben 50 %.
-Se puede comprobar que son justas: los caballos que las cuotas daban por 29 % ganaron el 32 % de las carreras de
-prueba, y los de 49 %, el 52 %.
+sin importar lo que apuesten los demás.
 
-**El celular** tiene estilo iOS (modo claro u oscuro según el teléfono) y está pensado para que hasta un niño
-pueda jugar: apostar son 3 toques. ① Eliges **qué apuestas** en una cuadrícula de 6 fichas con palabras sencillas
-(Que gane, Top 2, Podio, Pareja, 1º y 2º, 1º-2º-3º) y "hasta cuánto paga" cada una. ② Tocas tu **caballo**: en las
-apuestas de un caballo cada fila dice directamente "gana 720"; en las combinadas los vas eligiendo en orden y
-aparecen 1º, 2º, 3º. ③ Eliges el **monto** en el panel fijo de abajo, cuyo botón dice "Apostar 50 · ganas 360".
-Al lado está **Listo**. Durante la carrera ese panel cambia a los **poderes** (toca un caballo y luego el poder),
-arriba aparece **cuánto cobrarías si terminara ahora** y tus boletos con lo que paga cada uno. Al terminar, una
-tarjeta con el ganador y tu resultado neto. Las reacciones están en el botón 😂 de arriba.
+**El celular** usa la misma estética del hipódromo que la pantalla grande (verde paño, dorado y crema, tipografías
+Oswald y Playfair), minimalista y con botones grandes. Apostar son 3 toques: ① eliges **qué apuestas** en una
+cuadrícula de 6 fichas con "hasta cuánto paga" cada una; ② tocas tu **caballo** (en las apuestas de un caballo cada
+fila dice directamente "gana 200"; en las combinadas los eliges en orden y aparecen 1º, 2º, 3º); ③ eliges el
+**monto** en el panel fijo de abajo, cuyo botón dice "Apostar 100 · ganas 200". Al lado está **Listo**. Una nota
+arriba explica de dónde salen las cuotas de esa carrera. Durante la carrera el panel cambia a los **poderes** (toca
+un caballo y luego el poder), arriba aparece **cuánto cobrarías si terminara ahora** y tus boletos. Al terminar,
+una tarjeta con el ganador y tu resultado neto. Las reacciones están en el botón 😂 de arriba.
 
 **Conexión:** la pantalla y los celulares usan WebSocket en los dos sentidos: el estado llega 4 veces por segundo y las
 acciones del celular (apostar, poderes, reacciones…) viajan por esa misma conexión, sin abrir una petición nueva,
@@ -120,18 +121,20 @@ así responden al instante incluso por internet.
 su nombre. Una cada 1.5 s por jugador, para que nadie llene la pantalla.
 
 **Cómo se juega:** al abrir el juego, la pantalla grande arranca con una **intro de caballos corriendo** (con
-disfraces al azar) y luego un **tutorial a pantalla completa** de 7 pasos, con el QR y el código de la sala siempre
-a la vista para que la gente vaya entrando mientras la casa simula las cuotas. Se salta con **Enter** o el botón
-"Saltar y jugar", sale una vez por sesión y la tecla **H** lo vuelve a mostrar. El celular tiene su propio tutorial
-de 6 pasos (hoja inferior) la primera vez y con el botón **?**.
+disfraces al azar) y luego un **tutorial a pantalla completa** de 8 pasos, con el QR y el código de la sala siempre
+a la vista para que la gente vaya entrando. Cada paso explica una regla con un **ejemplo** con números (la meta, los
+caballos con cerebro, cómo apostar, cómo cambian las cuotas, lo difícil paga más, poderes, la mafia y Listo). Se
+salta con **Enter** o el botón "Saltar y jugar", sale una vez por sesión y la tecla **H** lo vuelve a mostrar. El
+celular tiene su propio tutorial de 9 pasos, también con ejemplos, la primera vez y con el botón **?**.
 
 ## La mafia de Don Caballone
 
 Nadie queda eliminado: si te quedas sin fichas (o quieres apostar más), **la mafia te presta** 200 o 500.
 - Interés del **12 % por carrera**, hasta 2500 de deuda.
 - Mientras debas, su **cobrador se queda con la mitad** de lo que ganes hasta saldar la deuda.
-- **Favor de Don Caballone** (en carrera): "arregla" a un caballo con lazo 2 s y vendas 3 s, **ignora escudos**.
-  Uno por carrera y se paga con +300 de deuda.
+- **Sabotaje de la mafia** (en carrera): tocas un caballo y el botón 🕴️ Sabotaje; la mafia lo **congela 2 s** y le
+  tapa los ojos 3 s más, **aunque tenga escudo**. No cuesta fichas: se suma +300 a tu deuda. Uno por carrera.
+  La pestaña Mafia del celular explica el préstamo y el sabotaje paso a paso.
 
 ## Peñas (alianzas)
 
@@ -165,7 +168,7 @@ Los disfraces comprados quedan en tu cuenta entre partidas. Solo cambian el dibu
 - **Entrénalo** (150 fichas) en velocidad, agresión o control: corre una neuroevolución real de 10
   generaciones sobre su red, en un hilo aparte, contra los corredores de la casa y en pistas nuevas.
   El celular muestra cómo cambiaron sus embestidas, salidas y tropiezos.
-- Si gana, cobras un **premio de propietario**: 50 × su cuota de Ganador (mínimo 100), así que ganar con un
+- Si gana, cobras un **premio de propietario**: 50 × su cuota de "Que gane" (mínimo 100), así que ganar con un
   potro sin chance paga mucho más.
 
 ## Poderes

@@ -52,18 +52,10 @@ function startTraining({ accountId, room, focus, brain, form }) {
   });
 }
 
-// ─── Cuotas: simular cada carrera en un hilo aparte ───
-
-function computeOdds(job, done) {
-  const worker = new Worker(path.join(__dirname, 'cuotasWorker.js'), { workerData: job });
-  worker.once('message', ({ wins, sims }) => done(wins, sims));
-  worker.once('error', err => { console.error('Error calculando cuotas:', err); done(job.brains.map(() => 1), job.brains.length); });
-}
-
 // ─── Salas ───
 
 const rooms = new Map();
-const hooks = { save: saveAccounts, train: startTraining, odds: computeOdds };
+const hooks = { save: saveAccounts, train: startTraining };
 
 function createRoom() {
   let code;

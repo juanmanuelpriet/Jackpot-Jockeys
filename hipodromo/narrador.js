@@ -57,7 +57,7 @@ const LINES = {
   prestamo: ['{p} llamó a Don Caballone. {n} fichas al 12 % por carrera. Qué podría salir mal.', 'La mafia le presta {n} a {p}. Sonríen. Eso nunca es buena señal.'],
   cobrador: ['El cobrador de Don Caballone se queda con {n} fichas de {p}.', '{p} cobra, pero la mafia pasó primero: {n} fichas para Don Caballone.'],
   pago_mafia: ['{p} le paga {n} a la mafia. Don Caballone asiente.', '{p} salda {n} con la mafia. Sus rodillas lo agradecen.'],
-  mafia_favor: ['La mafia "arregla" la carrera de {h}. Encargo de {p}.', '{h} recibe la visita de Don Caballone. Cortesía de {p}.'],
+  mafia_favor: ['🕴️ Sabotaje: la mafia congela a {h}. Encargo de {p}, que lo paga con deuda.', '{h} recibe la visita de Don Caballone y se queda quieto. Cortesía de {p}.'],
   peña_nueva: ['{p} funda la peña «{n}».', 'Nace «{n}», idea de {p}. Ya huele a conspiración.'],
   peña_union: ['{p} se une a «{n}». La conspiración crece.', '«{n}» suma a {p}. Los demás, cuidado.'],
   traicion: ['¡TRAICIÓN! {p} apuñala a «{n}» y se lleva {h} fichas. Judas tiene nuevo apellido.', '{p} traiciona a su peña «{n}» y se embolsa {h}. Esto no se olvida.'],

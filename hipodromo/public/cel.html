@@ -4,151 +4,164 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0b1f15">
 <title>Jackpot Jockeys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,700;1,900&display=swap">
 <style>
-  /* Estilo iOS: tipografía del sistema, listas agrupadas, tarjetas redondeadas y modo claro/oscuro */
+  /* Misma estética del hipódromo de la pantalla grande: verde paño, dorado y crema; minimalista y con botones grandes */
   :root {
-    --bg: #000; --card: #1c1c1e; --card2: #2c2c2e; --sep: #38383a; --txt: #fff; --mute: #8e8e93;
-    --accent: #ffcc00; --accentTxt: #1c1c1e; --green: #30d158; --red: #ff453a; --blue: #0a84ff; --orange: #ff9f0a;
-    --blur: rgba(22,22,24,0.78); --r: 16px;
-  }
-  @media (prefers-color-scheme: light) {
-    :root { --bg: #f2f2f7; --card: #fff; --card2: #e5e5ea; --sep: #d1d1d6; --txt: #000; --mute: #6e6e73;
-      --accent: #ffcc00; --accentTxt: #1c1c1e; --green: #34c759; --red: #ff3b30; --blue: #007aff; --orange: #ff9500;
-      --blur: rgba(249,249,251,0.82); }
+    --bg: #0b1f15; --card: #10291c; --card2: #173826; --sep: rgba(201,162,74,0.22); --line: rgba(201,162,74,0.35);
+    --txt: #f1e8d3; --mute: #b9b09b; --accent: #e7c873; --gold: #c9a24a; --accentTxt: #0b1f15;
+    --green: #7fd492; --red: #ff6b5e; --blue: #8fc7ff; --blur: rgba(11,31,21,0.92); --r: 10px;
+    --display: 'Oswald', 'Arial Narrow', system-ui, sans-serif; --brand: 'Playfair Display', Georgia, serif;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; }
-  body { margin: 0 auto; max-width: 560px; background: var(--bg); color: var(--txt);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-    font-size: 17px; line-height: 1.3; padding: 0 16px calc(var(--dock, 0px) + 90px); }
-  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  body { margin: 0 auto; max-width: 560px; color: var(--txt); font-family: var(--display); font-size: 17px; line-height: 1.3;
+    padding: 0 14px calc(var(--dock, 0px) + 86px); letter-spacing: .2px;
+    background: radial-gradient(120% 60% at 50% 0%, #173826 0%, var(--bg) 60%) fixed, var(--bg); }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; letter-spacing: inherit; }
   button:disabled { opacity: .35; }
   .hidden { display: none !important; }
   .mute { color: var(--mute); }
   .pos { color: var(--green); } .neg { color: var(--red); }
+  .brand { font-family: var(--brand); font-style: italic; font-weight: 900; }
 
   /* ─── Entrada ─── */
-  #login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px 4px; }
-  #login .logo { font-size: 64px; text-align: center; }
-  #login h1 { font-size: 34px; font-weight: 800; text-align: center; margin: 0; letter-spacing: -.5px; }
-  #login p { text-align: center; color: var(--mute); margin: 0 0 12px; font-size: 16px; }
-  input { width: 100%; font: inherit; font-size: 19px; padding: 16px; border-radius: 14px; border: 0; background: var(--card); color: var(--txt); outline: none; }
-  input:focus { box-shadow: 0 0 0 3px rgba(255,204,0,0.45); }
-  .big { width: 100%; padding: 17px; border-radius: 14px; background: var(--accent); color: var(--accentTxt); font-weight: 700; font-size: 18px; }
-  .big:active { transform: scale(.98); }
-  .big.green { background: var(--green); color: #fff; }
-  .big.gray { background: var(--card2); color: var(--txt); }
+  #login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px 4px; text-align: center; }
+  #login .logo { font-size: 56px; }
+  #login .k { font-size: 12px; letter-spacing: 4px; color: var(--gold); text-transform: uppercase; }
+  #login h1 { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 46px; line-height: 1; margin: 0; color: var(--accent); }
+  #login h1 span { color: var(--txt); }
+  #login p { color: var(--mute); margin: 0 0 14px; font-size: 16px; }
+  input { width: 100%; font: inherit; font-size: 19px; padding: 15px; border-radius: var(--r); border: 1px solid var(--line); background: var(--card); color: var(--txt); outline: none; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--mute); }
+  .big { width: 100%; padding: 16px; border-radius: var(--r); background: var(--accent); color: var(--accentTxt); font-weight: 600; font-size: 18px;
+    text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 3px 0 #9c7b2e; }
+  .big:active { transform: translateY(2px); box-shadow: 0 1px 0 #9c7b2e; }
+  .big.green { background: #2f8a4c; color: #fff; box-shadow: 0 3px 0 #1d5a31; }
+  .big.gray { background: var(--card2); color: var(--txt); box-shadow: 0 3px 0 #08160f; border: 1px solid var(--line); }
 
-  /* ─── Barra superior translúcida ─── */
-  #top { position: sticky; top: 0; z-index: 5; margin: 0 -16px 8px; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
-    background: var(--blur); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: .5px solid var(--sep); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
-  #coins { font-size: 28px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
-  #who { font-size: 13px; color: var(--mute); }
-  #debtTag { display: inline-block; margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--red); }
-  .roundBtn { width: 36px; height: 36px; border-radius: 50%; background: var(--card2); font-size: 18px; font-weight: 700; }
-  #status { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; }
-  #status b { font-size: 16px; }
-  #status .pill { font-size: 14px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: var(--card2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #status.gp { background: linear-gradient(90deg, rgba(255,204,0,.25), var(--card)); }
+  /* ─── Barra superior ─── */
+  #top { position: sticky; top: 0; z-index: 5; margin: 0 -14px 10px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px;
+    background: var(--blur); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+  #coins { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 30px; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.05; }
+  #who { font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: 2px; }
+  #debtTag { display: inline-block; margin-left: 8px; font-family: var(--display); font-style: normal; font-size: 13px; font-weight: 500; color: var(--red); letter-spacing: 1px; text-transform: uppercase; }
+  .roundBtn { width: 38px; height: 38px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); font-size: 18px; font-weight: 600; color: var(--accent); }
+  #status { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 11px 14px; margin-bottom: 12px; }
+  #status b { font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
+  #status .pill { font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 20px; background: var(--card2); color: var(--accent); white-space: nowrap;
+    font-variant-numeric: tabular-nums; text-transform: uppercase; letter-spacing: 1px; }
+  #status.gp { background: linear-gradient(90deg, rgba(231,200,115,.22), var(--card)); }
+  .note { font-size: 14px; color: var(--mute); margin: -4px 2px 10px; line-height: 1.35; }
+  .note b { color: var(--accent); font-weight: 500; }
 
-  /* ─── Secciones y listas agrupadas ─── */
-  .sec { font-size: 13px; text-transform: uppercase; letter-spacing: .3px; color: var(--mute); margin: 18px 4px 8px; font-weight: 500; }
-  .sec b { color: var(--txt); text-transform: none; font-size: 15px; }
-  .group { background: var(--card); border-radius: var(--r); overflow: hidden; }
-  .item { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; min-height: 60px; width: 100%; text-align: left; position: relative; }
-  .item + .item::before { content: ''; position: absolute; left: 70px; right: 0; top: 0; border-top: .5px solid var(--sep); }
+  /* ─── Secciones y listas ─── */
+  .sec { font-size: 12px; text-transform: uppercase; letter-spacing: 2.5px; color: var(--gold); margin: 16px 2px 8px; font-weight: 500; }
+  .sec b { color: var(--txt); text-transform: none; font-size: 16px; letter-spacing: .3px; font-weight: 500; }
+  .group { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .item { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; padding: 9px 12px; min-height: 60px; width: 100%; text-align: left; position: relative; }
+  .item + .item::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; border-top: 1px solid var(--sep); }
   .item:active { background: var(--card2); }
-  .item.sel { background: rgba(255,204,0,0.16); }
-  .avatar { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 18px; color: #fff; position: relative; }
-  .avatar .sk { position: absolute; right: -4px; bottom: -4px; font-size: 20px; }
-  .item .t { font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item.sel { background: rgba(231,200,115,0.14); box-shadow: inset 3px 0 0 var(--accent); }
+  .avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 19px; color: #fff; position: relative;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); }
+  .avatar .sk { position: absolute; right: -6px; bottom: -5px; font-size: 20px; }
+  .item .t { font-weight: 500; font-size: 18px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item .s { font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item .r { text-align: right; }
-  .item .win { font-weight: 700; font-size: 16px; color: var(--green); font-variant-numeric: tabular-nums; }
-  .item .x { font-size: 12px; color: var(--mute); }
-  .badge { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; background: var(--accent); color: var(--accentTxt); font-weight: 800; font-size: 14px; }
-  .mine { font-size: 12px; color: var(--green); font-weight: 600; }
+  .item .win { font-weight: 600; font-size: 17px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .item .x { font-size: 12px; color: var(--mute); letter-spacing: .5px; }
+  .badge { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 15px; background: var(--accent); color: var(--accentTxt); font-weight: 600; font-size: 15px; }
+  .mine { font-size: 12px; color: var(--green); }
 
-  /* Tipos de apuesta: fichas grandes deslizables */
-  #types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .type { text-align: left; background: var(--card); border-radius: 14px; padding: 8px 10px; border: 2px solid transparent; min-width: 0; }
-  .type .e { font-size: 22px; line-height: 1.1; }
-  .type b { display: block; font-size: 14px; margin-top: 2px; }
-  .type small { display: block; font-size: 12px; color: var(--mute); line-height: 1.2; margin-top: 2px; }
-  .type.sel { border-color: var(--accent); background: rgba(255,204,0,0.14); }
+  /* Tipos de apuesta */
+  #types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .type { text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 4px 7px; min-width: 0; }
+  .type .e { font-size: 22px; line-height: 1.15; }
+  .type b { display: block; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; white-space: nowrap; }
+  .type small { display: block; font-size: 12px; color: var(--accent); margin-top: 1px; }
+  .type.sel { border-color: var(--accent); background: rgba(231,200,115,0.16); box-shadow: 0 0 0 1px var(--accent); }
 
   /* ─── Panel inferior fijo (boleto / poderes) ─── */
-  #dock { position: fixed; left: 0; right: 0; bottom: calc(57px + env(safe-area-inset-bottom)); z-index: 6; padding: 10px 16px 12px;
-    background: var(--blur); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-    border-top: .5px solid var(--sep); }
-  #dock .inner { max-width: 528px; margin: 0 auto; }
-  #slipTxt { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 15px; margin-bottom: 8px; }
-  #slipTxt b { font-size: 16px; }
-  #amounts { display: flex; gap: 6px; margin-bottom: 8px; }
-  #amounts button { flex: 1; padding: 9px 0; border-radius: 10px; background: var(--card2); font-weight: 600; font-size: 15px; }
-  #amounts button.sel { background: var(--txt); color: var(--bg); }
+  #dock { position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: 6; padding: 10px 14px 12px;
+    background: var(--blur); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--line); }
+  #dock .inner { max-width: 532px; margin: 0 auto; }
+  #slipTxt { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 15px; margin-bottom: 8px; min-height: 20px; }
+  #slipTxt b { font-size: 16px; font-weight: 500; }
+  #amounts { display: flex; gap: 6px; margin-bottom: 9px; }
+  #amounts button { flex: 1; padding: 8px 0; border-radius: 8px; background: var(--card2); border: 1px solid var(--sep); font-weight: 500; font-size: 15px; }
+  #amounts button.sel { background: var(--txt); color: var(--bg); border-color: var(--txt); }
   .rowBtns { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
-  .rowBtns .big { padding: 15px 8px; font-size: 17px; }
-  #powers { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .rowBtns .big { padding: 14px 6px; font-size: 16px; letter-spacing: 1px; }
+  #powers { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px 3px; }
   #powers::-webkit-scrollbar { display: none; }
-  .pw { flex: none; width: 82px; padding: 10px 6px; border-radius: 14px; background: var(--card2); text-align: center; }
-  .pw .e { font-size: 30px; line-height: 1.1; }
-  .pw b { display: block; font-size: 13px; margin-top: 2px; }
-  .pw small { display: block; font-size: 12px; color: var(--mute); }
+  .pw { flex: none; width: 80px; padding: 8px 4px; border-radius: var(--r); background: var(--card2); border: 1px solid var(--line); text-align: center; }
+  .pw .e { font-size: 28px; line-height: 1.1; }
+  .pw b { display: block; font-size: 13px; font-weight: 500; text-transform: uppercase; margin-top: 2px; }
+  .pw small { display: block; font-size: 12px; color: var(--accent); }
   .pw.bad small { color: var(--red); }
   .pw:active { transform: scale(.95); }
 
-  /* ─── Tarjetas de resultados y en vivo ─── */
-  .card { background: var(--card); border-radius: var(--r); padding: 16px; margin-bottom: 12px; }
-  .card h2 { margin: 2px 0 4px; font-size: 26px; letter-spacing: -.3px; }
-  .card .k { font-size: 13px; text-transform: uppercase; color: var(--mute); letter-spacing: .3px; }
-  .hero { font-size: 34px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
-  .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: .5px solid var(--sep); font-size: 15px; }
+  /* ─── Tarjetas ─── */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin-bottom: 12px; }
+  .card h2 { margin: 2px 0 4px; font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 28px; color: var(--accent); line-height: 1.1; }
+  .card .k { font-size: 12px; text-transform: uppercase; color: var(--gold); letter-spacing: 2.5px; }
+  .hero { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 34px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--sep); font-size: 15px; }
   .line:first-of-type { border-top: 0; }
-  .btnRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .btnRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
   .btnRow.three { grid-template-columns: 1fr 1fr 1fr; }
-  .soft { padding: 13px 8px; border-radius: 12px; background: var(--card2); font-weight: 600; font-size: 15px; }
+  .soft { padding: 12px 6px; border-radius: 8px; background: var(--card2); border: 1px solid var(--line); font-weight: 500; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; }
   .soft.red { color: var(--red); } .soft.green { color: var(--green); } .soft.blue { color: var(--blue); }
-  .shop { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
-  .skin { background: var(--card2); border-radius: 14px; padding: 10px 6px; text-align: center; border: 2px solid transparent; }
-  .skin .e { font-size: 34px; }
-  .skin b { display: block; font-size: 13px; margin-top: 2px; }
-  .skin small { display: block; font-size: 12px; color: var(--mute); }
-  .skin.on { border-color: var(--accent); }
+  .shop { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-top: 8px; }
+  .skin { background: var(--card); border-radius: var(--r); padding: 10px 4px; text-align: center; border: 1px solid var(--line); }
+  .skin .e { font-size: 32px; }
+  .skin b { display: block; font-size: 13px; font-weight: 500; text-transform: uppercase; margin-top: 2px; }
+  .skin small { display: block; font-size: 12px; color: var(--accent); }
+  .skin.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .how { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--sep); font-size: 15px; line-height: 1.35; }
+  .how:first-of-type { border-top: 0; }
+  .how .e { font-size: 22px; }
+  .how b { color: var(--accent); font-weight: 500; }
 
-  /* ─── Barra de pestañas iOS ─── */
+  /* ─── Pestañas ─── */
   nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 7; display: grid; grid-template-columns: repeat(4, 1fr);
-    padding: 6px 0 calc(env(safe-area-inset-bottom) + 4px); background: var(--blur);
-    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: .5px solid var(--sep); }
-  nav button { display: grid; justify-items: center; gap: 1px; font-size: 11px; color: var(--mute); padding: 2px 0; position: relative; }
-  nav button .e { font-size: 22px; filter: grayscale(1); opacity: .7; }
-  nav button.on { color: var(--txt); font-weight: 600; }
+    padding: 6px 0 calc(env(safe-area-inset-bottom) + 4px); background: #08170f; border-top: 1px solid var(--line); }
+  nav button { display: grid; justify-items: center; gap: 1px; font-size: 11px; color: var(--mute); padding: 2px 0; position: relative; text-transform: uppercase; letter-spacing: 1px; }
+  nav button .e { font-size: 21px; filter: grayscale(1); opacity: .6; }
+  nav button.on { color: var(--accent); }
   nav button.on .e { filter: none; opacity: 1; }
   nav .dot { position: absolute; top: 0; right: 30%; width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
 
-  /* Reacciones: botón en la barra superior que abre un panel */
-  #reactBox { position: fixed; right: 16px; top: calc(env(safe-area-inset-top) + 62px); z-index: 8; background: var(--card);
-    border-radius: 18px; padding: 8px; display: grid; grid-template-columns: repeat(4, 52px); gap: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
-  #reactBox button { height: 52px; border-radius: 12px; font-size: 28px; }
+  /* Reacciones */
+  #reactBox { position: fixed; right: 14px; top: calc(env(safe-area-inset-top) + 62px); z-index: 8; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 8px; display: grid; grid-template-columns: repeat(4, 52px); gap: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  #reactBox button { height: 52px; border-radius: 10px; font-size: 28px; }
   #reactBox button:active { background: var(--card2); transform: scale(.92); }
 
   /* Avisos y tutorial */
   #msg { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 12px); transform: translateX(-50%); z-index: 20; max-width: 92%;
-    background: var(--card); color: var(--txt); padding: 12px 18px; border-radius: 22px; font-size: 15px; font-weight: 500;
-    box-shadow: 0 8px 30px rgba(0,0,0,.35); display: none; text-align: center; }
-  #tuto { position: fixed; inset: 0; z-index: 15; background: rgba(0,0,0,.55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-    display: flex; align-items: flex-end; }
-  #tuto .sheet { width: 100%; max-width: 560px; margin: 0 auto; background: var(--card); border-radius: 22px 22px 0 0; padding: 22px 20px calc(env(safe-area-inset-bottom) + 18px); }
-  #tuto .e { font-size: 54px; }
-  #tuto h2 { font-size: 26px; margin: 6px 0 8px; letter-spacing: -.3px; }
-  #tuto p { font-size: 17px; line-height: 1.45; color: var(--mute); margin: 0 0 16px; }
-  #tuto p b { color: var(--txt); }
-  #tuto .dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
-  #tuto .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--sep); }
-  #tuto .dots i.on { background: var(--txt); }
+    background: var(--card2); color: var(--txt); border: 1px solid var(--accent); padding: 11px 18px; border-radius: 10px; font-size: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5); display: none; text-align: center; }
+  #tuto { position: fixed; inset: 0; z-index: 15; background: rgba(5,14,9,.8); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); display: flex; align-items: flex-end; }
+  #tuto .sheet { width: 100%; max-width: 560px; margin: 0 auto; background: var(--card); border-top: 2px solid var(--accent); border-radius: 16px 16px 0 0;
+    padding: 20px 20px calc(env(safe-area-inset-bottom) + 18px); max-height: 92vh; overflow-y: auto; }
+  #tuto .k { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  #tuto .e { font-size: 50px; margin-top: 6px; }
+  #tuto h2 { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 30px; color: var(--accent); margin: 4px 0 8px; line-height: 1.1; }
+  #tuto p { font-size: 17px; line-height: 1.45; color: var(--mute); margin: 0 0 12px; font-family: var(--display); }
+  #tuto p b { color: var(--txt); font-weight: 500; }
+  #tuto .ex { background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; font-size: 15px; color: var(--txt); margin-bottom: 14px; line-height: 1.4; }
+  #tuto .ex b { color: var(--accent); font-weight: 500; }
+  #tuto .dots { display: flex; gap: 5px; margin: 0 0 4px; }
+  #tuto .dots i { flex: 1; height: 3px; background: var(--card2); }
+  #tuto .dots i.on { background: var(--accent); }
   #tuto .rowBtns { grid-template-columns: 1fr 2fr; }
 </style>
 </head>
@@ -156,7 +169,8 @@
 
 <div id="login">
   <div class="logo">🏇</div>
-  <h1>Jackpot Jockeys</h1>
+  <div class="k">Carreras de caballos con cerebro</div>
+  <h1>Jackpot <span>Jockeys</span></h1>
   <p>Apuesta a caballos que piensan solos.</p>
   <input id="salaIn" placeholder="Código de la sala" maxlength="4" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;text-align:center;letter-spacing:6px">
   <input id="nameIn" placeholder="Tu nombre" maxlength="16" autocomplete="off">
@@ -174,6 +188,7 @@
     <div id="results" class="hidden"></div>
     <div id="live" class="hidden"></div>
     <div id="betArea">
+      <div class="note" id="oddsNote"></div>
       <div class="sec">① ¿Qué apuestas?</div>
       <div id="types"></div>
     </div>
@@ -209,9 +224,11 @@
 
 <div id="tuto" class="hidden"><div class="sheet">
   <div class="dots" id="tutoDots"></div>
+  <div class="k" id="tutoK"></div>
   <div class="e" id="tutoE"></div>
   <h2 id="tutoTitle"></h2>
   <p id="tutoText"></p>
+  <div class="ex" id="tutoEx"></div>
   <div class="rowBtns"><button class="big gray" id="tutoSkip">Saltar</button><button class="big" id="tutoNext">Siguiente</button></div>
 </div></div>
 
@@ -239,7 +256,7 @@ const TYPE_UI = {
   trifecta: { e: '🏆', name: '1º, 2º y 3º', how: 'Elige el 1º, el 2º y el 3º, en orden. ¡Paga muchísimo!' },
 };
 
-// Las mismas cuotas que calcula la casa (cuotas.js): Harville + margen, con las probabilidades del servidor
+// Las mismas cuotas que calcula la casa (cuotas.js): Harville con la forma de cada caballo y el factor de pago de la carrera
 function orderedProb(p, sel) { let prob = 1, used = 0; for (const i of sel) { prob *= p[i] / (1 - used); used += p[i]; } return prob; }
 function betProb(type, sel, p) {
   const n = p.length, others = i => [...Array(n).keys()].filter(x => x !== i), i = sel[0];
@@ -251,7 +268,7 @@ function betProb(type, sel, p) {
 }
 function quote(type, sel) {
   const prob = betProb(type, sel, state.probs);
-  return +Math.min(5000, Math.max(1.05, (1 - state.margin) / prob * state.gpBonus)).toFixed(2);
+  return +Math.min(5000, Math.max(1.05, state.pay[type] / prob)).toFixed(2);
 }
 // Pago máximo de un tipo (para decirle al jugador "hasta cuánto paga")
 function maxOdds(type, picks) {
@@ -262,14 +279,14 @@ function maxOdds(type, picks) {
   return best;
 }
 const TIPS = [
-  'Lo que dice tu boleto es lo que ganas, aunque los demás apuesten.',
-  'Las cuotas salen de simular esta carrera 100 veces con los mismos caballos.',
-  '"Top 2" y "Podio" ganan seguido pero pagan poco. "1º, 2º y 3º" casi nunca… pero paga una fortuna.',
+  'Lo que dice tu boleto es lo que ganas, aunque los demás apuesten después.',
+  'En la carrera 1 todos son iguales. Después, el que gana paga menos y el que pierde paga más.',
+  'Carrera a carrera las cuotas suben: lo mejor viene al final.',
+  'Top 2 y Podio ganan seguido pero pagan poco. 1º, 2º y 3º casi nunca… pero paga una fortuna.',
   'Los poderes cuestan fichas: úsalos cuando tu caballo lo valga.',
-  'La mafia presta, pero se lleva la mitad de lo que ganes hasta que pagues.',
-];
+]
 let tip = TIPS[Math.floor(Math.random() * TIPS.length)];
-const xs = n => 'x' + (n >= 100 ? Math.round(n).toLocaleString('es') : n.toFixed(n >= 10 ? 1 : 2));
+const xs = n => 'x' + (n >= 100 ? Math.round(n).toLocaleString('es') : String(+n.toFixed(n >= 10 ? 1 : 2)));
 const pickNames = (type, sel) => sel.map(i => state.horses[i].name).join(type === 'quiniela' ? ' y ' : ' → ');
 const AMOUNTS = [10, 50, 100, 250, 'Todo'];
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -333,7 +350,7 @@ document.getElementById('powers').onclick = e => {
   if (selHorse == null) return toast('Primero toca un caballo de la lista');
   tap();
   const k = b.dataset.k;
-  if (k === 'mafia') return api('mafiaFavor', { horse: selHorse }).then(j => j && toast('🕴️ Don Caballone se encarga.'));
+  if (k === 'mafia') return api('mafiaFavor', { horse: selHorse }).then(j => j && toast(`🕴️ La mafia congela a ${state.horses[selHorse].name}. Le debes ${state.cfg.mafiaFavorCost} más.`));
   api('power', { power: k, horse: selHorse }).then(j => j && toast(`${state.powers[k].icon} ${state.powers[k].name} para ${state.horses[selHorse].name}`));
 };
 document.getElementById('horses').onclick = e => {
@@ -391,6 +408,10 @@ function renderCarrera() {
   document.getElementById('betDock').classList.toggle('hidden', !betting);
   document.getElementById('powerDock').classList.toggle('hidden', !racing);
 
+  const medal = r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r + 'º';
+  setHTML('oddsNote', !betting ? '' : s.grandPrix ? '🏆 <b>Gran Premio:</b> todas las cuotas pagan 50 % más.'
+    : s.match.race === 1 ? '🎲 <b>Carrera 1: todos iguales, manda el azar.</b> Que gane paga x2 en cualquier caballo.'
+    : '📈 Las cuotas cambian con los resultados: <b>el que gana paga menos, el que pierde paga más.</b>');
   // ① Tipos de apuesta con "hasta cuánto paga"
   setHTML('types', Object.entries(TYPE_UI).map(([k, u]) =>
     `<button class="type ${betType === k ? 'sel' : ''}" data-t="${k}"><div class="e">${u.e}</div><b>${u.name}</b><small>${s.oddsReady ? `hasta ${xs(maxOdds(k, s.pools[k].picks))}` : '…'}</small></button>`).join(''));
@@ -409,7 +430,7 @@ function renderCarrera() {
       else right = pk >= 0 ? `<span class="badge">${betType === 'quiniela' ? '✓' : ORD[pk]}</span>` : `<div class="x">${xs(h.odds)} solo</div>`;
     } else if (!betting) right = `<span class="badge" style="background:var(--card2);color:var(--txt)">${h.pos}º</span>`;
     const sub = betting
-      ? (h.ownerName ? `de ${esc(h.ownerName)}` : esc(h.estilo[0].toUpperCase() + h.estilo.slice(1)))
+      ? (h.recent && h.recent.length ? `últimas: ${h.recent.map(medal).join(' ')}` : h.ownerName ? `de ${esc(h.ownerName)}` : esc(h.estilo[0].toUpperCase() + h.estilo.slice(1)))
       : `vuelta ${h.lap}/${s.laps}${h.hits ? ` · ${h.hits} choques` : ''}`;
     return `<button class="item ${chosen ? 'sel' : ''}" data-i="${i}">
       <div class="avatar" style="background:${h.color}">${i + 1}${skinIcon(h) ? `<span class="sk">${skinIcon(h)}</span>` : ''}</div>
@@ -443,7 +464,7 @@ function renderCarrera() {
     const cd = me.cooldown || 0;
     setHTML('powers', Object.entries(s.powers).map(([k, p]) =>
       `<button class="pw ${p.debuff ? 'bad' : ''}" data-k="${k}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}><div class="e">${p.icon}</div><b>${esc(p.name)}</b><small>🪙 ${p.cost}</small></button>`).join('')
-      + `<button class="pw bad" data-k="mafia" ${me.favorUsed || me.debt + s.cfg.mafiaFavorCost > s.cfg.maxDebt ? 'disabled' : ''}><div class="e">🕴️</div><b>Mafia</b><small>+${s.cfg.mafiaFavorCost} deuda</small></button>`);
+      + `<button class="pw bad" data-k="mafia" ${me.favorUsed || me.debt + s.cfg.mafiaFavorCost > s.cfg.maxDebt ? 'disabled' : ''}><div class="e">🕴️</div><b>Sabotaje</b><small>fiado ${s.cfg.mafiaFavorCost}</small></button>`);
   }
 
   // En vivo: cuánto ganarías si terminara ahora
@@ -526,10 +547,20 @@ function renderMafia() {
   const c = state.cfg;
   setHTML('tab-mafia', `<div class="sec">Don Caballone 🕴️</div>
     <div class="card"><div class="k">${me.debt ? 'Le debes' : 'No le debes nada'}</div>
-      <div class="hero ${me.debt ? 'neg' : ''}">${me.debt ? '🪙 ' + fmt(me.debt) : '😇'}</div>
-      <div class="mute" style="font-size:14px;margin-top:4px">Presta fichas cuando te quedas sin nada. Pero cobra ${Math.round(c.interest * 100)} % más cada carrera y se lleva la mitad de lo que ganes hasta que le pagues.</div>
-      <div class="btnRow">${c.loanOptions.map(a => `<button class="soft" data-loan="${a}">Pedir 🪙 ${fmt(a)}</button>`).join('')}</div>
-      ${me.debt ? `<div class="btnRow three"><button class="soft" data-repay="100">Pagar 100</button><button class="soft" data-repay="300">Pagar 300</button><button class="soft green" data-repay="${me.debt}">Pagar todo</button></div>` : ''}</div>`);
+      <div class="hero ${me.debt ? 'neg' : ''}">${me.debt ? '🪙 ' + fmt(me.debt) : 'Limpio 😇'}</div>
+      ${me.debt ? `<div class="btnRow three"><button class="soft" data-repay="100">Pagar 100</button><button class="soft" data-repay="300">Pagar 300</button><button class="soft green" data-repay="${me.debt}">Pagar todo</button></div>` : ''}</div>
+    <div class="sec">1 · Préstamo</div>
+    <div class="card">
+      <div class="how"><span class="e">💰</span><span>¿Te quedaste sin fichas? La mafia te <b>presta</b> para seguir jugando.</span></div>
+      <div class="how"><span class="e">📈</span><span>Pero la deuda <b>crece ${Math.round(c.interest * 100)} %</b> después de cada carrera.</span></div>
+      <div class="how"><span class="e">✂️</span><span>Y mientras debas, el cobrador se lleva <b>la mitad de cada premio</b> hasta que quedes en paz.</span></div>
+      <div class="btnRow">${c.loanOptions.map(a => `<button class="soft" data-loan="${a}">Pedir 🪙 ${fmt(a)}</button>`).join('')}</div></div>
+    <div class="sec">2 · Sabotaje (durante la carrera)</div>
+    <div class="card">
+      <div class="how"><span class="e">🧊</span><span>Toca un caballo y el botón <b>🕴️ Sabotaje</b>: la mafia lo <b>congela 2 segundos</b> y le tapa los ojos 3 más. Ni el escudo lo salva.</span></div>
+      <div class="how"><span class="e">🧾</span><span>No pagas fichas: se suma <b>${fmt(c.mafiaFavorCost)}</b> a tu deuda. Uno por carrera.</span></div>
+      <div class="how"><span class="e">🏁</span><span>Úsalo contra el caballo que va a ganarle al tuyo.</span></div></div>
+    <div class="mute" style="font-size:13px;text-align:center;margin-top:6px">Al final de la partida, la deuda se resta de tus fichas.</div>`);
 }
 
 function renderPena() {
@@ -632,23 +663,39 @@ document.getElementById('reactBox').onclick = e => {
 };
 
 // ─── Cómo se juega (hoja inferior estilo iOS) ───
+// Cada paso: [emoji, título, explicación, ejemplo]
 const TUTO = [
-  ['🏇', 'Los caballos piensan solos', 'Cada caballo es una <b>red neuronal</b> que aprendió a correr. Tú no los manejas: <b>apuestas</b> a cuál va a ganar.'],
-  ['🥇', 'Apuesta en 3 toques', '① Elige <b>qué apuestas</b> (que gane, top 2, podio…). ② Toca tu <b>caballo</b>. ③ Elige <b>cuánto</b> y toca <b>Apostar</b>. El botón te dice cuánto ganas si aciertas.'],
-  ['🏆', 'Lo difícil paga más', 'Que tu caballo quede en el podio es fácil y paga poco. Adivinar <b>1º, 2º y 3º</b> en orden es dificilísimo… y puede pagar <b>x1.000</b>.'],
-  ['✅', 'Todos deciden cuándo', 'Cuando todos tocan <b>Listo</b>, la carrera arranca. No hay prisa.'],
-  ['🥕', 'Ayuda o molesta', 'Durante la carrera toca un caballo y lánzale un poder: 🥕 lo acelera, 🪢 lo frena, ⚡ congela a todos los demás.'],
-  ['🕴️', 'Mafia, peñas y tu caballo', '¿Sin fichas? La <b>mafia</b> presta (y cobra caro). Arma una <b>peña</b> con amigos. Compra tu propio <b>potro</b> y disfrázalo de T-Rex 🦖.'],
+  ['🎯', 'La meta', 'Empiezas con <b>1.000 fichas</b>. Son <b>8 carreras</b>. Gana la noche quien termine con <b>más fichas</b> (menos lo que le deba a la mafia).',
+    'Ana termina con 3.200 y Beto con 900 → <b>gana Ana</b>.'],
+  ['🧠', 'Los caballos piensan solos', 'Cada caballo es una <b>red neuronal</b> que aprendió a correr, esquivar charcos y empujar. Nadie los maneja: tú solo <b>apuestas</b> y, en carrera, los ayudas o molestas.',
+    'La pista cambia en cada carrera. Hasta el caballo más rápido se puede chocar.'],
+  ['🎟️', 'Cómo apostar', '① Elige <b>qué apuestas</b>. ② Toca el <b>caballo</b>. ③ Elige <b>cuánto</b> y toca <b>Apostar</b>. Puedes hacer varias apuestas en la misma carrera.',
+    'Apuestas <b>100</b> a que gana Don Galope, que paga <b>x2</b> → si gana recibes <b>200</b>. Si no, pierdes los 100.'],
+  ['🎲', 'Las cuotas', 'La cuota (x2, x5…) dice <b>cuánto multiplica</b> tu apuesta. En la carrera 1 todos los caballos son iguales y manda el azar. Después, <b>el que gana paga menos</b> y el que pierde paga más.',
+    'Don Galope ganó 2 veces → ahora paga x1.4. Pancho Trotes llegó último → ahora paga x9.'],
+  ['🏆', 'Lo difícil paga más', '<b>Que gane</b>: tu caballo llega 1º. <b>Top 2 / Podio</b>: llega entre los 2 o 3 primeros (fácil, paga poco). <b>Pareja</b>, <b>1º y 2º</b> y <b>1º, 2º y 3º</b>: adivinas varios puestos (difícil, paga muchísimo).',
+    'En la carrera 1: Podio x1.2 · Que gane x2 · 1º y 2º x8 · 1º, 2º y 3º <b>x30</b>. Y las cuotas suben carrera a carrera.'],
+  ['✅', 'Listo y ¡arrancan!', 'Cuando todos tocan <b>Listo</b>, la carrera arranca. No hay reloj: piensa con calma. En la pantalla grande el anfitrión también puede tocar <b>¡Iniciar ya!</b>',
+    'Mientras corren, tu celular te dice cuánto ganarías <b>si terminara en ese momento</b>.'],
+  ['🥕', 'Poderes en carrera', 'Toca un caballo de la lista y luego un poder. Cuestan fichas. <b>🥕 Zanahoria</b> acelera, <b>🛡️ Escudo</b> protege, <b>🪢 Lazo</b> y <b>🙈 Vendas</b> frenan, <b>⚡ Rayo</b> congela a todos los demás.',
+    'Apostaste a Sir Relincho y va 2º → zanahoria para él, o lazo para el que va 1º.'],
+  ['🕴️', 'La mafia', 'Dos cosas: <b>Préstamo</b>, si te quedas sin fichas (la deuda crece cada carrera y el cobrador se lleva la mitad de tus premios). Y <b>Sabotaje</b> en carrera: congela a un caballo y lo pagas con deuda, sin gastar fichas.',
+    'Pides 500. Ganas 400 → el cobrador se queda 200 hasta que pagues.'],
+  ['🤝', 'Peñas y tu propio caballo', 'Arma una <b>peña</b> con amigos: se regalan fichas y si atacan juntos al mismo caballo el efecto es doble (o traiciona y llévate el 20 %). En <b>Mi caballo</b> compras un potro, lo entrenas y lo disfrazas de 🦖.',
+    'Si tu potro gana una carrera, te pagan un premio de dueño.'],
 ];
 let tutoStep = 0;
 function showTuto(i) {
   tutoStep = i;
-  if (i >= TUTO.length) { document.getElementById('tuto').classList.add('hidden'); store.set('jj_tuto2', '1'); return; }
+  if (i >= TUTO.length) { document.getElementById('tuto').classList.add('hidden'); store.set('jj_tuto3', '1'); return; }
+  const [e, title, text, ex] = TUTO[i];
   document.getElementById('tuto').classList.remove('hidden');
-  document.getElementById('tutoE').textContent = TUTO[i][0];
-  document.getElementById('tutoTitle').textContent = TUTO[i][1];
-  document.getElementById('tutoText').innerHTML = TUTO[i][2];
-  document.getElementById('tutoDots').innerHTML = TUTO.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+  document.getElementById('tutoK').textContent = `Cómo se juega · ${i + 1} de ${TUTO.length}`;
+  document.getElementById('tutoE').textContent = e;
+  document.getElementById('tutoTitle').textContent = title;
+  document.getElementById('tutoText').innerHTML = text;
+  document.getElementById('tutoEx').innerHTML = `<b>Ejemplo:</b> ${ex}`;
+  document.getElementById('tutoDots').innerHTML = TUTO.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('');
   document.getElementById('tutoNext').textContent = i === TUTO.length - 1 ? '¡A jugar!' : 'Siguiente';
 }
 document.getElementById('tutoNext').onclick = () => showTuto(tutoStep + 1);
@@ -659,7 +706,7 @@ let es;
 function connect() {
   for (const id of ['game', 'nav']) document.getElementById(id).classList.remove('hidden');
   document.getElementById('login').classList.add('hidden');
-  if (!store.get('jj_tuto2')) showTuto(0);
+  if (!store.get('jj_tuto3')) showTuto(0);
   if (es) es.close();
   es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;

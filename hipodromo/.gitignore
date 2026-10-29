@@ -1,11 +1,7 @@
 jugadores.json
-# Historial local de entrenamientos anteriores: solo se versionan sus cerebros (.json)
-logs/anteriores/**/*.csv
-logs/anteriores/**/*.txt
-logs/anteriores/*.csv
-logs/anteriores/*.txt
+# Salidas de consola de los entrenamientos
 logs/salida_*.txt
-# App de escritorio
+# App de escritorio (se regeneran con npm install / npm run empaquetar)
 node_modules/
 dist/
 app/icono.iconset/

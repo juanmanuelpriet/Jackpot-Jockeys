@@ -240,6 +240,5 @@ vale cada poder. Las gráficas se guardan en `analisis/`.
 - `public/pantalla.html`: la transmisión en la pantalla grande
 - `public/cel.html`: el control del jugador en el celular
 - `jugadores.json`: cuentas (nombre, caballo propio y trofeos); se crea solo y no se versiona
-- `logs/anteriores/`: cerebros de iteraciones previas (pistas ovaladas, bravos sin agresividad)
 
 > Las fichas son virtuales. El juego no maneja dinero real.

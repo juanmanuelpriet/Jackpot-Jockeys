@@ -110,7 +110,7 @@ function attach(room, conn, params) {
 }
 function broadcastState(room) {
   const st = room.publicState();
-  st.raceKey = `${room.match.num}-${room.match.race}`;
+  st.raceKey = room.raceKey;
   for (const r of room.screens) send(r, st);
   for (const [r, id] of room.phones) send(r, { ...st, me: room.meState(id) });
 }
@@ -187,7 +187,7 @@ const server = http.createServer((req, res) => {
     if (!room) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end('{"error":"sala"}'); return; }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      raceKey: `${room.match.num}-${room.match.race}`, track: room.track, gates: room.gates,
+      raceKey: room.raceKey, track: room.track, gates: room.gates,
       horses: room.lineup.map(h => ({ name: h.name, color: h.color, skin: h.skin })),
       joinUrl: `${publicBase(req)}/cel?sala=${room.code}`,
     }));

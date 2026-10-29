@@ -17,6 +17,7 @@ const CFG = {
   powerCooldownMs: 4000,
   grandPrixBonus: 0.5,    // en el Gran Premio todas las cuotas suben 50 %
   playerHorsesPerRace: 3,
+  maxHorses: 8,           // 6 al armar la carrera; hasta 8 si entran potros durante las apuestas
   // Mafia
   loanOptions: [200, 500],
   maxDebt: 2500,
@@ -142,10 +143,8 @@ class Room {
     this.trackSeed = this.track.seed;
     this.lineup = this.buildLineup();
     this.forms = this.lineup.map(() => +(0.93 + Math.random() * 0.14).toFixed(3));
-    this.gates = drawGates(this.lineup.length);
-    this.horses = this.lineup.map((h, i) => new Horse(this.track, h.brain, {
-      id: i, form: this.forms[i] * h.handicap, lane: laneOffset(this.gates[i], this.lineup.length),
-    }));
+    this.lineupVer = 0;
+    this.placeHorses();
     this.powerSpend = 0;
     this.results = null;
     this.requestOdds();
@@ -164,6 +163,39 @@ class Room {
     else this.narrate('apuestas', { n: `${this.match.race} de ${this.match.total}`, s: size });
   }
 
+  // Cajones al azar y caballos en la línea de salida (antes de arrancar se puede repetir sin problema)
+  placeHorses() {
+    this.gates = drawGates(this.lineup.length);
+    this.horses = this.lineup.map((h, i) => new Horse(this.track, h.brain, {
+      id: i, form: this.forms[i] * h.handicap, lane: laneOffset(this.gates[i], this.lineup.length),
+    }));
+  }
+  get raceKey() { return `${this.match.num}-${this.match.race}-${this.lineupVer}`; }
+
+  ownedEntry(p, horse) {
+    horse.lastRace = Date.now();
+    return {
+      name: horse.name, color: horse.color, perfil: horse.perfil, estilo: `de ${p.name}`, owner: p.id, ownerName: p.name,
+      brain: horse.brain, handicap: baseHandicap(horse.perfil), level: horse.level, skin: horse.skin || 'normal',
+    };
+  }
+
+  // Si un jugador compra, inscribe o vuelve a conectar su potro mientras se apuesta, entra ya a esta
+  // carrera al final de la fila (los demás caballos conservan su número y los boletos no cambian)
+  joinLineup(p) {
+    if (this.phase !== 'apuestas' || this.phaseEnds !== null) return false;
+    const horse = this.accounts.get(p.id)?.horse;
+    if (!horse || !horse.enrolled || horse.training || this.lineup.some(h => h.owner === p.id)) return false;
+    if (this.lineup.filter(h => h.owner).length >= CFG.playerHorsesPerRace || this.lineup.length >= CFG.maxHorses) return false;
+    this.lineup.push(this.ownedEntry(p, horse));
+    this.forms.push(+(0.93 + Math.random() * 0.14).toFixed(3));
+    this.lineupVer++;
+    this.placeHorses();
+    this.requestOdds();
+    this.addLog(`${horse.name}, el potro de ${p.name}, entra a la carrera con el número ${this.lineup.length}.`);
+    return true;
+  }
+
   // 6 caballos: hasta 3 de jugadores inscritos (los que llevan más tiempo sin correr primero)
   // y el resto de la casa, elegidos al azar
   buildLineup() {
@@ -173,13 +205,7 @@ class Room {
       .filter(({ p, horse }) => horse && horse.enrolled && !horse.training && online.has(p.id))
       .sort((a, b) => (a.horse.lastRace || 0) - (b.horse.lastRace || 0))
       .slice(0, CFG.playerHorsesPerRace);
-    const lineup = owned.map(({ p, horse }) => {
-      horse.lastRace = Date.now();
-      return {
-        name: horse.name, color: horse.color, perfil: horse.perfil, estilo: `de ${p.name}`, owner: p.id, ownerName: p.name,
-        brain: horse.brain, handicap: baseHandicap(horse.perfil), level: horse.level, skin: horse.skin || 'normal',
-      };
-    });
+    const lineup = owned.map(({ p, horse }) => this.ownedEntry(p, horse));
     const house = HORSES.map((h, i) => ({ ...h, brain: BRAINS[i], handicap: HANDICAP[i], skin: randomHouseSkin() }))
       .sort(() => Math.random() - 0.5)
       .slice(0, 6 - lineup.length);
@@ -204,7 +230,7 @@ class Room {
   // Cuotas a partir de la forma de cada caballo en la partida (en la carrera 1 todos iguales)
   requestOdds() {
     this.probs = probsFromRatings(this.lineup.map(h => this.ratings[h.name] || 0));
-    this.pay = payFactors(this.match.race, this.grandPrix ? 1 + CFG.grandPrixBonus : 1);
+    this.pay = payFactors(this.match.race, this.grandPrix ? 1 + CFG.grandPrixBonus : 1, this.lineup.length);
   }
   oddsOf(type, sel) { return oddsFor(type, sel, this.probs, this.pay); }
   oddsBoard() {
@@ -355,6 +381,7 @@ class Room {
         this.phaseEnds = null;
         this.addLog('Alguien todavía lo está pensando. Esperamos.');
       }
+      if (this.phaseEnds === null) for (const id of online) this.joinLineup(this.players.get(id));
       if (this.phaseEnds !== null && now >= this.phaseEnds) this.startRace();
     } else if (this.phase === 'carrera') {
       this.tick++;
@@ -447,6 +474,8 @@ class Room {
       name: acc.horse.name, color: acc.horse.color, perfil: acc.horse.perfil, level: acc.horse.level, enrolled: acc.horse.enrolled,
       training: acc.horse.training || null, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
       skin: acc.horse.skin || 'normal',
+      // Número en la carrera actual (o null si no corre en esta)
+      inRace: (() => { const i = this.lineup.findIndex(h => h.owner === id); return i >= 0 ? i : null; })(),
     } : null;
     return {
       id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p), ready: p.ready,
@@ -697,6 +726,7 @@ class Room {
       color: PLAYER_COLORS.find(c => !used.has(c)) || PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
     };
     this.narrate('potro', { p: p.name, h: name });
+    this.joinLineup(p);
     this.hooks.save();
     return {};
   }
@@ -732,6 +762,7 @@ class Room {
     const acc = this.accounts.get(p.id);
     if (!acc.horse) return { error: 'No tienes caballo' };
     acc.horse.enrolled = !!enrolled;
+    this.joinLineup(p);
     this.hooks.save();
     return {};
   }

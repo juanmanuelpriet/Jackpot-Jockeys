@@ -30,10 +30,14 @@ function updateRating(r, place, n) {
   return Math.max(-MAX_RATING, Math.min(MAX_RATING, r * MEMORY + PLACE_DELTA[k]));
 }
 
-// Factores de pago de cada tipo en la carrera `race` (1, 2, …), con el bono del Gran Premio
-function payFactors(race, bonus = 1) {
+// Factores de pago de cada tipo en la carrera `race` (1, 2, …) con `n` caballos, con el bono del Gran Premio.
+// START está pensado para 6 caballos; se escala para que "Que gane" pague x2 aunque entren potros.
+function payFactors(race, bonus = 1, n = 6) {
   const t = Math.min(1, (race - 1) / RAMP_RACES);
-  return Object.fromEntries(Object.entries(START).map(([k, s]) => [k, +((s + (PAYOUT - s) * t) * bonus).toFixed(4)]));
+  return Object.fromEntries(Object.entries(START).map(([k, s0]) => {
+    const s = Math.min(PAYOUT, s0 * 6 / n);
+    return [k, +((s + (PAYOUT - s) * t) * bonus).toFixed(4)];
+  }));
 }
 
 // Probabilidad de que la llegada empiece con `sel` (en orden), según Harville

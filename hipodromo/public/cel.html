@@ -79,6 +79,9 @@
   .item .x { font-size: 12px; color: var(--mute); letter-spacing: .5px; }
   .badge { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 15px; background: var(--accent); color: var(--accentTxt); font-weight: 600; font-size: 15px; }
   .mine { font-size: 12px; color: var(--green); }
+  .yours { display: inline-block; vertical-align: 2px; margin-right: 6px; padding: 1px 6px; border-radius: 4px; background: var(--accent); color: var(--accentTxt);
+    font-size: 11px; letter-spacing: 1px; }
+  .item.own { box-shadow: inset 3px 0 0 var(--accent); }
 
   /* Tipos de apuesta */
   #types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
@@ -432,9 +435,9 @@ function renderCarrera() {
     const sub = betting
       ? (h.recent && h.recent.length ? `últimas: ${h.recent.map(medal).join(' ')}` : h.ownerName ? `de ${esc(h.ownerName)}` : esc(h.estilo[0].toUpperCase() + h.estilo.slice(1)))
       : `vuelta ${h.lap}/${s.laps}${h.hits ? ` · ${h.hits} choques` : ''}`;
-    return `<button class="item ${chosen ? 'sel' : ''}" data-i="${i}">
+    return `<button class="item ${chosen ? 'sel' : ''} ${me.horse && me.horse.inRace === i ? 'own' : ''}" data-i="${i}">
       <div class="avatar" style="background:${h.color}">${i + 1}${skinIcon(h) ? `<span class="sk">${skinIcon(h)}</span>` : ''}</div>
-      <div><div class="t">${esc(h.name)}</div><div class="s">${sub}${mine ? ` · <span class="mine">🎟 ${fmt(mine)}</span>` : ''}</div></div>
+      <div><div class="t">${me.horse && me.horse.inRace === i ? '<span class="yours">Tuyo</span>' : ''}${esc(h.name)}</div><div class="s">${sub}${mine ? ` · <span class="mine">🎟 ${fmt(mine)}</span>` : ''}</div></div>
       <div class="r">${right}</div></button>`;
   }).join(''));
 
@@ -525,7 +528,12 @@ function renderCaballo() {
   setHTML('tab-caballo', `<div class="sec">Tu caballo</div>
     <div class="card" style="text-align:center"><div style="font-size:54px">${c.skins[h.skin]?.icon || '🐎'}</div><h2>${esc(h.name)}</h2>
       <div class="mute">Nivel ${h.level} · ${h.wins} victorias · ${h.perfil === 'bravo' ? 'bravo' : 'veloz'}</div>
-      <div class="btnRow" style="grid-template-columns:1fr"><button class="soft ${h.enrolled ? 'green' : ''}" data-enroll="${h.enrolled ? 0 : 1}">${h.enrolled ? '✓ Está corriendo en las carreras' : 'No corre · tocar para inscribirlo'}</button></div></div>
+      <div class="note" style="margin:10px 0 0;text-align:center">${h.inRace != null ? `🏇 <b>Corre en esta carrera con el número ${h.inRace + 1}.</b> Búscalo en la lista con la etiqueta TUYO.`
+        : h.training ? 'Está entrenando: vuelve a correr cuando termine.'
+        : !h.enrolled ? 'No está inscrito: no corre.'
+        : state.phase === 'apuestas' ? 'Esta carrera ya está llena de potros: entra en la próxima.'
+        : '⏳ <b>Entra en la próxima carrera</b> (esta ya arrancó).'}</div>
+      <div class="btnRow" style="grid-template-columns:1fr"><button class="soft ${h.enrolled ? 'green' : ''}" data-enroll="${h.enrolled ? 0 : 1}">${h.enrolled ? '✓ Inscrito en las carreras · tocar para sacarlo' : 'No corre · tocar para inscribirlo'}</button></div></div>
     <div class="sec">Entrenar · 🪙 ${c.trainPrice}</div>
     <div class="card">${h.training ? `<b>🏋️ Entrenando ${esc(h.training)}…</b><div class="mute" style="font-size:14px">Su red neuronal está practicando en pistas nuevas.</div>` : `
       <div class="mute" style="font-size:14px">Su cerebro de verdad aprende: practica 10 generaciones en pistas que nunca vio.</div>
@@ -605,7 +613,7 @@ document.getElementById('game').addEventListener('click', async e => {
   if (d.skin) {
     const owned = (me.skins || []).includes(d.skin), sk = state.cfg.skins[d.skin];
     if (await api(owned ? 'equipSkin' : 'buySkin', { skin: d.skin })) toast(`${sk.icon} ¡Tu potro ahora es ${sk.name}!`);
-  } else if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) toast(`🐴 ¡${n} es tuyo!`); }
+  } else if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) toast(`🐴 ¡${n} es tuyo! ${state.phase === 'apuestas' ? 'Ya está en esta carrera.' : 'Corre en la próxima carrera.'}`); }
   else if (d.enroll) api('enroll', { enrolled: d.enroll === '1' });
   else if (d.train) { if (await api('train', { focus: d.train })) toast('🏋️ ¡A entrenar!'); }
   else if (d.loan) { if (await api('loan', { amount: +d.loan })) toast('🕴️ Don Caballone sonríe…'); }

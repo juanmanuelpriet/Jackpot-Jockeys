@@ -164,7 +164,10 @@ Los disfraces comprados quedan en tu cuenta entre partidas. Solo cambian el dibu
 ## Tu propio caballo
 
 - **Compra un potro** (400 fichas), corredor o bravo, y ponle nombre. Es tuyo entre partidas.
-- **Inscríbelo**: hasta 3 caballos de jugadores corren en cada carrera junto a los de la casa.
+- **Inscríbelo**: hasta 3 caballos de jugadores corren en cada carrera junto a los de la casa. Si lo compras o
+  inscribes mientras se apuesta, **entra a esa misma carrera** al final de la fila (hasta 8 caballos; los demás
+  conservan su número y los boletos ya hechos no cambian). Si la carrera ya arrancó, corre en la siguiente.
+  En el celular tu caballo lleva la etiqueta **TUYO** y la pestaña Mi caballo dice con qué número corre.
 - **Entrénalo** (150 fichas) en velocidad, agresión o control: corre una neuroevolución real de 10
   generaciones sobre su red, en un hilo aparte, contra los corredores de la casa y en pistas nuevas.
   El celular muestra cómo cambiaron sus embestidas, salidas y tropiezos.

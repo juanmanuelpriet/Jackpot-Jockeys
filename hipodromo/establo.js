@@ -17,7 +17,7 @@ const HORSES = [
 ];
 
 const POWERS = {
-  zanahoria: { name: 'Zanahoria', icon: '🥕', cost: 50, desc: 'Turbo +50% por 4 s', fx: 'boost', ticks: FPS * 4, debuff: false },
+  zanahoria: { name: 'Zanahoria', icon: '🥕', cost: 70, desc: 'El jinete toma las riendas 4 s: +35% vel., salta todo y no se sale', fx: 'carrot', ticks: FPS * 4, debuff: false },
   escudo: { name: 'Escudo', icon: '🛡️', cost: 60, desc: 'Inmune a ataques 6 s', fx: 'shield', ticks: FPS * 6, debuff: false },
   vendas: { name: 'Vendas', icon: '🙈', cost: 100, desc: 'Ciega sus sensores 2.5 s', fx: 'blind', ticks: Math.round(FPS * 2.5), debuff: true },
   lazo: { name: 'Lazo', icon: '🪢', cost: 120, desc: 'Lo frena en seco 1.5 s', fx: 'freeze', ticks: Math.round(FPS * 1.5), debuff: true },

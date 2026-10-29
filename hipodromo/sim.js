@@ -417,7 +417,7 @@ class Horse {
     this.hitsTaken = 0;
     this.hitCd = 0;
     // efectos (en ticks)
-    this.fx = { boost: 0, blind: 0, freeze: 0, shield: 0, stun: 0, jump: 0, rage: 0, hit: 0 };
+    this.fx = { boost: 0, blind: 0, freeze: 0, shield: 0, stun: 0, jump: 0, rage: 0, hit: 0, carrot: 0 };
     this.lastHit = null;
   }
 
@@ -488,6 +488,7 @@ class Horse {
     this.speed = (3 + (gas + 1) * 3) * this.form;
     if (fx.boost > 0) this.speed *= 1.5;
     if (fx.rage > 0) this.speed *= 1.15;
+    if (fx.carrot > 0) this.speed *= 1.35;
 
     // Barro: frena mientras se pisa
     for (const o of this.track.obstacles) {
@@ -506,13 +507,21 @@ class Horse {
         if (o.type !== 'valla' || o === this.lastHit) continue;
         if ((nx - o.x) ** 2 + (ny - o.y) ** 2 < (o.r + 6) ** 2) {
           this.lastHit = o;
-          if (this.speed >= 6.5) { fx.jump = 10; this.jumps++; }
+          // Con zanahoria el jinete lleva las riendas: siempre salta
+          if (this.speed >= 6.5 || fx.carrot > 0) { fx.jump = 10; this.jumps++; }
           else { fx.stun = Math.round(FPS * 0.8); this.stumbles++; return; }
           break;
         }
       }
     }
     if (this.lastHit && (this.x - this.lastHit.x) ** 2 + (this.y - this.lastHit.y) ** 2 > 60 * 60) this.lastHit = null;
+
+    // Con zanahoria el jinete no deja que se salga: lo endereza hacia el trazado
+    if (fx.carrot > 0 && !this.track.onTrack(nx, ny)) {
+      const n = this.track.path.length, q = this.track.path[(this.lastProgress + 6) % n];
+      this.angle = Math.atan2(q[1] - this.y, q[0] - this.x);
+      return;
+    }
 
     this.x = nx; this.y = ny;
 

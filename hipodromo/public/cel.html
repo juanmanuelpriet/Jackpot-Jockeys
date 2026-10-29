@@ -8,50 +8,70 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,900&display=swap">
 <style>
   :root { --bg: #0b1f15; --card: #10291c; --card2: #173826; --line: rgba(201,162,74,0.3); --txt: #f1e8d3; --mute: #a9a08b;
-    --gold: #c9a24a; --gold-hi: #e7c873; --amber: #ffb43a; --wine: #8e1d22; --ok: #7fc48a;
+    --gold: #c9a24a; --gold-hi: #e7c873; --amber: #ffb43a; --wine: #8e1d22; --red: #ff6b5e; --ok: #7fc48a;
     --display: 'Oswald', 'Arial Narrow', sans-serif; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0 auto; background: var(--bg); color: var(--txt); font-family: var(--display); padding: 16px 16px 90px; max-width: 520px; letter-spacing: .3px; }
-  h1 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 34px; margin: 28px 0 6px; line-height: 1; }
+  body { margin: 0 auto; background: var(--bg); color: var(--txt); font-family: var(--display); padding: 14px 14px 96px; max-width: 520px; letter-spacing: .3px; }
+  h1 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 36px; margin: 26px 0 6px; line-height: 1; }
   h1 span { color: var(--gold-hi); }
-  header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
-  .name { color: var(--mute); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+  header { display: grid; grid-template-columns: 1fr auto; align-items: end; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+  .name { color: var(--mute); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
   .coins { font-size: 30px; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; line-height: 1.1; }
-  .coins small { font-size: 14px; color: var(--mute); font-weight: 400; letter-spacing: 1px; }
-  #potTxt { text-align: right; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+  .coins small { font-size: 13px; color: var(--mute); font-weight: 400; letter-spacing: 1px; }
+  .debt { color: var(--red); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+  #potTxt { text-align: right; font-size: 11px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
   #potTxt b { display: block; color: var(--txt); font-size: 22px; letter-spacing: 0; }
-  .phase { background: var(--card); border-left: 3px solid var(--gold); padding: 11px 14px; margin-bottom: 14px; font-weight: 500; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: 1.5px; font-size: 14px; }
+  .phase { background: var(--card); border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 12px; font-weight: 500; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: 1.5px; font-size: 14px; }
+  .phase.gp { border-left-color: var(--amber); background: linear-gradient(90deg, rgba(255,180,58,0.15), var(--card)); }
   .phase .t { color: var(--amber); font-variant-numeric: tabular-nums; }
-  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: var(--gold); margin: 20px 0 8px; font-weight: 500; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: var(--gold); margin: 18px 0 8px; font-weight: 500; }
   .horses { display: grid; gap: 6px; }
-  .horse { display: grid; grid-template-columns: 6px 30px 1fr auto; gap: 10px; align-items: center; background: var(--card); border: 1px solid transparent; padding: 10px 12px 10px 0; cursor: pointer; }
+  .horse { display: grid; grid-template-columns: 6px 30px 1fr auto; gap: 10px; align-items: center; background: var(--card); border: 1px solid transparent; padding: 9px 12px 9px 0; cursor: pointer; }
   .horse.sel { border-color: var(--gold); background: var(--card2); }
   .horse .silk { align-self: stretch; }
-  .horse .num { font-weight: 700; font-size: 22px; color: var(--gold-hi); text-align: center; }
+  .horse .num { font-weight: 700; font-size: 21px; color: var(--gold-hi); text-align: center; }
   .horse b { font-weight: 500; font-size: 17px; text-transform: uppercase; letter-spacing: .8px; }
   .horse .sub { font-size: 12px; color: var(--mute); letter-spacing: .5px; }
   .horse .right { text-align: right; }
   .horse .odds { font-weight: 600; font-size: 19px; color: var(--amber); font-variant-numeric: tabular-nums; }
   .mine { color: var(--ok); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
   .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  .chip { padding: 12px 0; background: var(--card); border: 1px solid var(--line); color: var(--txt); font-family: var(--display); font-weight: 500; font-size: 16px; }
+  .chip, .btn2 { padding: 12px 0; background: var(--card); border: 1px solid var(--line); color: var(--txt); font-family: var(--display); font-weight: 500; font-size: 16px; }
   .chip.sel { background: var(--gold); color: var(--bg); border-color: var(--gold); }
-  button.main { width: 100%; padding: 16px; border: 0; background: var(--gold); color: var(--bg); font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase; margin-top: 12px; }
+  .btn2 { padding: 10px 12px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+  .btn2.red { border-color: var(--wine); color: var(--red); }
+  .btn2.ok { border-color: var(--ok); color: var(--ok); }
+  button.main { width: 100%; padding: 15px; border: 0; background: var(--gold); color: var(--bg); font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase; margin-top: 10px; }
+  button.main.alt { background: transparent; color: var(--gold-hi); border: 1px solid var(--gold); }
+  button.main.on { background: var(--ok); border-color: var(--ok); color: var(--bg); }
   button:disabled { opacity: .35; }
-  .powers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .power { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--gold); padding: 11px 12px; color: var(--txt); text-align: left; font-family: var(--display); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .power { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--gold); padding: 10px 12px; color: var(--txt); text-align: left; font-family: var(--display); }
   .power.bad { border-top-color: var(--wine); }
-  .power b { display: block; font-size: 17px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-  .power small { color: var(--mute); display: block; margin: 3px 0 8px; font-size: 12px; line-height: 1.3; }
+  .power.mafia { border-top-color: #555; background: #111a14; grid-column: span 2; }
+  .power b { display: block; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .power small { color: var(--mute); display: block; margin: 3px 0 7px; font-size: 12px; line-height: 1.3; }
   .power .cost { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
-  input { width: 100%; padding: 16px; font-size: 18px; border: 1px solid var(--line); background: var(--card); color: var(--txt); font-family: var(--display); letter-spacing: 1px; }
-  .msg { position: fixed; left: 16px; right: 16px; bottom: 16px; background: var(--card2); border-left: 3px solid var(--amber); padding: 14px; font-weight: 500; letter-spacing: .5px; display: none; box-shadow: 0 10px 30px #0008; }
-  .big { padding: 22px 18px; background: var(--card); border-top: 3px solid var(--gold); }
-  .big .k { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
-  .big h2 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 32px; margin: 6px 0; }
-  .big p { margin: 6px 0 0; font-size: 17px; }
-  .big .win { color: var(--amber); font-size: 26px; font-weight: 700; }
-  .hidden { display: none; }
+  input { width: 100%; padding: 14px; font-size: 18px; border: 1px solid var(--line); background: var(--card); color: var(--txt); font-family: var(--display); letter-spacing: 1px; }
+  .card { background: var(--card); border-top: 3px solid var(--gold); padding: 14px; margin-bottom: 10px; }
+  .card.dark { border-top-color: #555; background: #0f1913; }
+  .card.red { border-top-color: var(--wine); }
+  .card .big { font-size: 30px; font-weight: 700; line-height: 1.15; }
+  .card h3:first-child { margin-top: 0; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.07); }
+  .row:last-child { border-bottom: 0; }
+  .msg { position: fixed; left: 14px; right: 14px; bottom: 74px; background: var(--card2); border-left: 3px solid var(--amber); padding: 13px; font-weight: 500; letter-spacing: .5px; display: none; box-shadow: 0 10px 30px #0008; z-index: 5; }
+  .result { padding: 18px 16px; background: var(--card); border-top: 3px solid var(--gold); margin-bottom: 10px; }
+  .result .k { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  .result h2 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 30px; margin: 6px 0; }
+  .result p { margin: 6px 0 0; font-size: 16px; }
+  .result .win { color: var(--amber); font-size: 24px; font-weight: 700; }
+  nav { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: #08160f; border-top: 1px solid var(--line); z-index: 4; }
+  nav button { background: none; border: 0; color: var(--mute); font-family: var(--display); padding: 12px 0 14px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; position: relative; }
+  nav button.on { color: var(--gold-hi); box-shadow: inset 0 3px 0 var(--gold); }
+  nav .dot { position: absolute; top: 8px; right: 22%; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+  .hidden { display: none !important; }
   .hint { color: var(--mute); font-size: 14px; line-height: 1.4; letter-spacing: .3px; }
 </style>
 </head>
@@ -59,35 +79,47 @@
 
 <div id="login">
   <h1>Jackpot <span>Jockeys</span></h1>
-  <p class="hint">Seis caballos. Seis redes neuronales. Ninguna sabe que estás apostando por ella. Apuesta, ayuda a tu favorito y sabotea al resto.</p>
+  <p class="hint">Seis caballos. Seis redes neuronales. Ninguna sabe que estás apostando por ella. Apuesta, sabotea, endéudate con la mafia y traiciona a tus amigos.</p>
+  <input id="salaIn" placeholder="Código de sala (ej. KXRT)" maxlength="4" autocomplete="off" style="text-transform:uppercase;margin-bottom:8px">
   <input id="nameIn" placeholder="Tu nombre" maxlength="16" autocomplete="off">
   <button class="main" id="joinBtn">Entrar</button>
 </div>
 
 <div id="game" class="hidden">
   <header>
-    <div><div class="name" id="myName"></div><div class="coins" id="coins">0</div></div>
-    <div class="right hint" id="potTxt"></div>
+    <div><div class="name" id="myName"></div><div class="coins" id="coins">0</div><div class="debt" id="debtTxt"></div></div>
+    <div id="potTxt"></div>
   </header>
-  <div class="phase"><span id="phaseTxt"></span><span class="t" id="timeTxt"></span></div>
+  <div class="phase" id="phaseBox"><span id="phaseTxt"></span><span class="t" id="timeTxt"></span></div>
 
-  <div id="results" class="hidden"></div>
-
-  <h3 id="horsesTitle">Elige un caballo</h3>
-  <div class="horses" id="horses"></div>
-
-  <div id="betBox">
-    <h3>Monto</h3>
-    <div class="chips" id="chips"></div>
-    <button class="main" id="betBtn">Apostar</button>
-  </div>
-
-  <div id="powerBox" class="hidden">
-    <h3>Poderes sobre el caballo elegido</h3>
-    <div class="powers" id="powers"></div>
-    <p class="hint">Lo que gastas en poderes se suma al pozo.</p>
-  </div>
+  <section id="tab-carrera">
+    <div id="results" class="hidden"></div>
+    <h3 id="horsesTitle">Elige un caballo</h3>
+    <div class="horses" id="horses"></div>
+    <div id="betBox">
+      <h3>Monto</h3>
+      <div class="chips" id="chips"></div>
+      <button class="main" id="betBtn">Apostar</button>
+      <button class="main alt" id="readyBtn">Estoy listo</button>
+      <p class="hint" style="margin-top:8px">Si todos dicen "listo", la carrera arranca de inmediato.</p>
+    </div>
+    <div id="powerBox" class="hidden">
+      <h3>Poderes sobre el caballo elegido</h3>
+      <div class="grid2" id="powers"></div>
+      <p class="hint">Lo que gastas en poderes se suma al pozo. Si alguien de tu peña usa un poder del mismo tipo sobre el mismo caballo en 5 s, hay combo: efecto doble.</p>
+    </div>
+  </section>
+  <section id="tab-caballo" class="hidden"></section>
+  <section id="tab-mafia" class="hidden"></section>
+  <section id="tab-pena" class="hidden"></section>
 </div>
+
+<nav id="nav" class="hidden">
+  <button data-tab="carrera" class="on">Carrera</button>
+  <button data-tab="caballo">Caballo</button>
+  <button data-tab="mafia">Mafia</button>
+  <button data-tab="pena">Peña</button>
+</nav>
 
 <div class="msg" id="msg"></div>
 
@@ -96,130 +128,261 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
-let myId = store.get('hip_id');
-let state = null, me = null, selHorse = null, amount = 50;
+const params = new URLSearchParams(location.search);
+let sala = (params.get('sala') || store.get('jj_sala') || '').toUpperCase();
+let myId = store.get('jj_id');
+let state = null, me = null, selHorse = null, amount = 50, lastRaceKey = null, joining = false;
 const AMOUNTS = [10, 50, 100, 250, 'Todo'];
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = n => Number(n).toLocaleString('es');
 const setHTML = (id, html) => { const el = document.getElementById(id); if (el._h !== html) { el.innerHTML = html; el._h = html; } };
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+document.getElementById('salaIn').value = sala;
+if (params.get('sala')) document.getElementById('salaIn').style.display = 'none';
 
 function toast(text) {
   const m = document.getElementById('msg');
   m.textContent = text; m.style.display = 'block';
-  clearTimeout(toast.t); toast.t = setTimeout(() => m.style.display = 'none', 2200);
+  clearTimeout(toast.t); toast.t = setTimeout(() => m.style.display = 'none', 2600);
 }
 
-async function api(action, body) {
-  const r = await fetch('/api/' + action, { method: 'POST', body: JSON.stringify({ id: myId, ...body }) });
+async function api(action, body = {}) {
+  const r = await fetch('/api/' + action, { method: 'POST', body: JSON.stringify({ sala, id: myId, ...body }) });
   const j = await r.json();
   if (j.error) { toast(j.error); return null; }
-  if (j.me) { me = { ...me, ...j.me }; render(); }
   return j;
 }
 
 document.getElementById('joinBtn').onclick = async () => {
+  sala = document.getElementById('salaIn').value.trim().toUpperCase();
+  if (sala.length !== 4) return toast('El código de sala tiene 4 letras: míralo en la pantalla');
   const j = await api('join', { name: document.getElementById('nameIn').value });
-  if (j) { myId = j.me.id; store.set('hip_id', myId); connect(); }
+  if (j) { myId = j.id; store.set('jj_id', myId); store.set('jj_sala', sala); connect(); }
 };
 
 document.getElementById('betBtn').onclick = async () => {
   if (selHorse == null) return toast('Elige un caballo');
   const a = amount === 'Todo' ? me.coins : amount;
-  const j = await api('bet', { horse: selHorse, amount: a });
-  if (j) toast(`Boleto: ${a} fichas a ${state.horses[selHorse].name}. Que la red te acompañe.`);
+  if (await api('bet', { horse: selHorse, amount: a })) toast(`Boleto: ${a} fichas a ${state.horses[selHorse].name}.`);
 };
+document.getElementById('readyBtn').onclick = () => api('ready', { ready: !me.ready });
 
 function usePower(key) {
   if (selHorse == null) return toast('Elige un caballo primero');
+  if (key === 'mafia') return api('mafiaFavor', { horse: selHorse }).then(j => j && toast('Don Caballone se encarga.'));
   api('power', { power: key, horse: selHorse }).then(j => j && toast(`${state.powers[key].name} para ${state.horses[selHorse].name}.`));
 }
 
+// ─── Render ───
 function render() {
   if (!state || !me) return;
   const s = state;
-  document.getElementById('myName').textContent = me.name;
-  document.getElementById('coins').innerHTML = `${me.coins.toLocaleString('es')} <small>fichas</small>`;
-  document.getElementById('potTxt').innerHTML = `${s.carry ? 'Pozo + jackpot' : 'Pozo'}<b>${s.pot.toLocaleString('es')}</b>`;
-  const phaseNames = { apuestas: `Carrera ${s.raceNum} · Pista ${s.trackSize}`, carrera: 'En carrera', resultados: 'Resultados' };
+  document.getElementById('myName').textContent = `${me.name} · sala ${s.sala}${me.trophies ? ` · ${me.trophies} trofeos` : ''}`;
+  document.getElementById('coins').innerHTML = `${fmt(me.coins)} <small>fichas</small>`;
+  document.getElementById('debtTxt').textContent = me.debt ? `Debes ${fmt(me.debt)} a la mafia · neto ${fmt(me.net)}` : '';
+  document.getElementById('potTxt').innerHTML = `${s.grandPrix ? 'Pozo Gran Premio' : s.carry ? 'Pozo + jackpot' : 'Pozo'}<b>${fmt(s.pot)}</b>`;
+  const phaseNames = {
+    apuestas: `${s.grandPrix ? 'Gran Premio' : `Carrera ${s.match.race}/${s.match.total}`} · pista ${s.trackSize}`,
+    carrera: s.grandPrix ? 'Gran Premio en curso' : 'En carrera', resultados: 'Resultados', final: 'Fin de la partida',
+  };
+  document.getElementById('phaseBox').classList.toggle('gp', !!s.grandPrix);
   document.getElementById('phaseTxt').textContent = phaseNames[s.phase];
   document.getElementById('timeTxt').textContent = s.phase === 'carrera' ? '' : s.timeLeft != null ? s.timeLeft + 's' : 'esperando';
 
-  const betting = s.phase === 'apuestas', racing = s.phase === 'carrera';
+  // Avisos en las pestañas
+  const dots = { pena: me.invites.length > 0, mafia: me.debt > 0, caballo: !!(me.horse && me.horse.training) };
+  document.querySelectorAll('nav button').forEach(b => {
+    const d = dots[b.dataset.tab];
+    if (d && !b.querySelector('.dot')) b.insertAdjacentHTML('beforeend', '<span class="dot"></span>');
+    if (!d) b.querySelector('.dot')?.remove();
+  });
+
+  renderCarrera(); renderCaballo(); renderMafia(); renderPena();
+}
+
+function renderCarrera() {
+  const s = state, betting = s.phase === 'apuestas', racing = s.phase === 'carrera';
   document.getElementById('betBox').classList.toggle('hidden', !betting);
   document.getElementById('powerBox').classList.toggle('hidden', !racing);
+  const rb = document.getElementById('readyBtn');
+  rb.textContent = me.ready ? 'Listo (toca para esperar)' : 'Estoy listo';
+  rb.classList.toggle('on', !!me.ready);
   document.getElementById('horsesTitle').textContent = betting ? 'Elige tu caballo' : racing ? 'Posiciones · toca uno y usa un poder' : 'Llegada';
 
   const rows = s.horses.map((h, i) => ({ h, i }));
   if (!betting) rows.sort((a, b) => a.h.pos - b.h.pos);
   setHTML('horses', rows.map(({ h, i }) => {
-    const mine = me.bets[i];
-    const formPct = Math.round((h.form - 1) * 100);
+    const mine = me.bets[i], formPct = Math.round((h.form - 1) * 100);
+    const who = h.ownerName ? `De ${esc(h.ownerName)}${h.level ? ` · nivel ${h.level}` : ''}` : esc(h.estilo[0].toUpperCase() + h.estilo.slice(1));
     return `<div class="horse ${selHorse === i ? 'sel' : ''}" data-i="${i}">
       <div class="silk" style="background:${h.color}"></div>
       <div class="num">${betting ? i + 1 : h.pos}</div>
       <div><b>${esc(h.name)}</b>
-        <div class="sub">${h.estilo[0].toUpperCase() + h.estilo.slice(1)} · ${betting ? `Cajón ${h.gate} · forma ${formPct >= 0 ? '+' : ''}${formPct}%` : `Vuelta ${h.lap}/${s.laps}${h.hits ? ` · ${h.hits} embestidas` : ''}`}</div>
-        ${mine ? `<div class="mine">Tu apuesta: ${mine}</div>` : ''}</div>
-      <div class="right"><div class="odds">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div><div class="sub">${h.bets.toLocaleString('es')} en juego</div></div>
+        <div class="sub">${who} · ${betting ? `cajón ${h.gate} · forma ${formPct >= 0 ? '+' : ''}${formPct}%` : `vuelta ${h.lap}/${s.laps}${h.hits ? ` · ${h.hits} embestidas` : ''}`}</div>
+        ${mine ? `<div class="mine">Tu apuesta: ${fmt(mine)}</div>` : ''}</div>
+      <div class="right"><div class="odds">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div><div class="sub">${fmt(h.bets)} en juego</div></div>
     </div>`;
   }).join(''));
 
-  setHTML('chips', AMOUNTS.map(a =>
-    `<button class="chip ${amount === a ? 'sel' : ''}" data-a="${a}">${a}</button>`).join(''));
+  setHTML('chips', AMOUNTS.map(a => `<button class="chip ${amount === a ? 'sel' : ''}" data-a="${a}">${a}</button>`).join(''));
   document.getElementById('betBtn').disabled = selHorse == null || me.coins <= 0;
 
   const cd = me.cooldown || 0;
   setHTML('powers', Object.entries(s.powers).map(([k, p]) =>
     `<button class="power ${p.debuff ? 'bad' : ''}" data-k="${k}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}>
-      <b>${p.name}</b><small>${p.desc}</small>
-      <span class="cost">${p.cost} fichas</span></button>`).join(''));
+      <b>${esc(p.name)}</b><small>${esc(p.desc)}</small><span class="cost">${p.cost} fichas</span></button>`).join('')
+    + `<button class="power mafia" data-k="mafia" ${me.favorUsed || me.debt + s.cfg.mafiaFavorCost > s.cfg.maxDebt ? 'disabled' : ''}>
+      <b>Favor de Don Caballone</b><small>La mafia "arregla" al caballo elegido: lazo 2 s y vendas 3 s. Ignora escudos. Uno por carrera.</small>
+      <span class="cost">+${s.cfg.mafiaFavorCost} de deuda</span></button>`);
 
   const res = document.getElementById('results');
-  if (s.phase === 'resultados' && s.results) {
+  if ((s.phase === 'resultados' || s.phase === 'final') && s.results) {
     const r = s.results, win = r.payouts.find(p => p.id === me.id);
     const lost = Object.keys(me.bets).length > 0 && !win;
     res.classList.remove('hidden');
-    res.innerHTML = `<div class="big"><div class="k">Ganador</div>
-      <h2>${esc(s.horses[r.winner].name)}</h2>
-      <p class="hint">${esc(r.quip || '')}</p>
-      ${win ? `<p>Cobras <span class="win">${win.win.toLocaleString('es')}</span> fichas. Invita algo.</p>` : lost ? '<p>Tu caballo tenía otros planes. Hay revancha en segundos.</p>' : ''}
-      ${r.jackpot ? `<p class="hint">Nadie le apostó: ${r.jackpot.toLocaleString('es')} fichas pasan al jackpot.</p>` : ''}</div>`;
+    setHTML('results', `<div class="result"><div class="k">${r.grandPrix ? 'Ganador del Gran Premio' : 'Ganador'}</div>
+      <h2>${esc(s.horses[r.winner].name)}</h2><p class="hint">${esc(r.quip || '')}</p>
+      ${win ? `<p>Cobras <span class="win">${fmt(win.win)}</span> fichas${win.net < win.win ? `, pero la mafia se quedó con ${fmt(win.win - win.net)}` : ''}.</p>` : lost ? '<p>Tu caballo tenía otros planes. Hay revancha en segundos.</p>' : ''}
+      ${r.jackpot ? `<p class="hint">Nadie le apostó: ${fmt(r.jackpot)} fichas pasan al jackpot.</p>` : ''}</div>
+      ${s.phase === 'final' && s.awards ? `<div class="card"><h3>Premios de la noche</h3>
+        ${s.awards.map(a => `<div class="row"><span>${esc(a.title)}<br><small class="hint">${esc(a.desc)}</small></span><b>${esc(a.name)}</b></div>`).join('')}
+        <p class="hint">Nueva partida en ${s.timeLeft}s. Todos vuelven a 1000 fichas y sin deudas.</p></div>` : ''}`);
   } else res.classList.add('hidden');
 }
 
-// Delegación de eventos: los botones se redibujan, los manejadores no
-document.getElementById('horses').onclick = e => {
-  const el = e.target.closest('.horse'); if (el) { selHorse = +el.dataset.i; render(); }
+function renderCaballo() {
+  const h = me.horse, c = state.cfg;
+  if (!h) {
+    setHTML('tab-caballo', `<div class="card"><h3>Compra tu potro</h3>
+      <p class="hint">Un caballo propio es una red neuronal tuya: lo inscribes en las carreras, lo entrenas y, si gana, cobras premio de propietario. Se queda contigo entre partidas.</p>
+      <input id="horseName" placeholder="Nombre del potro" maxlength="18" style="margin:8px 0">
+      <div class="grid2">
+        <button class="btn2" data-buy="corredor">Corredor<br><small class="hint">rápido y limpio</small></button>
+        <button class="btn2 red" data-buy="bravo">Bravo<br><small class="hint">nació para embestir</small></button>
+      </div>
+      <p class="hint">Cuesta ${c.horsePrice} fichas.</p></div>`);
+    return;
+  }
+  const last = h.history[h.history.length - 1];
+  setHTML('tab-caballo', `<div class="card" style="border-top-color:${h.color}">
+      <div class="name">Tu caballo · ${esc(h.perfil)}</div>
+      <div class="big">${esc(h.name)}</div>
+      <div class="row"><span>Nivel</span><b>${h.level}</b></div>
+      <div class="row"><span>Victorias</span><b>${h.wins}</b></div>
+      <div class="row"><span>Inscrito en las carreras</span><button class="btn2 ${h.enrolled ? 'ok' : ''}" data-enroll="${h.enrolled ? 0 : 1}">${h.enrolled ? 'Sí' : 'No'}</button></div>
+    </div>
+    <div class="card">
+      <h3>Entrenar (${c.trainPrice} fichas)</h3>
+      ${h.training ? `<p>Entrenando <b>${esc(h.training)}</b>… la red está probando mutaciones en pistas nuevas. Vuelve en unos segundos.</p>` : `
+      <p class="hint">Corre una neuroevolución de verdad sobre su cerebro: 10 generaciones contra los corredores de la casa, en pistas que nunca vio.</p>
+      <div class="grid3">
+        <button class="btn2" data-train="velocidad">Velocidad</button>
+        <button class="btn2 red" data-train="agresion">Agresión</button>
+        <button class="btn2" data-train="control">Control</button>
+      </div>`}
+      ${last ? `<p class="hint" style="margin-top:10px">Último entrenamiento (${esc(last.focus)}): embestidas ${last.antes.golpes} → ${last.despues.golpes}, salidas ${last.antes.salidas} → ${last.despues.salidas}, tropiezos ${last.antes.tropiezos} → ${last.despues.tropiezos}.</p>` : ''}
+    </div>`);
+}
+
+function renderMafia() {
+  const c = state.cfg;
+  setHTML('tab-mafia', `<div class="card dark">
+      <div class="name">Don Caballone · préstamos sin preguntas</div>
+      <div class="big" style="color:${me.debt ? 'var(--red)' : 'var(--txt)'}">${me.debt ? `Debes ${fmt(me.debt)}` : 'No debes nada'}</div>
+      <p class="hint">Interés de ${Math.round(c.interest * 100)} % por carrera. Mientras debas, su cobrador se queda con la mitad de lo que ganes. Tope de deuda: ${fmt(c.maxDebt)}. Al terminar la partida gana quien tenga más fichas <i>menos</i> deuda.</p>
+      <div class="grid2">${c.loanOptions.map(a => `<button class="btn2" data-loan="${a}">Pedir ${fmt(a)}</button>`).join('')}</div>
+    </div>
+    ${me.debt ? `<div class="card"><h3>Pagar</h3>
+      <div class="grid3"><button class="btn2" data-repay="100">100</button><button class="btn2" data-repay="300">300</button>
+        <button class="btn2 ok" data-repay="${me.debt}">Todo</button></div></div>` : ''}
+    <p class="hint">Durante la carrera, la pestaña Carrera tiene el favor de Don Caballone: arregla a un caballo a cambio de más deuda.</p>`);
+}
+
+function renderPena() {
+  const c = state.cfg, a = me.alliance;
+  const invites = me.invites.map(i => `<div class="row"><span><b>${esc(i.from)}</b> te invita a «${esc(i.name)}»</span>
+    <span><button class="btn2 ok" data-answer="${i.alliance}" data-accept="1">Unirme</button> <button class="btn2" data-answer="${i.alliance}" data-accept="0">No</button></span></div>`).join('');
+  if (!a) {
+    setHTML('tab-pena', `${invites ? `<div class="card"><h3>Invitaciones</h3>${invites}</div>` : ''}
+      <div class="card"><h3>Funda una peña</h3>
+      <p class="hint">Hasta ${c.maxAllianceSize} jugadores contra el resto. Se pasan fichas (máx. ${c.giftPerRace} por carrera), cobran 10 % de comisión cuando un aliado gana (la paga la casa) y sus poderes combinados sobre el mismo caballo hacen efecto doble.</p>
+      <button class="main" data-create="1" ${me.canAlly ? '' : 'disabled'}>Fundar peña</button>
+      ${me.canAlly ? '' : '<p class="hint">Después de traicionar, nadie confía en ti por unos minutos.</p>'}</div>
+      ${allianceTable()}`);
+    return;
+  }
+  const others = state.players.filter(p => p.id !== me.id && !p.alliance && p.online);
+  setHTML('tab-pena', `<div class="card"><div class="name">Tu peña</div><div class="big">«${esc(a.name)}»</div>
+      ${a.members.map(m => `<div class="row"><span>${esc(m.name)}${m.id === me.id ? ' (tú)' : ''}</span>
+        ${m.id === me.id ? '' : `<span><button class="btn2" data-gift="${m.id}" data-amt="50">+50</button> <button class="btn2" data-gift="${m.id}" data-amt="100">+100</button></span>`}</div>`).join('')}
+      <p class="hint">Regalado en esta carrera: ${me.gifted}/${c.giftPerRace}</p></div>
+    ${a.members.length < c.maxAllianceSize && others.length ? `<div class="card"><h3>Invitar</h3>
+      ${others.map(p => `<div class="row"><span>${esc(p.name)}</span><button class="btn2" data-invite="${p.id}">Invitar</button></div>`).join('')}</div>` : ''}
+    <div class="card red"><h3>Traicionar</h3>
+      <p class="hint">Te llevas el 20 % de las fichas de cada aliado y la peña se disuelve. Toda la sala se entera, y nadie querrá aliarse contigo por un rato.</p>
+      <div class="grid2"><button class="btn2 red" data-betray="1">Traicionar</button><button class="btn2" data-leave="1">Salir en paz</button></div></div>
+    ${allianceTable()}`);
+}
+
+function allianceTable() {
+  if (!state.alliances.length) return '';
+  return `<div class="card"><h3>Peñas de la sala</h3>${state.alliances.map(a =>
+    `<div class="row"><span>«${esc(a.name)}»<br><small class="hint">${a.members.map(esc).join(', ')}</small></span><b>${fmt(a.net)}</b></div>`).join('')}</div>`;
+}
+
+// ─── Eventos (delegados: el HTML se redibuja, los manejadores no) ───
+document.getElementById('horses').onclick = e => { const el = e.target.closest('.horse'); if (el) { selHorse = +el.dataset.i; render(); } };
+document.getElementById('chips').onclick = e => { const el = e.target.closest('.chip'); if (el) { amount = el.dataset.a === 'Todo' ? 'Todo' : +el.dataset.a; render(); } };
+document.getElementById('powers').onclick = e => { const el = e.target.closest('.power'); if (el && !el.disabled) usePower(el.dataset.k); };
+document.getElementById('nav').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  for (const t of ['carrera', 'caballo', 'mafia', 'pena']) document.getElementById('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab);
 };
-document.getElementById('chips').onclick = e => {
-  const el = e.target.closest('.chip'); if (el) { amount = el.dataset.a === 'Todo' ? 'Todo' : +el.dataset.a; render(); }
-};
-document.getElementById('powers').onclick = e => {
-  const el = e.target.closest('.power'); if (el && !el.disabled) usePower(el.dataset.k);
-};
+document.getElementById('game').addEventListener('click', async e => {
+  const d = e.target.closest('button')?.dataset; if (!d) return;
+  if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) toast(`¡${n} es tuyo!`); }
+  else if (d.enroll) api('enroll', { enrolled: d.enroll === '1' });
+  else if (d.train) { if (await api('train', { focus: d.train })) toast('A entrenar. La red vuelve en unos segundos.'); }
+  else if (d.loan) { if (await api('loan', { amount: +d.loan })) toast('Don Caballone sonríe. Eso nunca es buena señal.'); }
+  else if (d.repay) api('repay', { amount: +d.repay });
+  else if (d.create) api('createAlliance');
+  else if (d.invite) { if (await api('invite', { to: d.invite })) toast('Invitación enviada.'); }
+  else if (d.answer) api('answerInvite', { alliance: d.answer, accept: d.accept === '1' });
+  else if (d.gift) api('gift', { to: d.gift, amount: +d.amt });
+  else if (d.leave) api('leaveAlliance');
+  else if (d.betray) { if (confirm('¿Seguro? Toda la sala se va a enterar.')) api('betray'); }
+});
 
 let es;
 function connect() {
   document.getElementById('login').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
+  document.getElementById('nav').classList.remove('hidden');
   if (es) es.close();
-  es = new EventSource('/events?id=' + encodeURIComponent(myId));
+  es = new EventSource(`/events?sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`);
+  es.onerror = () => { if (es.readyState === EventSource.CLOSED) backToLogin('La sala ya no existe. Pide el código nuevo.'); };
   es.onmessage = ev => {
     const m = JSON.parse(ev.data);
     if (m.type !== 'state') return;
-    if (state && state.raceNum !== m.raceNum) selHorse = null;
+    if (lastRaceKey && lastRaceKey !== m.raceKey) selHorse = null;
+    lastRaceKey = m.raceKey;
     state = m;
-    if (m.me) me = m.me;
-    else { // el servidor no conoce este id: volver a registrarse
-      es.close(); myId = null;
-      document.getElementById('login').classList.remove('hidden');
-      document.getElementById('game').classList.add('hidden');
-      return;
-    }
-    render();
+    if (m.me) { me = m.me; render(); return; }
+    // Cuenta conocida pero todavía no está en esta sala: entrar con el mismo nombre
+    if (!joining) { joining = true; api('join', {}).then(j => { joining = false; if (!j) backToLogin(); }); }
   };
 }
+function backToLogin(text) {
+  if (es) es.close();
+  document.getElementById('login').classList.remove('hidden');
+  document.getElementById('game').classList.add('hidden');
+  document.getElementById('nav').classList.add('hidden');
+  document.getElementById('salaIn').style.display = '';
+  if (text) toast(text);
+}
 
-if (myId) connect();
+if (myId && sala) connect();
 </script>
 </body>
 </html>

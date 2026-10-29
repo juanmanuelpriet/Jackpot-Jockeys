@@ -11,32 +11,81 @@ cd hipodromo
 node server.js
 ```
 
-1. Abre `http://localhost:3000` en la pantalla grande (TV, proyector o laptop).
-2. Los jugadores escanean el QR o abren `http://<ip>:3000/cel` desde su celular
-   (deben estar en la **misma red WiFi**).
-3. Cada jugador empieza con **1000 fichas**.
+1. Abre `http://localhost:3000` en la pantalla grande (TV, proyector o laptop). Crea una **sala** con un
+   código de 4 letras.
+2. Los jugadores escanean el QR o abren `http://<ip>:3000/cel` y escriben el código. En la misma WiFi
+   funciona directo; para jugar con gente que está en otro lado, ver **Jugar por internet**.
+3. Cada jugador empieza la partida con **1000 fichas**.
 
 No necesita `npm install`: solo Node 18+. En la pantalla, la tecla **S** muestra los sensores de las
 redes y la **C** activa o desactiva la cámara que sigue a la punta.
 
-## Cómo funciona una ronda
+### Jugar por internet
+
+```bash
+brew install cloudflared   # una sola vez
+npm run compartir
+```
+
+Arranca el servidor y lo publica con un túnel temporal y gratuito de Cloudflare. Muestra un enlace
+`https://….trycloudflare.com`: ábrelo en la pantalla grande y el QR ya sirve para cualquier celular,
+esté donde esté. Si ya tienes el juego publicado en otro lado, arráncalo con `PUBLIC_URL=https://tu-dominio node server.js`.
+Cada pantalla crea su propia sala, así que pueden jugarse varias partidas a la vez.
+
+## La partida
+
+Una partida son **8 carreras**. La última es el **Gran Premio**: la casa suma 50 % al pozo. Al final hay
+**premios de la noche** (Campeón, Saboteador, Ángel de la guarda, Ojo de halcón, Moroso del año, Judas,
+Mecenas, Entrenador estrella), que quedan como trofeos en tu cuenta. Después arranca otra partida y todos
+vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **netas** (fichas menos deuda).
 
 | Fase | Duración | Qué pasa |
 |------|----------|----------|
-| Apuestas | 30 s (o el botón "Arrancar carrera") | Ves la pista nueva, el cajón y la forma de cada caballo, y apuestas |
-| Carrera | 15–45 s según la pista | Usas poderes para ayudar o sabotear caballos |
-| Resultados | 12 s | Se reparte el pozo y empieza otra carrera |
+| Apuestas | 30 s, o 3 s cuando todos tocan "Estoy listo" | Ves la pista nueva, el cajón y la forma de cada caballo, y apuestas |
+| Carrera | 15–45 s según la pista | Usas poderes, pides favores a la mafia, haces combos con tu peña |
+| Resultados | 14 s | Repetición de la llegada en cámara lenta y reparto del pozo |
+
+Solo la pantalla que creó la sala puede usar el botón "Arrancar carrera"; los celulares arrancan con "Estoy listo".
 
 **Pozo (apuesta mutua):** todo lo apostado + lo gastado en poderes + el jackpot acumulado se
 reparte entre quienes apostaron al ganador, en proporción a lo que apostó cada uno. Si nadie
 le apostó al ganador, todo el pozo pasa al **jackpot** de la siguiente carrera.
-Si te quedas sin fichas, recibes 200 de rescate al iniciar la siguiente ronda.
+
+**Repeticiones y clips:** al terminar cada carrera la pantalla repite la llegada en cámara lenta. El botón
+"Guardar clip" la graba como video (`.webm`) para mandarla al grupo.
+
+## La mafia de Don Caballone
+
+Nadie queda eliminado: si te quedas sin fichas (o quieres apostar más), **la mafia te presta** 200 o 500.
+- Interés del **12 % por carrera**, hasta 2500 de deuda.
+- Mientras debas, su **cobrador se queda con la mitad** de lo que ganes hasta saldar la deuda.
+- **Favor de Don Caballone** (en carrera): "arregla" a un caballo con lazo 2 s y vendas 3 s, **ignora escudos**.
+  Uno por carrera y se paga con +300 de deuda.
+
+## Peñas (alianzas)
+
+Hasta 3 jugadores contra el resto:
+- Se pasan fichas (máximo 300 por carrera).
+- Cuando un aliado cobra una apuesta, los demás reciben **10 % de comisión** (la paga la casa).
+- **Combos**: si dos aliados usan un poder del mismo tipo sobre el mismo caballo en menos de 5 s, el
+  segundo dura el doble (o 1.5× si es de ayuda).
+- **Traición**: te llevas el 20 % de las fichas de cada aliado, la peña se disuelve, toda la sala se entera
+  y nadie puede aliarse contigo por unos minutos. Solo se puede después de una carrera juntos.
+
+## Tu propio caballo
+
+- **Compra un potro** (400 fichas), corredor o bravo, y ponle nombre. Es tuyo entre partidas.
+- **Inscríbelo**: hasta 3 caballos de jugadores corren en cada carrera junto a los de la casa.
+- **Entrénalo** (150 fichas) en velocidad, agresión o control: corre una neuroevolución real de 10
+  generaciones sobre su red, en un hilo aparte, contra los corredores de la casa y en pistas nuevas.
+  El celular muestra cómo cambiaron sus embestidas, salidas y tropiezos.
+- Si gana, cobras un **premio de propietario** (10 % del pozo, mínimo 100).
 
 ## Poderes
 
 | Poder | Costo | Efecto |
 |-------|-------|--------|
-| Zanahoria | 50 | Turbo +50 % de velocidad por 4 s |
+| Zanahoria | 70 | El jinete toma las riendas 4 s: +35 % de velocidad, salta todas las vallas y no se sale |
 | Escudo | 60 | Inmune a vendas, lazo, charco, rayo y embestidas por 6 s |
 | Vendas | 100 | Ciega los sensores de la red 2.5 s (corre "a ciegas") |
 | Lazo | 120 | Frena al caballo en seco 1.5 s |
@@ -44,8 +93,8 @@ Si te quedas sin fichas, recibes 200 de rescate al iniciar la siguiente ronda.
 | Charco | 45 | Tira un charco de barro justo delante del caballo |
 | Rayo | 250 | Aturde 1 s a **todos** los demás caballos (el escudo protege) |
 
-Los costos de la zanahoria y el charco se bajaron después de medir en el torneo que casi no cambiaban
-el resultado (ver la sección 12 de `analisis.ipynb`).
+La zanahoria se rediseñó después de medir en el torneo que el turbo solo no cambiaba el resultado: a más
+velocidad, las redes se estrellaban en las curvas. Ahora el jinete también evita que se salga.
 
 ## Los caballos
 
@@ -79,8 +128,9 @@ de medio segundo. El escudo y la furia protegen de las embestidas.
 - **Sorteo de cajones:** cada carrera se sortea el carril de salida de cada caballo.
 - **Hándicap** (`handicap.json`): `calibrar.js` simula cientos de carreras y ajusta un multiplicador de
   velocidad por caballo hasta que todos ganen parecido, como en las carreras con hándicap reales.
-  El tope es ×1.25: más rápido que eso, las redes (entrenadas a velocidad normal) se salen en las curvas.
-  Por eso **Overfitting** sigue siendo el caballo sorpresa: gana poco y paga mucho.
+  Hoy queda entre ×0.93 y ×1.09, y cada caballo gana entre ~14 % y ~21 % de las carreras.
+- Los bravos que pierden tiempo embistiendo se entrenan a la velocidad que tendrán con hándicap y con premio
+  por puesto (ver **Entrenar**): así no dependen de un hándicap enorme, que las redes no saben controlar.
 
 ## Pistas
 
@@ -107,16 +157,18 @@ Como los caballos se entrenan y evalúan siempre en pistas que nunca vieron, tie
 ## Entrenar, calibrar y analizar
 
 ```bash
-node entrenar.js corredor 300        # → caballos_corredor.json
-node entrenar.js bravo 300 60        # → caballos_bravo_60.json  (pícaro)
-node entrenar.js bravo 300 100       # → caballos_bravo_100.json (bravo)
-node entrenar.js bravo 300 150       # → caballos_bravo_150.json (muy bravo)
+node entrenar.js corredor 300                  # → caballos_corredor.json
+node entrenar.js bravo 300 60                  # → caballos_bravo_60.json  (pícaro)
+node entrenar.js bravo 200 100 1.2 150         # → caballos_bravo_100.json (bravo)
+node entrenar.js bravo 200 150 1.2 180         # → caballos_bravo_150.json (muy bravo)
 node calibrar.js 8 500               # → handicap.json
 node torneo.js 600 0.7               # 600 carreras, 70 % con un poder al azar → logs/torneo.csv
 jupyter notebook analisis.ipynb
 ```
 
-El último número de `entrenar.js bravo` es el premio por embestida (su agresividad). Los bravos entrenan
+Los argumentos de `entrenar.js bravo` son: generaciones, premio por embestida (agresividad), velocidad a la
+que entrena y premio por cada rival que deja atrás en la llegada. Overfitting y Dropout entrenan a ×1.2,
+la velocidad que tienen en el juego con hándicap, y con premio por puesto: así embisten **y** quieren ganar. Los bravos entrenan
 contra los corredores ya entrenados, para que no aprendan a chocarse solo entre ellos. Cada entrenamiento
 continúa desde los cerebros que ya existan y escribe una fila por generación en
 `logs/entrenamiento_<nombre>.csv`. Reinicia el servidor para que use los caballos nuevos.
@@ -129,13 +181,17 @@ vale cada poder. Las gráficas se guardan en `analisis/`.
 ## Archivos
 
 - `sim.js`: generador de pistas, obstáculos, choques, físicas y red neuronal (port de `track.py`, `car.py` y `brain.py`)
+- `sala.js`: una partida: apuestas, poderes, mafia, peñas, caballos de jugadores y premios
+- `evolucion.js`: núcleo de la neuroevolución (lo usan `entrenar.js` y `entrenador.js`)
+- `entrenador.js`: entrena el caballo de un jugador en un hilo aparte
+- `compartir.js`: servidor + túnel de Cloudflare para jugar por internet
 - `establo.js`: los 6 caballos, sus cerebros, el hándicap y los poderes (lo usan el juego y el torneo)
 - `narrador.js`: las frases del narrador
-- `server.js`: servidor HTTP + Server-Sent Events, fases del juego, apuestas y poderes
+- `server.js`: servidor HTTP + Server-Sent Events, salas y cuentas
 - `entrenar.js`, `calibrar.js`, `torneo.js`, `analisis.ipynb`: entrenamiento, hándicap, evaluación y análisis
 - `public/pantalla.html`: la transmisión en la pantalla grande
 - `public/cel.html`: el control del jugador en el celular
-- `jugadores.json`: saldos guardados (se crea solo, no se versiona)
+- `jugadores.json`: cuentas (nombre, caballo propio y trofeos); se crea solo y no se versiona
 - `logs/anteriores/`: cerebros de iteraciones previas (pistas ovaladas, bravos sin agresividad)
 
 > Las fichas son virtuales. El juego no maneja dinero real.

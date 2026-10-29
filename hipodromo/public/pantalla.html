@@ -77,7 +77,7 @@
   @keyframes slide { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
   #results { position: absolute; inset: 0; z-index: 2; display: none; place-items: center; background: rgba(5, 14, 9, 0.55); }
-  #results .card { position: relative; width: min(620px, 92vw); padding: 26px 34px 24px; }
+  #results .card { position: relative; width: min(620px, 92%); max-height: calc(100% - 24px); overflow-y: auto; padding: 22px 30px 20px; }
   #results .title { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 46px; color: var(--gold-hi); line-height: 1; margin: 4px 0 4px; }
   #results .quip { color: var(--cream-dim); font-size: 16px; letter-spacing: .5px; margin-bottom: 14px; }
   .fin { display: grid; grid-template-columns: 30px 8px 1fr auto; gap: 12px; align-items: center; font-size: 19px; padding: 6px 0; border-bottom: 1px solid rgba(241, 232, 211, 0.08); text-transform: uppercase; }
@@ -85,6 +85,18 @@
   .fin .t { color: var(--cream-dim); font-size: 15px; font-variant-numeric: tabular-nums; }
   .pay { margin-top: 10px; font-size: 16px; color: var(--cream); letter-spacing: .5px; }
   .pay b { color: var(--amber); }
+  .pl .al { font-style: normal; font-size: 11px; letter-spacing: 1px; color: var(--gold); margin-left: 6px; text-transform: uppercase; }
+  .pl .debt { font-style: normal; color: #ff6b5e; font-size: 13px; margin-left: 6px; }
+  .pl .ok { color: #7fc48a; margin-left: 4px; }
+  #sala { font-size: 13px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  #sala b { display: block; font-size: 30px; color: var(--cream); letter-spacing: 6px; }
+  .gp { color: var(--amber) !important; }
+  .resBtns { display: flex; gap: 8px; margin-top: 14px; }
+  .resBtns button { flex: 1; background: transparent; border: 1px solid var(--gold); color: var(--gold-hi); padding: 8px; font-family: var(--display); letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+  .award { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.08); }
+  .award b { color: var(--gold-hi); font-size: 19px; text-transform: uppercase; }
+  .award small { display: block; color: var(--cream-dim); font-size: 13px; }
+  .award span:last-child { font-size: 20px; text-transform: uppercase; align-self: center; }
   .hint { position: absolute; bottom: 8px; right: 10px; font-size: 11px; letter-spacing: 2px; color: rgba(241, 232, 211, 0.4); text-transform: uppercase; }
   @media (max-width: 1100px) {
     #stage { grid-template-columns: 190px minmax(0, 1fr) 220px; }
@@ -120,8 +132,10 @@
     <div class="jack" id="jack"></div>
     <div class="odds" id="odds"></div>
     <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
+    <div id="sala"></div>
     <button id="startBtn">Arrancar carrera</button>
-    <div id="players"><div class="label">Apostadores</div><div id="playerRows"></div></div>
+    <div id="players"><div class="label">Apostadores · neto</div><div id="playerRows"></div>
+      <div class="label" style="margin-top:12px">Peñas</div><div id="allianceRows"></div></div>
   </div>
   <div class="plate" id="ticker"><div class="tag">Narrador</div><div class="msg" id="tickerMsg">Bienvenidos a Jackpot Jockeys.</div></div>
 </div>
@@ -135,7 +149,20 @@ function fitCanvas() {
   cam.s = 0;
 }
 window.addEventListener('resize', fitCanvas);
-let track = null, horsesMeta = [], gates = [], state = null, raceNum = -1;
+let track = null, horsesMeta = [], gates = [], state = null, raceKey = null;
+// La pantalla es la anfitriona: crea la sala y guarda la llave para poder arrancar carreras
+const qs = new URLSearchParams(location.search);
+let SALA = (qs.get('sala') || '').toUpperCase(), HOSTKEY = null;
+try { const saved = JSON.parse(sessionStorage.getItem('jj_host') || 'null'); if (saved && saved.sala === SALA) HOSTKEY = saved.hostKey; } catch {}
+async function ensureRoom() {
+  if (SALA && (await fetch('/api/track?sala=' + SALA)).ok) return;
+  const j = await fetch('/api/sala', { method: 'POST', body: '{}' }).then(r => r.json());
+  SALA = j.sala; HOSTKEY = j.hostKey;
+  try { sessionStorage.setItem('jj_host', JSON.stringify(j)); } catch {}
+  history.replaceState(null, '', '?sala=' + SALA);
+  const qr = document.getElementById('qr'); qr.innerHTML = ''; delete qr.dataset.url;
+}
+const hashStr = str => [...String(str)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 let pos = [], disp = [];   // posiciones del servidor y posiciones suavizadas
 let showSensors = false;
 let lastLogT = 0;
@@ -147,11 +174,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 's' || e.key === 'S') showSensors = !showSensors;
   if (e.key === 'c' || e.key === 'C') camOn = !camOn;
 });
-document.getElementById('startBtn').onclick = () => fetch('/api/start', { method: 'POST', body: '{}' });
+document.getElementById('startBtn').onclick = () => fetch('/api/start', { method: 'POST', body: JSON.stringify({ sala: SALA, hostKey: HOSTKEY }) });
 
 async function loadTrack() {
-  const r = await fetch('/api/track').then(r => r.json());
-  track = r.track; horsesMeta = r.horses; gates = r.gates || horsesMeta.map((_, i) => i); raceNum = r.raceNum;
+  const r = await fetch('/api/track?sala=' + SALA).then(r => r.json());
+  track = r.track; horsesMeta = r.horses; gates = r.gates || horsesMeta.map((_, i) => i); raceKey = r.raceKey;
   bakeTrack();
   cam.s = 0; // la cámara arranca mostrando la pista nueva completa
   particles.length = 0;
@@ -255,7 +282,7 @@ function bakeTrack() {
   const g = bg.getContext('2d');
   g.setTransform(BG_SCALE, 0, 0, BG_SCALE, 0, 0);
   g.lineJoin = 'round'; g.lineCap = 'round';
-  const rnd = seeded(raceNum * 7919 + 13);
+  const rnd = seeded(hashStr(raceKey) * 7919 + 13);
   const center = toPath2D(P);
   placed.length = 0;
 
@@ -577,6 +604,11 @@ function drawHorse(i, p, t) {
       ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - Math.cos(ang) * 26, by - Math.sin(ang) * 26); ctx.stroke();
     }
   }
+  // Zanahoria: el jinete lleva las riendas (halo dorado)
+  if (fx & 512) {
+    ctx.strokeStyle = 'rgba(231,200,115,0.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 20 + Math.sin(t / 90) * 2, 0, 7); ctx.stroke();
+  }
   // Furia: halo de calor
   if (fx & 128) {
     const grd = ctx.createRadialGradient(x, y, 6, x, y, 30);
@@ -662,7 +694,7 @@ fitCanvas();
 function cameraTarget() {
   const fit = Math.min(cv.width / track.W, cv.height / track.H);
   const whole = { x: track.W / 2, y: track.H / 2, s: fit, k: 0.05 };
-  if (!camOn || !state || state.phase !== 'carrera' || !disp.length) return whole;
+  if (!camOn || !state || (state.phase !== 'carrera' && !replay) || !disp.length) return whole;
   const running = state.horses.map((h, i) => [h.pos, i]).filter(([, i]) => !(disp[i][4] & 64));
   if (!running.length) return whole;
   running.sort((a, b) => a[0] - b[0]);
@@ -684,6 +716,11 @@ let lastFx = [];
 function frame(t) {
   requestAnimationFrame(frame);
   if (!track) return;
+  if (replay) {
+    const k = Math.floor((performance.now() - replay.start) / 1000 * 30 * replay.speed);
+    if (k >= replay.frames.length) endReplay();
+    else pos = replay.frames[k];
+  }
   for (let i = 0; i < pos.length; i++) {
     const d = disp[i], p = pos[i];
     if (!d) { disp[i] = p.slice(); continue; }
@@ -720,8 +757,67 @@ function frame(t) {
   const vg = ctx.createRadialGradient(cv.width / 2, cv.height / 2, cv.height * 0.45, cv.width / 2, cv.height / 2, cv.width * 0.75);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (replay) drawReplayBadge();
   drawMini();
 }
+
+// ─── Repetición en cámara lenta y clips ─────────────
+// Se guardan los últimos segundos de posiciones; al terminar se repite la llegada al 50 %
+const frames = [];
+let finishIdx = -1, replay = null, lastReplay = null, recorder = null;
+function recordFrame(h) {
+  frames.push(h);
+  if (frames.length > 30 * 12) { frames.shift(); if (finishIdx > 0) finishIdx--; }
+  if (finishIdx < 0 && h.some(x => x[4] & 64)) finishIdx = frames.length - 1;
+}
+function startReplay(list) {
+  if (!list || !list.length) return;
+  replay = { frames: list, start: performance.now(), speed: 0.5 };
+  lastReplay = list;
+  disp = list[0].map(p => p.slice());
+  cam.s = 0;
+  renderUI();
+}
+function endReplay() {
+  replay = null;
+  if (recorder && recorder.state === 'recording') recorder.stop();
+  renderUI();
+}
+function buildReplay() {
+  const end = finishIdx >= 0 ? Math.min(frames.length, finishIdx + 45) : frames.length;
+  return frames.slice(Math.max(0, end - 30 * 6), end);
+}
+function drawReplayBadge() {
+  const w = state && state.results ? state.horses[state.results.winner] : null;
+  ctx.fillStyle = 'rgba(11,31,21,0.85)'; ctx.fillRect(24, 24, 420, 64);
+  ctx.fillStyle = '#7a1f22'; ctx.fillRect(24, 24, 8, 64);
+  ctx.fillStyle = '#e7c873'; ctx.font = '600 15px Oswald, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('REPETICIÓN · JACKPOT JOCKEYS', 46, 48);
+  ctx.fillStyle = '#f1e8d3'; ctx.font = 'italic 900 22px "Playfair Display", serif';
+  ctx.fillText(w ? `Gana ${w.name}` : 'La llegada', 46, 76);
+}
+// Graba la repetición desde el canvas y la descarga como video para compartir
+function saveClip() {
+  if (!lastReplay || !window.MediaRecorder || !cv.captureStream) return alert('Este navegador no puede grabar clips.');
+  const chunks = [];
+  const type = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+  recorder = new MediaRecorder(cv.captureStream(30), type ? { mimeType: type } : undefined);
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `jackpot-jockeys-${SALA}-${raceKey}.${(recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+  recorder.start();
+  startReplay(lastReplay);
+}
+document.addEventListener('click', e => {
+  if (e.target.id === 'replayBtn') startReplay(lastReplay);
+  if (e.target.id === 'clipBtn') saveClip();
+});
 
 // Minimapa en la columna de posiciones: pista completa, caballos y encuadre de la cámara
 const mv = document.getElementById('miniView'), mctx = mv.getContext('2d');
@@ -746,7 +842,9 @@ requestAnimationFrame(frame);
 function renderUI() {
   const s = state;
   const size = { corta: 'Pista corta', media: 'Pista media', larga: 'Pista larga' }[s.trackSize] || '';
-  document.getElementById('raceCard').textContent = `Carrera ${s.raceNum} · ${size} · ${s.laps} vueltas`;
+  const gp = s.grandPrix ? 'Gran Premio · ' : '';
+  document.getElementById('raceCard').innerHTML = `<span class="${s.grandPrix ? 'gp' : ''}">${gp}Carrera ${s.match.race}/${s.match.total}</span> · ${size} · ${s.laps} vueltas`;
+  document.getElementById('sala').innerHTML = `Sala<b>${esc(s.sala)}</b>`;
 
   const big = document.getElementById('clockBig'), small = document.getElementById('clockSmall');
   if (s.phase === 'apuestas') {
@@ -756,9 +854,12 @@ function renderUI() {
     const lead = s.horses.find(h => h.pos === 1);
     big.textContent = `Vuelta ${lead ? lead.lap : 1} / ${s.laps}`;
     small.textContent = lead ? `Punta · ${lead.name}` : '';
+  } else if (s.phase === 'final') {
+    big.textContent = 'Fin de la partida';
+    small.textContent = `Nueva partida en ${s.timeLeft}s`;
   } else {
     big.textContent = `0:${String(s.timeLeft).padStart(2, '0')}`;
-    small.textContent = 'Próxima carrera';
+    small.textContent = s.match.race + 1 === s.match.total ? 'Se viene el Gran Premio' : 'Próxima carrera';
   }
 
   // Torre de posiciones (en apuestas: orden de cajones)
@@ -770,7 +871,7 @@ function renderUI() {
     const right = s.phase === 'apuestas' ? `x${h.odds ?? '—'}` : (h.hits ? `${h.hits} emb.` : `V${h.lap}`);
     return `<div class="row ${s.phase !== 'apuestas' && k === 0 ? 'lead' : ''}">
       <div class="pos">${left}</div><div class="silk" style="background:${h.color}"></div>
-      <div class="nm">${i + 1} · ${esc(h.name)}<small>${esc(h.estilo)}</small></div><div class="gap">${right}</div></div>`;
+      <div class="nm">${i + 1} · ${esc(h.name)}<small>${esc(h.ownerName ? `de ${h.ownerName}${h.level ? ' · nv ' + h.level : ''}` : h.estilo)}</small></div><div class="gap">${right}</div></div>`;
   }).join('');
 
   document.getElementById('pot').textContent = s.pot.toLocaleString('es');
@@ -780,11 +881,17 @@ function renderUI() {
     <div class="bet">${h.bets ? h.bets.toLocaleString('es') : ''}</div><div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
   const betting = s.phase === 'apuestas';
   document.getElementById('join').style.display = betting ? 'flex' : 'none';
-  document.getElementById('startBtn').style.display = betting ? '' : 'none';
+  document.getElementById('startBtn').style.display = betting && HOSTKEY ? '' : 'none';
+  document.getElementById('sala').style.display = betting ? '' : 'none';
 
-  document.getElementById('playerRows').innerHTML = s.players.slice(0, 8).map(p =>
-    `<div class="pl"><span>${esc(p.name)}</span><span>${p.coins.toLocaleString('es')}</span></div>`).join('')
+  const fmt = n => Number(n).toLocaleString('es');
+  document.getElementById('playerRows').innerHTML = s.players.slice(0, 10).map(p =>
+    `<div class="pl" style="${p.online ? '' : 'opacity:.45'}"><span>${esc(p.name)}${betting && p.ready ? '<b class="ok">✓</b>' : ''}${p.alliance ? `<i class="al">${esc(p.alliance)}</i>` : ''}</span>
+      <span>${fmt(p.net)}${p.debt ? `<em class="debt">debe ${fmt(p.debt)}</em>` : ''}</span></div>`).join('')
     || '<div class="pl"><span style="color:var(--cream-dim)">Nadie todavía. El código QR no muerde.</span></div>';
+  document.getElementById('allianceRows').innerHTML = s.alliances.map(a =>
+    `<div class="pl"><span>«${esc(a.name)}» <i class="al">${a.members.length}</i></span><span>${fmt(a.net)}</span></div>`).join('')
+    || '<div class="pl"><span style="color:var(--cream-dim)">Ninguna. Todos contra todos.</span></div>';
 
   // Narrador: última línea con animación
   const last = s.log[s.log.length - 1];
@@ -795,35 +902,57 @@ function renderUI() {
   }
 
   const res = document.getElementById('results');
-  if (s.phase === 'resultados' && s.results) {
-    const r = s.results, w = s.horses[r.winner];
-    const photo = r.times[1] && r.times[0] && r.times[1] - r.times[0] < 0.2;
-    const maxHits = Math.max(...r.hits);
-    res.style.display = 'grid';
+  const showCard = (s.phase === 'resultados' || s.phase === 'final') && s.results && !replay;
+  res.style.display = showCard ? 'grid' : 'none';
+  if (!showCard) return;
+  const r = s.results, w = s.horses[r.winner];
+  const buttons = lastReplay ? `<div class="resBtns"><button id="replayBtn">Ver repetición</button><button id="clipBtn">Guardar clip</button></div>` : '';
+  if (s.phase === 'final' && s.awards) {
     document.getElementById('resCard').innerHTML = `
-      <div class="label">${photo ? 'Foto finish' : 'Ganador'}</div>
-      <div class="title">${esc(w.name)}</div>
-      <div class="quip">${esc(r.quip || '')}</div>
-      ${r.order.map((i, k) => `<div class="fin"><div class="p">${k + 1}</div><div class="silk" style="width:8px;height:22px;background:${s.horses[i].color}"></div>
-        <div>${esc(s.horses[i].name)}</div><div class="t">${r.times[k] ? r.times[k].toFixed(2) + ' s' : 'no terminó'}</div></div>`).join('')}
-      ${maxHits > 0 ? `<div class="pay">Más bravo: <b>${esc(s.horses[r.hits.indexOf(maxHits)].name)}</b> con ${maxHits} embestidas</div>` : ''}
-      ${r.payouts.length ? r.payouts.map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b> (apostó ${p.stake})</div>`).join('')
-        : r.jackpot ? `<div class="pay">Nadie le apostó. <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}`;
-  } else res.style.display = 'none';
+      <div class="label">Fin de la partida · ganó ${esc(w.name)} el Gran Premio</div>
+      <div class="title">Premios de la noche</div>
+      ${s.awards.map(a => `<div class="award"><span><b>${esc(a.title)}</b><small>${esc(a.desc)}</small></span><span>${esc(a.name)}</span></div>`).join('')}
+      <div class="quip" style="margin-top:12px">Nueva partida en ${s.timeLeft}s: todos vuelven a 1000 fichas y la mafia olvida (por ahora).</div>${buttons}`;
+    return;
+  }
+  const photo = r.times[1] && r.times[0] && r.times[1] - r.times[0] < 0.2;
+  const maxHits = Math.max(...r.hits);
+  document.getElementById('resCard').innerHTML = `
+    <div class="label">${r.grandPrix ? 'Gran Premio · ' : ''}${photo ? 'Foto finish' : 'Ganador'}</div>
+    <div class="title">${esc(w.name)}</div>
+    <div class="quip">${esc(r.quip || '')}</div>
+    ${r.order.map((i, k) => `<div class="fin"><div class="p">${k + 1}</div><div class="silk" style="width:8px;height:22px;background:${s.horses[i].color}"></div>
+      <div>${esc(s.horses[i].name)}</div><div class="t">${r.times[k] ? r.times[k].toFixed(2) + ' s' : 'no terminó'}</div></div>`).join('')}
+    ${maxHits > 0 ? `<div class="pay">Más bravo: <b>${esc(s.horses[r.hits.indexOf(maxHits)].name)}</b> con ${maxHits} embestidas</div>` : ''}
+    ${r.payouts.length ? r.payouts.map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b>${p.net < p.win ? ` (la mafia se queda ${(p.win - p.net).toLocaleString('es')})` : ''}</div>`).join('')
+      : r.jackpot ? `<div class="pay">Nadie le apostó. <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}${buttons}`;
 }
 
 // ─── Conexión ───────────────────────────────────────
-const es = new EventSource('/events?role=screen');
-es.onmessage = ev => {
-  const m = JSON.parse(ev.data);
-  if (m.type === 'pos') pos = m.h;
-  else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
-  else if (m.type === 'state') {
-    state = m;
-    if (m.raceNum !== raceNum) { raceNum = m.raceNum; loadTrack(); }
-    renderUI();
-  }
-};
+let es, lastPhase = null;
+async function connect() {
+  await ensureRoom();
+  if (es) es.close();
+  es = new EventSource('/events?role=screen&sala=' + SALA);
+  es.onerror = async () => {
+    // Si el servidor se reinició, la sala ya no existe: se crea una nueva
+    if (!(await fetch('/api/track?sala=' + SALA).catch(() => ({ ok: true }))).ok) { SALA = ''; connect(); }
+  };
+  es.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'pos') { if (!replay) pos = m.h; recordFrame(m.h); }
+    else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
+    else if (m.type === 'state') {
+      state = m;
+      if (m.raceKey !== raceKey) { raceKey = m.raceKey; frames.length = 0; finishIdx = -1; lastReplay = null; replay = null; loadTrack(); }
+      // Al terminar la carrera, repetición de la llegada en cámara lenta
+      if (lastPhase === 'carrera' && (m.phase === 'resultados' || m.phase === 'final')) startReplay(buildReplay());
+      lastPhase = m.phase;
+      renderUI();
+    }
+  };
+}
+connect();
 </script>
 </body>
 </html>

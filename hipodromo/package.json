@@ -1,11 +1,14 @@
 {
   "name": "jackpot-jockeys",
   "version": "1.0.0",
-  "description": "Carreras de caballos controlados por redes neuronales, con apuestas desde el celular",
+  "description": "Jackpot Jockeys: carreras de caballos con redes neuronales, apuestas desde el celular, mafia y alianzas",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "entrenar": "node entrenar.js 200"
+    "compartir": "node compartir.js",
+    "entrenar": "node entrenar.js corredor 300",
+    "calibrar": "node calibrar.js 8 500",
+    "torneo": "node torneo.js 600 0.7"
   },
   "license": "MIT"
 }

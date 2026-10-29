@@ -52,6 +52,22 @@ const LINES = {
   meta: ['¡{h} cruza primero la meta!', '¡{h} gana! Las redes neuronales también tienen días buenos.'],
   jackpot: ['Nadie le apostó a {h}. El jackpot crece y la casa sonríe.', 'Ganó {h} y nadie le creyó. Jackpot acumulado.'],
   reparto: ['Ganó {h}. Hay cobro para los que creyeron.', '{h} paga. Alguien hoy invita la cena.'],
+  gran_premio: ['¡GRAN PREMIO! Última carrera: la casa pone 50 % extra al pozo.', 'Llegó el Gran Premio. Aquí se hacen las fortunas… y las deudas.'],
+  fin_partida: ['¡Se acabó la partida! {p} se lleva la noche.', 'Fin de la partida. {p} es el rey del hipódromo, por ahora.'],
+  prestamo: ['{p} llamó a Don Caballone. {n} fichas al 12 % por carrera. Qué podría salir mal.', 'La mafia le presta {n} a {p}. Sonríen. Eso nunca es buena señal.'],
+  cobrador: ['El cobrador de Don Caballone se queda con {n} fichas de {p}.', '{p} cobra, pero la mafia pasó primero: {n} fichas para Don Caballone.'],
+  pago_mafia: ['{p} le paga {n} a la mafia. Don Caballone asiente.', '{p} salda {n} con la mafia. Sus rodillas lo agradecen.'],
+  mafia_favor: ['La mafia "arregla" la carrera de {h}. Encargo de {p}.', '{h} recibe la visita de Don Caballone. Cortesía de {p}.'],
+  peña_nueva: ['{p} funda la peña «{n}».', 'Nace «{n}», idea de {p}. Ya huele a conspiración.'],
+  peña_union: ['{p} se une a «{n}». La conspiración crece.', '«{n}» suma a {p}. Los demás, cuidado.'],
+  traicion: ['¡TRAICIÓN! {p} apuñala a «{n}» y se lleva {h} fichas. Judas tiene nuevo apellido.', '{p} traiciona a su peña «{n}» y se embolsa {h}. Esto no se olvida.'],
+  combo: ['¡COMBO de «{n}» sobre {h}! Efecto doble.', '«{n}» coordina el ataque contra {h}. Doble castigo.'],
+  regalo: ['{p} le pasa {n} fichas a {h}. La peña es la peña.', '{p} rescata a {h} con {n} fichas. Amistad verdadera.'],
+  potro: ['{p} compra un potro: {h}. Que la red lo acompañe.', 'Nuevo en el establo: {h}, propiedad de {p}.'],
+  entreno: ['{p} manda a {h} a entrenar {n}. Volverá distinto.', '{h} se va al gimnasio neuronal ({n}). Pagó {p}.'],
+  entreno_fin: ['{h} terminó de entrenar y ya está en nivel {n}.', 'Volvió {h} del entrenamiento, ahora nivel {n}. Se le ve el brillo en los pesos.'],
+  propietario: ['Premio de propietario para {p}: su caballo {h} ganó.', '{p} cobra como dueño de {h}. Inversión que paga.'],
+  listos: ['Todos listos. ¡Arrancan en 3!', 'Apuestas cerradas por aclamación popular.'],
 };
 
 // Frase final para la tarjeta de resultados

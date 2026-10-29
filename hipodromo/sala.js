@@ -1,0 +1,613 @@
+// sala.js — Una sala de Jackpot Jockeys: una partida de N carreras con sus jugadores,
+// apuestas, poderes, la mafia, las peñas (alianzas) y los caballos de los jugadores.
+
+const crypto = require('crypto');
+const { Track, Horse, stepRace, drawGates, laneOffset, FPS } = require('./sim');
+const { HORSES, POWERS, loadBrains, loadHandicap, applyPower } = require('./establo');
+const { say, quip } = require('./narrador');
+
+const CFG = {
+  races: 8,               // carreras por partida
+  betSeconds: 30,
+  resultSeconds: 14,
+  finalSeconds: 30,
+  maxRaceSeconds: 120,
+  startCoins: 1000,
+  powerCooldownMs: 4000,
+  grandPrixBonus: 0.5,    // la casa suma 50 % al pozo del Gran Premio
+  playerHorsesPerRace: 3,
+  // Mafia
+  loanOptions: [200, 500],
+  maxDebt: 2500,
+  interest: 0.12,         // por carrera
+  collectorCut: 0.5,      // parte de cada cobro que se lleva el cobrador
+  mafiaFavorCost: 300,    // se suma a la deuda
+  // Peñas
+  maxAllianceSize: 3,
+  giftPerRace: 300,
+  allianceCommission: 0.1,
+  betrayalCut: 0.2,
+  comboWindowMs: 5000,
+  // Caballos propios
+  horsePrice: 400,
+  trainPrice: 150,
+  ownerBonus: 0.1,
+};
+
+const TRACK_SIZES = ['corta', 'media', 'media', 'larga'];
+const PEÑA_NAMES = ['Cartel del Heno', 'Los Sin Freno', 'La Peña del Gradiente', 'Herradura Nostra', 'Los Overfitteados',
+  'Club del Lazo', 'Sindicato del Galope', 'Los Tanh Tanh', 'Hermandad del Barro', 'Los Pura Sangre Fría'];
+const PLAYER_COLORS = ['#e85d75', '#4fb3d9', '#9bc53d', '#e0e0d8', '#b07cff', '#ff9f43'];
+
+const BRAINS = loadBrains();
+let HANDICAP = loadHandicap();
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+// Hándicap de partida para los potros de los jugadores, según el tipo de cerebro con el que nacen
+const baseHandicap = perfil => perfil === 'bravo'
+  ? HANDICAP[HORSES.findIndex(h => h.estilo === 'bravo')]
+  : mean(HORSES.map((h, i) => [h, i]).filter(([h]) => h.perfil === 'corredor').map(([, i]) => HANDICAP[i]));
+
+function roomCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  return Array.from({ length: 4 }, () => A[crypto.randomInt(A.length)]).join('');
+}
+
+class Room {
+  constructor(code, accounts, hooks) {
+    this.code = code;
+    this.hostKey = crypto.randomUUID();
+    this.accounts = accounts;          // cuentas persistentes (nombre, caballo, trofeos)
+    this.hooks = hooks;                // { save(), train(job), broadcast(room) }
+    this.players = new Map();          // id → estado del jugador en esta partida
+    this.alliances = new Map();        // id → { id, name, members: Set }
+    this.screens = new Set();
+    this.phones = new Map();           // res → playerId
+    this.log = [];
+    this.lastColor = 0;
+    this.history = [];
+    this.carry = 0;
+    this.lastActive = Date.now();
+    this.newMatch();
+  }
+
+  // ─── Utilidades ───────────────────────────────────
+
+  addLog(text) {
+    this.log.push({ t: Date.now(), text });
+    if (this.log.length > 40) this.log.shift();
+  }
+  // Los comentarios "de color" se espacian para que se alcancen a leer
+  narrate(kind, vars, important = true) {
+    const now = Date.now();
+    if (!important && now - this.lastColor < 2600) return;
+    if (!important) this.lastColor = now;
+    this.addLog(say(kind, vars));
+  }
+  connectedIds() { return new Set(this.phones.values()); }
+  net(p) { return p.coins - p.debt; }
+  allianceOf(id) { for (const a of this.alliances.values()) if (a.members.has(id)) return a; return null; }
+
+  // ─── Partida ──────────────────────────────────────
+
+  newMatch() {
+    this.match = { num: (this.match?.num || 0) + 1, race: 0, total: CFG.races };
+    this.awards = null;
+    this.carry = 0;
+    this.alliances.clear();
+    for (const p of this.players.values()) this.resetPlayer(p);
+    this.newRace();
+  }
+
+  resetPlayer(p) {
+    Object.assign(p, {
+      coins: CFG.startCoins, debt: 0, bets: {}, cooldownUntil: 0, ready: false, gifted: 0, favorUsed: false,
+      invites: [], noAllianceUntil: 0,
+      stats: { bet: 0, wins: 0, best: 0, debuffs: 0, buffs: 0, combos: 0, betrayals: 0, maxDebt: 0, loans: 0, gifts: 0, ownerWins: 0 },
+    });
+  }
+
+  newRace() {
+    this.match.race++;
+    this.grandPrix = this.match.race === this.match.total;
+    const size = TRACK_SIZES[Math.floor(Math.random() * TRACK_SIZES.length)];
+    this.track = new Track(Math.floor(Math.random() * 1e6), null, size);
+    this.lineup = this.buildLineup();
+    this.forms = this.lineup.map(() => +(0.93 + Math.random() * 0.14).toFixed(3));
+    this.gates = drawGates(this.lineup.length);
+    this.horses = this.lineup.map((h, i) => new Horse(this.track, h.brain, {
+      id: i, form: this.forms[i] * h.handicap, lane: laneOffset(this.gates[i], this.lineup.length),
+    }));
+    this.powerSpend = 0;
+    this.results = null;
+    this.tick = 0;
+    this.leader = null;
+    this.recentPowers = [];
+    for (const p of this.players.values()) { p.bets = {}; p.ready = false; p.gifted = 0; p.favorUsed = false; }
+    this.phase = 'apuestas';
+    this.phaseEnds = this.players.size > 0 ? Date.now() + CFG.betSeconds * 1000 : null;
+    if (this.grandPrix) this.narrate('gran_premio');
+    else this.narrate('apuestas', { n: `${this.match.race} de ${this.match.total}`, s: size });
+  }
+
+  // 6 caballos: hasta 3 de jugadores inscritos (los que llevan más tiempo sin correr primero)
+  // y el resto de la casa, elegidos al azar
+  buildLineup() {
+    const online = this.connectedIds();
+    const owned = [...this.players.values()]
+      .map(p => ({ p, horse: this.accounts.get(p.id)?.horse }))
+      .filter(({ p, horse }) => horse && horse.enrolled && !horse.training && online.has(p.id))
+      .sort((a, b) => (a.horse.lastRace || 0) - (b.horse.lastRace || 0))
+      .slice(0, CFG.playerHorsesPerRace);
+    const lineup = owned.map(({ p, horse }) => {
+      horse.lastRace = Date.now();
+      return {
+        name: horse.name, color: horse.color, perfil: horse.perfil, estilo: `de ${p.name}`, owner: p.id, ownerName: p.name,
+        brain: horse.brain, handicap: baseHandicap(horse.perfil), level: horse.level,
+      };
+    });
+    const house = HORSES.map((h, i) => ({ ...h, brain: BRAINS[i], handicap: HANDICAP[i] }))
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 6 - lineup.length);
+    return [...house, ...lineup].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  betTotals() {
+    const per = this.lineup.map(() => 0);
+    for (const p of this.players.values()) for (const [h, a] of Object.entries(p.bets)) per[h] += a;
+    return per;
+  }
+  pot() {
+    const base = this.betTotals().reduce((a, b) => a + b, 0) + this.powerSpend + this.carry;
+    return Math.round(base * (this.grandPrix ? 1 + CFG.grandPrixBonus : 1));
+  }
+
+  startRace() {
+    this.phase = 'carrera';
+    this.phaseEnds = Date.now() + CFG.maxRaceSeconds * 1000;
+    this.narrate('salida');
+  }
+
+  standings() {
+    return this.horses.map((h, i) => ({ i, h })).sort((a, b) => {
+      if (a.h.finished && b.h.finished) return a.h.finishTick - b.h.finishTick;
+      if (a.h.finished !== b.h.finished) return a.h.finished ? -1 : 1;
+      return b.h.total - a.h.total;
+    }).map(s => s.i);
+  }
+
+  finishRace() {
+    const order = this.standings();
+    const winner = order[0], W = this.lineup[winner];
+    const totals = this.betTotals();
+    const prize = this.pot();
+    const payouts = [];
+    if (totals[winner] > 0) {
+      for (const p of this.players.values()) {
+        const stake = p.bets[winner] || 0;
+        if (!stake) continue;
+        let win = Math.floor(prize * stake / totals[winner]);
+        const gross = win;
+        // El cobrador de la mafia pasa primero
+        if (p.debt > 0) {
+          const cut = Math.min(p.debt, Math.floor(win * CFG.collectorCut));
+          if (cut > 0) { p.debt -= cut; win -= cut; this.narrate('cobrador', { p: p.name, n: cut }); }
+        }
+        p.coins += win;
+        p.stats.wins++; p.stats.best = Math.max(p.stats.best, gross);
+        payouts.push({ name: p.name, id: p.id, stake, win: gross, net: win });
+        // Comisión de la peña para los aliados (la paga la casa)
+        const a = this.allianceOf(p.id);
+        if (a) for (const mid of a.members) {
+          if (mid === p.id) continue;
+          const m = this.players.get(mid);
+          if (m) m.coins += Math.floor(gross * CFG.allianceCommission);
+        }
+      }
+      this.carry = 0;
+      this.narrate('reparto', { h: W.name });
+    } else {
+      this.carry = prize;
+      if (prize > 0) this.narrate('jackpot', { h: W.name });
+    }
+    // Premio de propietario
+    if (W.owner && this.players.has(W.owner)) {
+      const o = this.players.get(W.owner), bonus = Math.max(100, Math.floor(prize * CFG.ownerBonus));
+      o.coins += bonus; o.stats.ownerWins++;
+      const acc = this.accounts.get(W.owner);
+      if (acc?.horse) acc.horse.wins = (acc.horse.wins || 0) + 1;
+      this.narrate('propietario', { p: o.name, h: W.name });
+    }
+    // Intereses de la mafia
+    for (const p of this.players.values()) {
+      if (p.debt > 0) p.debt = Math.ceil(p.debt * (1 + CFG.interest));
+      p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
+    }
+    payouts.sort((a, b) => b.win - a.win);
+    const times = order.map(i => this.horses[i].finished ? +(this.horses[i].finishTick / FPS).toFixed(2) : null);
+    this.results = {
+      order, times, winner, prize, payouts, jackpot: totals[winner] > 0 ? 0 : prize,
+      hits: this.horses.map(h => h.hitsGiven), grandPrix: this.grandPrix,
+      quip: quip(times[1] != null && times[0] != null ? times[1] - times[0] : null, times[1] != null && times[0] != null ? times[1] - times[0] : 99),
+    };
+    this.history.unshift(W.name);
+    this.history.length = Math.min(this.history.length, 10);
+    if (this.match.race >= this.match.total) this.finishMatch();
+    else { this.phase = 'resultados'; this.phaseEnds = Date.now() + CFG.resultSeconds * 1000; }
+    this.hooks.save();
+  }
+
+  // Fin de partida: premios de la noche y trofeos en las cuentas
+  finishMatch() {
+    const ps = [...this.players.values()];
+    const top = (key, f = p => p.stats[key], min = 1) => {
+      const best = ps.filter(p => f(p) >= min).sort((a, b) => f(b) - f(a))[0];
+      return best ? { id: best.id, name: best.name, value: f(best) } : null;
+    };
+    const awards = [
+      ['Campeón de la noche', 'Más fichas netas al final', top(null, p => this.net(p), -Infinity)],
+      ['Saboteador', 'Más poderes contra caballos', top('debuffs')],
+      ['Ángel de la guarda', 'Más poderes de ayuda', top('buffs')],
+      ['Ojo de halcón', 'Más apuestas ganadas', top('wins')],
+      ['Moroso del año', 'La deuda más alta con la mafia', top('maxDebt')],
+      ['Judas', 'Traicionó a su peña', top('betrayals')],
+      ['Mecenas', 'Más fichas regaladas a su peña', top('gifts')],
+      ['Entrenador estrella', 'Su caballo ganó carreras', top('ownerWins')],
+    ].filter(([, , w]) => w).map(([title, desc, w]) => ({ title, desc, ...w }));
+    this.awards = awards;
+    for (const a of awards) {
+      const acc = this.accounts.get(a.id);
+      if (acc) acc.trophies = [...(acc.trophies || []), a.title].slice(-50);
+    }
+    const champ = awards[0];
+    if (champ) this.narrate('fin_partida', { p: champ.name });
+    this.phase = 'final';
+    this.phaseEnds = Date.now() + CFG.finalSeconds * 1000;
+  }
+
+  // ─── Bucle ────────────────────────────────────────
+
+  step() {
+    const now = Date.now();
+    if (this.phase === 'apuestas') {
+      if (this.phaseEnds === null && this.players.size > 0) this.phaseEnds = now + CFG.betSeconds * 1000;
+      // Si todos los conectados dicen "listo", arranca en 3 s
+      const online = [...this.connectedIds()].filter(id => this.players.has(id));
+      if (online.length && online.every(id => this.players.get(id).ready) && this.phaseEnds - now > 3500) {
+        this.phaseEnds = now + 3000;
+        this.narrate('listos');
+      }
+      if (this.phaseEnds !== null && now >= this.phaseEnds) this.startRace();
+    } else if (this.phase === 'carrera') {
+      this.tick++;
+      const before = this.horses.map(h => [h.falls, h.stumbles, h.jumps]);
+      for (const ev of stepRace(this.horses)) {
+        this.narrate('embestida', { a: this.lineup[ev.attacker].name, v: this.lineup[ev.victim].name }, false);
+      }
+      this.horses.forEach((h, i) => {
+        const name = this.lineup[i].name;
+        if (h.falls > before[i][0]) this.narrate('salida_pista', { h: name }, false);
+        else if (h.stumbles > before[i][1]) this.narrate('tropiezo', { h: name }, false);
+        else if (h.jumps > before[i][2] && Math.random() < 0.3) this.narrate('salto', { h: name }, false);
+        if (!h.finished && h.laps >= this.track.laps) {
+          h.finished = true; h.finishTick = h.ticks;
+          if (this.horses.filter(x => x.finished).length === 1) this.narrate('meta', { h: name });
+        }
+      });
+      const leader = this.standings()[0];
+      if (this.tick > FPS * 4 && leader !== this.leader && this.leader != null) this.narrate('punta', { h: this.lineup[leader].name }, false);
+      this.leader = leader;
+      if (this.horses.every(h => h.finished) || now >= this.phaseEnds) this.finishRace();
+      return true; // hubo movimiento
+    } else if (this.phase === 'resultados') {
+      if (now >= this.phaseEnds) this.newRace();
+    } else if (this.phase === 'final') {
+      if (now >= this.phaseEnds) this.newMatch();
+    }
+    return false;
+  }
+
+  positions() {
+    return this.horses.map(h => [
+      Math.round(h.x * 10) / 10, Math.round(h.y * 10) / 10, Math.round(h.angle * 100) / 100,
+      Math.round(h.speed * 10) / 10,
+      (h.fx.boost > 0 || h.fx.carrot > 0 ? 1 : 0) | (h.fx.blind > 0 ? 2 : 0) | (h.fx.freeze > 0 ? 4 : 0) |
+      (h.fx.shield > 0 ? 8 : 0) | (h.fx.stun > 0 ? 16 : 0) | (h.fx.jump > 0 ? 32 : 0) | (h.finished ? 64 : 0) |
+      (h.fx.rage > 0 ? 128 : 0) | (h.fx.hit > 0 ? 256 : 0) | (h.fx.carrot > 0 ? 512 : 0),
+      h.sensors.map(s => Math.round(s * 100) / 100),
+    ]);
+  }
+
+  // ─── Estado público ───────────────────────────────
+
+  publicState() {
+    const totals = this.betTotals(), total = this.pot();
+    const order = this.phase === 'apuestas' ? null : this.standings();
+    const online = this.connectedIds();
+    return {
+      type: 'state', sala: this.code, phase: this.phase,
+      timeLeft: this.phaseEnds ? Math.max(0, Math.ceil((this.phaseEnds - Date.now()) / 1000)) : null,
+      match: this.match, grandPrix: this.grandPrix,
+      laps: this.track.laps, trackSize: this.track.size,
+      pot: total, carry: this.carry,
+      horses: this.lineup.map((h, i) => ({
+        name: h.name, color: h.color, perfil: h.perfil, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null,
+        form: this.forms[i], gate: this.gates[i] + 1, hits: this.horses[i].hitsGiven, bets: totals[i],
+        odds: totals[i] > 0 ? +(total / totals[i]).toFixed(2) : null,
+        lap: Math.min(this.track.laps, Math.floor(this.horses[i].laps) + 1),
+        pos: order ? order.indexOf(i) + 1 : null,
+      })),
+      results: this.results, awards: this.awards, history: this.history,
+      log: this.log.slice(-8),
+      players: [...this.players.values()].map(p => ({
+        id: p.id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p),
+        bet: Object.values(p.bets).reduce((a, b) => a + b, 0), ready: p.ready, online: online.has(p.id),
+        alliance: this.allianceOf(p.id)?.name || null,
+      })).sort((a, b) => b.net - a.net),
+      alliances: [...this.alliances.values()].map(a => ({
+        id: a.id, name: a.name, members: [...a.members].map(id => this.players.get(id)?.name).filter(Boolean),
+        net: [...a.members].reduce((s, id) => s + (this.players.has(id) ? this.net(this.players.get(id)) : 0), 0),
+      })).sort((a, b) => b.net - a.net),
+      powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
+      cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
+        horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
+    };
+  }
+
+  meState(id) {
+    const p = this.players.get(id);
+    if (!p) return null;
+    const a = this.allianceOf(id);
+    const acc = this.accounts.get(id) || {};
+    const horse = acc.horse ? {
+      name: acc.horse.name, color: acc.horse.color, perfil: acc.horse.perfil, level: acc.horse.level, enrolled: acc.horse.enrolled,
+      training: acc.horse.training || null, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
+    } : null;
+    return {
+      id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p), bets: p.bets, ready: p.ready,
+      cooldown: Math.max(0, p.cooldownUntil - Date.now()), favorUsed: p.favorUsed, gifted: p.gifted,
+      alliance: a ? { id: a.id, name: a.name, members: [...a.members].map(m => ({ id: m, name: this.players.get(m)?.name })) } : null,
+      invites: p.invites.filter(i => this.alliances.has(i.alliance)).map(i => ({ alliance: i.alliance, name: this.alliances.get(i.alliance).name, from: i.from })),
+      canAlly: Date.now() >= p.noAllianceUntil,
+      horse, trophies: (acc.trophies || []).length,
+    };
+  }
+
+  // ─── Acciones de jugadores ────────────────────────
+
+  join(p) {
+    if (!this.players.has(p.id)) {
+      const player = { id: p.id, name: p.name };
+      this.resetPlayer(player);
+      this.players.set(p.id, player);
+      this.addLog(`${p.name} llegó con ${CFG.startCoins} fichas y mucha fe.`);
+    } else this.players.get(p.id).name = p.name;
+    return this.players.get(p.id);
+  }
+
+  bet(p, { horse, amount }) {
+    if (this.phase !== 'apuestas') return { error: 'Las apuestas están cerradas' };
+    horse = parseInt(horse, 10); amount = parseInt(amount, 10);
+    if (!(horse >= 0 && horse < this.lineup.length)) return { error: 'Caballo inválido' };
+    if (!(amount > 0)) return { error: 'Monto inválido' };
+    if (amount > p.coins) return { error: 'No tienes suficientes fichas. La mafia presta…' };
+    p.coins -= amount;
+    p.bets[horse] = (p.bets[horse] || 0) + amount;
+    p.stats.bet += amount;
+    this.addLog(`${p.name} apuesta ${amount} a ${this.lineup[horse].name}.`);
+    return {};
+  }
+
+  ready(p, { ready }) {
+    if (this.phase !== 'apuestas') return { error: 'Ya arrancó' };
+    p.ready = ready !== false;
+    return {};
+  }
+
+  power(p, { power, horse }) {
+    const pw = POWERS[power];
+    if (!pw) return { error: 'Poder inválido' };
+    if (this.phase !== 'carrera') return { error: 'Solo durante la carrera' };
+    horse = parseInt(horse, 10);
+    const h = this.horses[horse];
+    if (!h) return { error: 'Caballo inválido' };
+    if (h.finished) return { error: 'Ese caballo ya llegó a la meta' };
+    if (Date.now() < p.cooldownUntil) return { error: 'Espera un momento…' };
+    if (p.coins < pw.cost) return { error: 'No tienes suficientes fichas' };
+    p.coins -= pw.cost;
+    this.powerSpend += pw.cost; // lo gastado en poderes engorda el pozo
+    p.cooldownUntil = Date.now() + CFG.powerCooldownMs;
+    p.stats[pw.debuff ? 'debuffs' : 'buffs']++;
+    const out = applyPower(this.horses, this.track, horse, power);
+    const name = this.lineup[horse].name;
+    if (out.blocked) { this.narrate('bloqueado', { p: p.name, h: name }); return { obstacle: null }; }
+    this.narrate(power, { p: p.name, h: name });
+    this.checkCombo(p, horse, power, pw);
+    return { obstacle: out.obstacle || null };
+  }
+
+  // Combo de peña: dos aliados distintos usan el mismo tipo (ataque o ayuda) sobre el mismo caballo
+  checkCombo(p, horse, power, pw) {
+    const now = Date.now(), a = this.allianceOf(p.id);
+    this.recentPowers = this.recentPowers.filter(r => now - r.t < CFG.comboWindowMs);
+    if (a && pw.fx) {
+      const partner = this.recentPowers.find(r => r.horse === horse && r.debuff === pw.debuff && r.player !== p.id && a.members.has(r.player));
+      if (partner) {
+        const h = this.horses[horse];
+        h.fx[pw.fx] = Math.round(h.fx[pw.fx] * (pw.debuff ? 2 : 1.5));
+        p.stats.combos++;
+        this.narrate('combo', { n: a.name, h: this.lineup[horse].name });
+      }
+    }
+    this.recentPowers.push({ t: now, horse, debuff: pw.debuff, player: p.id });
+  }
+
+  // ─── La mafia ─────────────────────────────────────
+
+  loan(p, { amount }) {
+    amount = parseInt(amount, 10);
+    if (!CFG.loanOptions.includes(amount)) return { error: 'Monto inválido' };
+    if (p.debt + amount > CFG.maxDebt) return { error: 'Don Caballone dice que ya debes demasiado' };
+    p.debt += amount; p.coins += amount; p.stats.loans++;
+    p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
+    this.narrate('prestamo', { p: p.name, n: amount });
+    return {};
+  }
+
+  repay(p, { amount }) {
+    amount = Math.min(parseInt(amount, 10) || 0, p.debt, p.coins);
+    if (amount <= 0) return { error: 'Nada que pagar' };
+    p.coins -= amount; p.debt -= amount;
+    this.narrate('pago_mafia', { p: p.name, n: amount });
+    return {};
+  }
+
+  // La mafia "arregla" la carrera: lazo y vendas a un caballo, ignora escudos; se paga con deuda
+  mafiaFavor(p, { horse }) {
+    if (this.phase !== 'carrera') return { error: 'Solo durante la carrera' };
+    if (p.favorUsed) return { error: 'Un favor por carrera. Don Caballone tiene agenda' };
+    if (p.debt + CFG.mafiaFavorCost > CFG.maxDebt) return { error: 'Ya debes demasiado para pedir favores' };
+    horse = parseInt(horse, 10);
+    const h = this.horses[horse];
+    if (!h || h.finished) return { error: 'Caballo inválido' };
+    p.debt += CFG.mafiaFavorCost; p.favorUsed = true; p.stats.debuffs++;
+    p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
+    h.fx.freeze = Math.max(h.fx.freeze, Math.round(FPS * 2));
+    h.fx.blind = Math.max(h.fx.blind, Math.round(FPS * 3));
+    this.narrate('mafia_favor', { p: p.name, h: this.lineup[horse].name });
+    return {};
+  }
+
+  // ─── Peñas ────────────────────────────────────────
+
+  createAlliance(p) {
+    if (this.allianceOf(p.id)) return { error: 'Ya estás en una peña' };
+    if (Date.now() < p.noAllianceUntil) return { error: 'Después de traicionar nadie confía en ti… por ahora' };
+    const used = new Set([...this.alliances.values()].map(a => a.name));
+    const name = PEÑA_NAMES.find(n => !used.has(n)) || `Peña ${this.alliances.size + 1}`;
+    const a = { id: crypto.randomUUID(), name, members: new Set([p.id]), since: this.match.race };
+    this.alliances.set(a.id, a);
+    this.narrate('peña_nueva', { p: p.name, n: name });
+    return {};
+  }
+
+  invite(p, { to }) {
+    const a = this.allianceOf(p.id);
+    if (!a) return { error: 'Primero funda una peña' };
+    if (a.members.size >= CFG.maxAllianceSize) return { error: 'La peña está llena' };
+    const t = this.players.get(to);
+    if (!t || t.id === p.id) return { error: 'Jugador inválido' };
+    if (this.allianceOf(t.id)) return { error: `${t.name} ya tiene peña` };
+    if (!t.invites.some(i => i.alliance === a.id)) t.invites.push({ alliance: a.id, from: p.name });
+    return {};
+  }
+
+  answerInvite(p, { alliance, accept }) {
+    p.invites = p.invites.filter(i => i.alliance !== alliance);
+    const a = this.alliances.get(alliance);
+    if (!accept || !a) return {};
+    if (this.allianceOf(p.id)) return { error: 'Ya estás en una peña' };
+    if (Date.now() < p.noAllianceUntil) return { error: 'Después de traicionar nadie confía en ti… por ahora' };
+    if (a.members.size >= CFG.maxAllianceSize) return { error: 'La peña se llenó' };
+    a.members.add(p.id);
+    this.narrate('peña_union', { p: p.name, n: a.name });
+    return {};
+  }
+
+  leaveAlliance(p) {
+    const a = this.allianceOf(p.id);
+    if (!a) return {};
+    a.members.delete(p.id);
+    if (!a.members.size) this.alliances.delete(a.id);
+    this.addLog(`${p.name} deja «${a.name}». Sin rencores… creemos.`);
+    return {};
+  }
+
+  gift(p, { to, amount }) {
+    const a = this.allianceOf(p.id);
+    const t = this.players.get(to);
+    amount = parseInt(amount, 10);
+    if (!a || !t || !a.members.has(t.id) || t.id === p.id) return { error: 'Solo puedes pasar fichas a tu peña' };
+    if (!(amount > 0) || amount > p.coins) return { error: 'Monto inválido' };
+    if (p.gifted + amount > CFG.giftPerRace) return { error: `Máximo ${CFG.giftPerRace} por carrera` };
+    p.coins -= amount; t.coins += amount; p.gifted += amount; p.stats.gifts += amount;
+    this.narrate('regalo', { p: p.name, h: t.name, n: amount });
+    return {};
+  }
+
+  betray(p) {
+    const a = this.allianceOf(p.id);
+    if (!a || a.members.size < 2) return { error: 'Necesitas aliados para traicionarlos' };
+    if (this.match.race - a.since < 1) return { error: 'Espera al menos una carrera: la traición se cocina a fuego lento' };
+    let loot = 0;
+    for (const mid of a.members) {
+      if (mid === p.id) continue;
+      const m = this.players.get(mid);
+      if (!m) continue;
+      const take = Math.floor(Math.max(0, m.coins) * CFG.betrayalCut);
+      m.coins -= take; loot += take;
+    }
+    p.coins += loot; p.stats.betrayals++;
+    p.noAllianceUntil = Date.now() + 1000 * 60 * 3;
+    this.alliances.delete(a.id);
+    this.narrate('traicion', { p: p.name, n: a.name, h: loot });
+    return {};
+  }
+
+  // ─── Caballos propios ─────────────────────────────
+
+  buyHorse(p, { name, perfil }) {
+    const acc = this.accounts.get(p.id);
+    if (acc.horse) return { error: 'Ya tienes un caballo' };
+    name = String(name || '').trim().slice(0, 18);
+    if (!name) return { error: 'Ponle nombre a tu potro' };
+    if (HORSES.some(h => h.name.toLowerCase() === name.toLowerCase())) return { error: 'Ese nombre ya es de la casa' };
+    perfil = perfil === 'bravo' ? 'bravo' : 'corredor';
+    if (p.coins < CFG.horsePrice) return { error: `Un potro cuesta ${CFG.horsePrice} fichas` };
+    p.coins -= CFG.horsePrice;
+    const seedIdx = HORSES.findIndex(h => h.perfil === perfil && (perfil === 'corredor' || h.estilo === 'bravo'));
+    const used = new Set([...this.accounts.values()].map(a => a.horse?.color));
+    acc.horse = {
+      name, perfil, brain: BRAINS[seedIdx], level: 1, enrolled: true, wins: 0, history: [],
+      color: PLAYER_COLORS.find(c => !used.has(c)) || PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
+    };
+    this.narrate('potro', { p: p.name, h: name });
+    this.hooks.save();
+    return {};
+  }
+
+  enroll(p, { enrolled }) {
+    const acc = this.accounts.get(p.id);
+    if (!acc.horse) return { error: 'No tienes caballo' };
+    acc.horse.enrolled = !!enrolled;
+    this.hooks.save();
+    return {};
+  }
+
+  train(p, { focus }) {
+    const acc = this.accounts.get(p.id);
+    if (!acc.horse) return { error: 'No tienes caballo' };
+    if (acc.horse.training) return { error: 'Ya está entrenando' };
+    if (!['velocidad', 'agresion', 'control'].includes(focus)) return { error: 'Entrenamiento inválido' };
+    if (p.coins < CFG.trainPrice) return { error: `Entrenar cuesta ${CFG.trainPrice} fichas` };
+    p.coins -= CFG.trainPrice;
+    acc.horse.training = focus;
+    const label = { velocidad: 'velocidad', agresion: 'agresión', control: 'control en curvas' }[focus];
+    this.narrate('entreno', { p: p.name, h: acc.horse.name, n: label });
+    this.hooks.train({ accountId: p.id, room: this, focus, brain: acc.horse.brain, form: baseHandicap(acc.horse.perfil) });
+    return {};
+  }
+
+  // Llamado cuando termina el entrenamiento en segundo plano
+  trainingDone(accountId, brain, summary) {
+    const acc = this.accounts.get(accountId);
+    if (!acc?.horse) return;
+    acc.horse.brain = brain;
+    acc.horse.level++;
+    acc.horse.history = [...(acc.horse.history || []), { focus: acc.horse.training, ...summary }].slice(-10);
+    acc.horse.training = null;
+    this.narrate('entreno_fin', { h: acc.horse.name, n: acc.horse.level });
+    this.hooks.save();
+  }
+}
+
+module.exports = { Room, roomCode, CFG, setHandicap: h => { HANDICAP = h; } };

@@ -101,6 +101,7 @@
   .bytype div { background: rgba(241,232,211,0.05); padding: 6px 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; }
   .bytype b { display: block; color: var(--amber); font-size: 17px; }
   .bytype .none b { color: var(--cream-dim); }
+  .bytype small { display: block; font-size: 11px; color: var(--cream-dim); text-transform: none; }
   .award { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.08); }
   .award b { color: var(--gold-hi); font-size: 19px; text-transform: uppercase; }
   .award small { display: block; color: var(--cream-dim); font-size: 13px; }
@@ -114,6 +115,19 @@
   .react small { display: block; font-size: 13px; color: var(--cream); }
   @keyframes floatUp { 0% { transform: translateY(0) scale(.6); opacity: 0; } 12% { transform: translateY(-80px) scale(1.08); opacity: 1; }
     75% { opacity: 1; } 100% { transform: translateY(-62vh) scale(.95); opacity: 0; } }
+  #intro { position: absolute; inset: 0; z-index: 2; display: none; place-items: center; background: rgba(5,14,9,0.55); animation: fadeIn .4s; }
+  #intro .card { width: min(640px, 90%); padding: 24px 30px 20px; text-align: center; }
+  #intro .k { font-size: 13px; letter-spacing: 4px; color: var(--gold); text-transform: uppercase; }
+  #intro h2 { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 44px; margin: 6px 0 2px; color: var(--gold-hi); }
+  #intro .sub { font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--cream); }
+  #intro .calc { margin: 16px 0 10px; font-size: 16px; color: var(--cream-dim); }
+  #intro .calc i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin: 0 3px; animation: blink 1s infinite; }
+  #intro .calc i:nth-child(2) { animation-delay: .2s; } #intro .calc i:nth-child(3) { animation-delay: .4s; }
+  #intro .tip { border-top: 1px solid var(--line); padding-top: 12px; font-size: 17px; line-height: 1.4; }
+  #intro .tip b { color: var(--gold); letter-spacing: 2px; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  @keyframes blink { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .odd .px { font-size: 11px; color: var(--cream-dim); letter-spacing: .5px; white-space: nowrap; }
   #howto { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, 90%); z-index: 2; padding: 16px 22px 14px;
     display: none; grid-template-columns: 64px 1fr; gap: 16px; align-items: center; }
   #howto .n { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 54px; color: var(--gold-hi); text-align: center; line-height: 1; }
@@ -147,7 +161,7 @@
     <div class="plate" id="brand"><div class="name">Jackpot <span>Jockeys</span></div><div class="card" id="raceCard"></div></div>
     <div class="plate" id="clock"><div><div class="big" id="clockBig">—</div><div class="small" id="clockSmall"></div><div class="ready" id="clockReady"></div></div>
       <button id="startBtn" title="Arranca la carrera sin esperar a que todos digan listo">¡Iniciar ya!</button></div>
-    <div class="plate" id="potBox"><div class="label">Pozo</div><div class="pot" id="pot">0</div></div>
+    <div class="plate" id="potBox"><div class="label">En juego</div><div class="pot" id="pot">0</div></div>
   </div>
   <div class="plate" id="tower"><div class="label">Posiciones</div><div id="towerRows"></div>
     <div class="label" style="margin-top:14px">Mapa</div><canvas id="miniView"></canvas></div>
@@ -155,6 +169,8 @@
     <canvas id="c"></canvas>
     <div class="hint">S · sensores de la red &nbsp;&nbsp; C · cámara &nbsp;&nbsp; H · cómo se juega</div>
     <div id="reacts"></div>
+    <div id="intro"><div class="plate card"><div class="k" id="introK"></div><h2 id="introTitle"></h2><div class="sub" id="introSub"></div>
+      <div class="calc" id="introCalc"></div><div class="tip" id="introTip"></div></div></div>
     <div class="plate" id="howto"><div class="n" id="howtoN"></div><div><div class="t">Cómo se juega</div><h3 id="howtoTitle"></h3><p id="howtoText"></p></div><div class="bar"><i id="howtoBar"></i></div></div>
     <div id="results"><div class="plate card" id="resCard"></div></div>
   </div>
@@ -162,7 +178,7 @@
     <div class="label">Cuotas</div>
     <div class="jack" id="jack"></div>
     <div class="odds" id="odds"></div>
-    <div class="label" style="margin-top:12px">Pozos por tipo</div>
+    <div class="label" style="margin-top:12px">Apostado por tipo</div>
     <div class="odds" id="poolRows"></div>
     <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
     <div id="sala"></div>
@@ -655,23 +671,9 @@ function drawHorse(i, p, t) {
 
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
   const gallop = speed > 0.5 ? Math.sin(t / 55 * (1 + speed / 3) + i * 1.7) : 0;
-  // Patas en zancada
-  ctx.fillStyle = '#1a0f07';
-  [[9, -5.5, 1], [9, 5.5, -1], [-9, -5.5, -1], [-9, 5.5, 1]].forEach(([lx, ly, ph]) => {
-    ctx.beginPath(); ctx.ellipse(lx + gallop * 3.5 * ph, ly, 3.2, 1.6, 0, 0, 7); ctx.fill();
-  });
-  // Cola
-  ctx.strokeStyle = '#1a0f07'; ctx.lineWidth = 2.6; ctx.beginPath();
-  ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-19, gallop * 3, -24, gallop * 1.5); ctx.stroke();
-  // Cuerpo con volumen
-  const coat = COATS[i % COATS.length];
-  const body = ctx.createLinearGradient(0, -7, 0, 7);
-  body.addColorStop(0, shade(coat, 0.75)); body.addColorStop(0.5, coat); body.addColorStop(1, shade(coat, 0.6));
-  ctx.fillStyle = body;
-  ctx.beginPath(); ctx.ellipse(0, 0, 14.5, 6.6, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(13, 0, 6, 3.6, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(20.5, 0, 5, 2.9, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#120a04'; ctx.fillRect(9, -1, 9, 2); // crin
+  // Disfraz (si tiene) o caballo clásico; el número y el jinete van siempre encima
+  const skin = (state && state.horses[i] && state.horses[i].skin) || meta.skin || 'normal';
+  if (!drawSkin(skin, i, gallop, t)) drawClassicHorse(i, gallop);
   // Mantilla con número
   ctx.fillStyle = meta.color; ctx.fillRect(-7, -6.2, 9, 12.4);
   ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '600 6px Oswald, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -713,6 +715,135 @@ function drawHorse(i, p, t) {
     ctx.fillText(i + 1, x, y - 24.5);
   }
 }
+function drawLegs(color, gallop, len = 3.2) {
+  ctx.fillStyle = color;
+  [[9, -5.5, 1], [9, 5.5, -1], [-9, -5.5, -1], [-9, 5.5, 1]].forEach(([lx, ly, ph]) => {
+    ctx.beginPath(); ctx.ellipse(lx + gallop * 3.5 * ph, ly, len, 1.6, 0, 0, 7); ctx.fill();
+  });
+}
+function ellipse(x, y, rx, ry, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); ctx.fill(); }
+function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+
+function drawClassicHorse(i, gallop) {
+  drawLegs('#1a0f07', gallop);
+  // Cola
+  ctx.strokeStyle = '#1a0f07'; ctx.lineWidth = 2.6; ctx.beginPath();
+  ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-19, gallop * 3, -24, gallop * 1.5); ctx.stroke();
+  // Cuerpo con volumen
+  const coat = COATS[i % COATS.length];
+  const body = ctx.createLinearGradient(0, -7, 0, 7);
+  body.addColorStop(0, shade(coat, 0.75)); body.addColorStop(0.5, coat); body.addColorStop(1, shade(coat, 0.6));
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0, 0, 14.5, 6.6, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(13, 0, 6, 3.6, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(20.5, 0, 5, 2.9, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#120a04'; ctx.fillRect(9, -1, 9, 2); // crin
+}
+
+// Disfraces ridículos (vista cenital, mirando hacia +x). Devuelve false si no hay disfraz.
+function drawSkin(skin, i, gallop, t) {
+  switch (skin) {
+    case 'trex': {
+      // Cola larga con púas, cuerpo verde escamado, cabezota con dientes y bracitos inútiles
+      ctx.fillStyle = '#3f7d3a';
+      ctx.beginPath(); ctx.moveTo(-10, -5); ctx.quadraticCurveTo(-26, gallop * 4, -34, gallop * 6); ctx.quadraticCurveTo(-26, gallop * 2 + 2, -10, 5); ctx.fill();
+      drawLegs('#2d5e29', gallop, 3.8);
+      ellipse(0, 0, 14, 7.5, '#4f9a47');
+      ctx.fillStyle = '#2d5e29';
+      for (let x = -22; x <= 10; x += 5) { ctx.beginPath(); ctx.moveTo(x, -1.6); ctx.lineTo(x + 2.5, 0); ctx.lineTo(x, 1.6); ctx.fill(); }
+      ellipse(20, 0, 8.5, 6, '#4f9a47');
+      ctx.fillStyle = '#fff';
+      for (let k = -4; k <= 4; k += 2) { ctx.fillRect(25.5, k - 0.4, 2, 0.8); }
+      circle(18, -3.6, 1.2, '#111'); circle(18, 3.6, 1.2, '#111');
+      circle(10, -8.2, 1.6, '#4f9a47'); circle(10, 8.2, 1.6, '#4f9a47'); // bracitos
+      return true;
+    }
+    case 'robot': {
+      drawLegs('#5c636b', gallop);
+      ctx.strokeStyle = '#8a929a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(-20, gallop * 2); ctx.stroke();
+      ctx.fillStyle = '#9aa3ab'; ctx.fillRect(-14, -7, 26, 14);
+      ctx.fillStyle = '#c3cad0'; ctx.fillRect(-14, -7, 26, 3);
+      ctx.fillStyle = '#5c636b'; for (const [rx, ry] of [[-12, -5], [10, -5], [-12, 5], [10, 5]]) ctx.fillRect(rx - 0.7, ry - 0.7, 1.4, 1.4);
+      ctx.fillStyle = '#7d868e'; ctx.fillRect(12, -2.5, 5, 5);
+      ctx.fillStyle = '#9aa3ab'; ctx.fillRect(16, -4.5, 9, 9);
+      ctx.fillStyle = '#5ee7ff'; ctx.fillRect(22, -3.2, 2, 2); ctx.fillRect(22, 1.2, 2, 2); // ojos LED
+      ctx.strokeStyle = '#5c636b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(19, 0); ctx.lineTo(13, -9); ctx.stroke();
+      circle(13, -9, 1.6, Math.sin(t / 150) > 0 ? '#ff3b30' : '#5c1410'); // antena que parpadea
+      return true;
+    }
+    case 'payaso': {
+      drawClassicHorse(i, gallop);
+      const dots = ['#ff3b30', '#ffd60a', '#34c759', '#0a84ff', '#bf5af2'];
+      [[-10, -3], [-6, 3.5], [6, -3.5], [9, 3]].forEach(([dx, dy], k) => circle(dx, dy, 1.6, dots[k % dots.length]));
+      // Peluca arcoíris y nariz roja
+      dots.forEach((c, k) => circle(15 + Math.cos(k * 1.3) * 3, Math.sin(k * 1.3) * 4.5, 2.4, c));
+      circle(25.5, 0, 2.3, '#ff2d2d');
+      circle(25, -0.7, 0.7, 'rgba(255,255,255,0.7)');
+      return true;
+    }
+    case 'unicornio': {
+      drawLegs('#d9d2e9', gallop);
+      ['#ff5e5e', '#ffb340', '#ffe14d', '#5fd068', '#4da3ff', '#a173ff'].forEach((c, k) => {
+        ctx.strokeStyle = c; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-13, -2.5 + k); ctx.quadraticCurveTo(-19, gallop * 3 - 2.5 + k, -25, gallop * 1.5 - 2.5 + k); ctx.stroke();
+        ctx.fillStyle = c; ctx.fillRect(8, -3 + k, 10, 1);
+      });
+      ellipse(0, 0, 14.5, 6.6, '#f7f3ff'); ellipse(13, 0, 6, 3.6, '#f7f3ff'); ellipse(20.5, 0, 5, 2.9, '#f7f3ff');
+      ['#ff5e5e', '#ffe14d', '#4da3ff'].forEach((c, k) => { ctx.fillStyle = c; ctx.fillRect(8 + k * 3, -1, 2.5, 2); });
+      ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.moveTo(23, -1.6); ctx.lineTo(33, 0); ctx.lineTo(23, 1.6); ctx.fill(); // cuerno
+      if (Math.sin(t / 120 + i) > 0.6) circle(30 + Math.random() * 6, (Math.random() - 0.5) * 10, 0.9, '#fff');
+      return true;
+    }
+    case 'vaca': {
+      drawLegs('#3b3b3b', gallop);
+      ctx.strokeStyle = '#3b3b3b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(-21, gallop * 3); ctx.stroke();
+      ellipse(0, 0, 14.5, 7, '#f4f1ea'); ellipse(13, 0, 6, 3.8, '#f4f1ea'); ellipse(20, 0, 5, 3.4, '#f4f1ea');
+      [[-8, -2.5, 3.5, 2.6], [-1, 3, 3, 2.2], [5, -3, 2.6, 2], [-11, 4, 2.2, 1.6]].forEach(([dx, dy, rx, ry]) => ellipse(dx, dy, rx, ry, '#222'));
+      ellipse(24, 0, 2.6, 3.2, '#f5a3b5'); // hocico rosado
+      ctx.fillStyle = '#e8d9b0'; ctx.fillRect(16, -5.5, 2, 2); ctx.fillRect(16, 3.5, 2, 2); // cuernitos
+      return true;
+    }
+    case 'pato': {
+      drawLegs('#ff8c1a', gallop, 2.6);
+      circle(-2, 0, 10.5, '#ffd60a');
+      ctx.fillStyle = '#f2c200'; ctx.beginPath(); ctx.arc(-4, 0, 7, -1.2, 1.2); ctx.fill(); // ala
+      circle(12, 0, 6, '#ffd60a');
+      ctx.fillStyle = '#ff8c1a'; ctx.beginPath(); ctx.moveTo(17, -2.5); ctx.lineTo(23, 0); ctx.lineTo(17, 2.5); ctx.fill(); // pico
+      circle(13, -2.8, 1, '#111'); circle(13, 2.8, 1, '#111');
+      return true;
+    }
+    case 'cebra': {
+      drawClassicHorse(i, gallop);
+      ellipse(0, 0, 14.5, 6.6, '#f5f5f5'); ellipse(13, 0, 6, 3.6, '#f5f5f5'); ellipse(20.5, 0, 5, 2.9, '#f5f5f5');
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 1.4;
+      for (let x = -12; x <= 22; x += 3.4) { ctx.beginPath(); ctx.moveTo(x, -6); ctx.quadraticCurveTo(x + 1.5, 0, x, 6); ctx.stroke(); }
+      ctx.fillStyle = '#111'; ctx.fillRect(9, -1, 9, 2);
+      return true;
+    }
+    case 'pizza': {
+      drawLegs('#1a0f07', gallop);
+      // Porción de pizza: borde atrás, punta adelante
+      ctx.fillStyle = '#d9a35b'; ctx.beginPath(); ctx.moveTo(-14, -10); ctx.lineTo(26, 0); ctx.lineTo(-14, 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffcf4d'; ctx.beginPath(); ctx.moveTo(-10, -8); ctx.lineTo(22, 0); ctx.lineTo(-10, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c06a2b'; ctx.fillRect(-15, -10, 4, 20); // borde tostado
+      [[-4, -3], [3, 3], [9, -1.5], [-6, 4]].forEach(([px, py]) => circle(px, py, 2, '#c62828'));
+      ctx.fillStyle = '#3c8d2f'; ctx.fillRect(1, -4.5, 2, 1.2); ctx.fillRect(12, 1.5, 2, 1.2); // albahaca
+      return true;
+    }
+    case 'fantasma': {
+      ctx.globalAlpha = 0.82;
+      ctx.fillStyle = '#f4f6ff';
+      ctx.beginPath(); ctx.moveTo(-16, -8);
+      for (let k = 0; k <= 4; k++) ctx.quadraticCurveTo(-20 - (k % 2) * 4, -8 + k * 4 - 2 + gallop, -16, -8 + k * 4);
+      ctx.lineTo(16, 8); ctx.quadraticCurveTo(26, 0, 16, -8); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ellipse(16, -3.5, 1.6, 2.2, '#111'); ellipse(16, 3.5, 1.6, 2.2, '#111');
+      ellipse(21, 0, 1.4, 1.8, '#111'); // "¡bu!"
+      return true;
+    }
+    default: return false;
+  }
+}
+
 function shade(hex, f) {
   const n = parseInt(hex.slice(1), 16);
   const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
@@ -914,14 +1045,15 @@ function renderUI() {
     const right = s.phase === 'apuestas' ? `x${h.odds ?? '—'}` : (h.hits ? `${h.hits} emb.` : `V${h.lap}`);
     return `<div class="row ${s.phase !== 'apuestas' && k === 0 ? 'lead' : ''}">
       <div class="pos">${left}</div><div class="silk" style="background:${h.color}"></div>
-      <div class="nm">${i + 1} · ${esc(h.name)}<small>${esc(h.ownerName ? `de ${h.ownerName}${h.level ? ' · nv ' + h.level : ''}` : h.estilo)}</small></div><div class="gap">${right}</div></div>`;
+      <div class="nm">${i + 1} · ${esc(h.name)}<small>${esc(h.ownerName ? `de ${h.ownerName}${h.level ? ' · nv ' + h.level : ''}` : h.estilo)}${h.skin && h.skin !== 'normal' && s.cfg.skins[h.skin] ? ' · ' + esc(s.cfg.skins[h.skin].name) : ''}</small></div><div class="gap">${right}</div></div>`;
   }).join('');
 
   document.getElementById('pot').textContent = s.pot.toLocaleString('es');
-  document.getElementById('jack').textContent = s.carry > 0 ? `Jackpot acumulado · ${s.carry.toLocaleString('es')}` : '';
+  document.getElementById('jack').textContent = !s.oddsReady && s.phase === 'apuestas' ? 'La casa calcula las cuotas…'
+    : s.grandPrix ? 'Gran Premio: cuotas +50 %' : 'Cuotas fijas · Ganador | Placé · Podio';
   document.getElementById('odds').innerHTML = s.horses.map((h, i) => `<div class="odd">
     <div class="num" style="background:${h.color}">${i + 1}</div><div class="nm">${esc(h.name)}</div>
-    <div class="bet">${h.bets ? h.bets.toLocaleString('es') : ''}</div><div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
+    <div class="px">${h.oddsPlace ? `x${h.oddsPlace.toFixed(2)} · x${h.oddsPodio.toFixed(2)}` : ''}</div><div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
   document.getElementById('poolRows').innerHTML = Object.values(s.pools).map(p =>
     `<div class="pool"><span>${esc(p.name)} <small style="color:var(--cream-dim);text-transform:none">· ${esc(p.desc)}</small></span><span>${p.total.toLocaleString('es')}</span></div>`).join('');
   const betting = s.phase === 'apuestas';
@@ -969,10 +1101,10 @@ function renderUI() {
     ${r.order.map((i, k) => `<div class="fin"><div class="p">${k + 1}</div><div class="silk" style="width:8px;height:22px;background:${s.horses[i].color}"></div>
       <div>${esc(s.horses[i].name)}</div><div class="t">${r.times[k] ? r.times[k].toFixed(2) + ' s' : 'no terminó'}</div></div>`).join('')}
     ${maxHits > 0 ? `<div class="pay">Más bravo: <b>${esc(s.horses[r.hits.indexOf(maxHits)].name)}</b> con ${maxHits} embestidas</div>` : ''}
-    ${r.byType ? `<div class="bytype">${Object.values(r.byType).filter(b => b.pool > 0).map(b =>
-      `<div class="${b.odds ? '' : 'none'}">${esc(b.name)}<b>${b.odds ? 'paga x' + b.odds.toFixed(2) : 'sin aciertos'}</b></div>`).join('')}</div>` : ''}
-    ${r.payouts.length ? r.payouts.slice(0, 6).map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b> en ${esc(p.typeName || 'Ganador')} ${p.sel ? esc(p.sel.map(i => s.horses[i].name).join(p.type === 'quiniela' ? ' y ' : ' → ')) : ''}${p.net < p.win ? ` (la mafia se queda ${(p.win - p.net).toLocaleString('es')})` : ''}</div>`).join('')
-      : ''}${r.jackpot ? `<div class="pay">Pozos sin aciertos: <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}${buttons}`;
+    ${r.byType ? `<div class="bytype">${Object.values(r.byType).filter(b => b.combos.length).map(b =>
+      `<div>${esc(b.name)}<b>${b.combos.map(c => 'x' + c.odds.toFixed(c.odds >= 100 ? 0 : 2)).join(' · ')}</b>${b.combos.length === 1 && b.combos[0].sel.length > 1 ? `<small>${esc(b.combos[0].sel.map(i => s.horses[i].name).join(' → '))}</small>` : ''}</div>`).join('')}</div>` : ''}
+    ${r.payouts.length ? r.payouts.slice(0, 6).map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b> (x${p.odds}) en ${esc(p.typeName || 'Ganador')} ${p.sel ? esc(p.sel.map(i => s.horses[i].name).join(p.type === 'quiniela' ? ' y ' : ' → ')) : ''}${p.net < p.win ? ` (la mafia se queda ${(p.win - p.net).toLocaleString('es')})` : ''}</div>`).join('')
+      : ''}${r.staked ? `<div class="pay">Apostado: <b>${r.staked.toLocaleString('es')}</b> · la casa pagó <b>${r.paid.toLocaleString('es')}</b>${r.paid > r.staked ? ' · ¡hoy perdió la banca!' : ''}</div>` : ''}${buttons}`;
 }
 
 // ─── Reacciones del público ─────────────────────────
@@ -987,16 +1119,50 @@ function showReaction(m) {
   while (box.children.length > 14) box.firstChild.remove();
 }
 
+// ─── Presentación de la carrera (cubre los segundos en que la casa simula las cuotas) ───
+const TIPS = [
+  'Lo que ves en tu boleto es lo que cobras: la cuota queda fija aunque los demás apuesten.',
+  'Las cuotas salen de simular esta misma carrera 100 veces con estas mismas redes neuronales.',
+  'Placé y Podio pagan poco, pero aciertas seguido. La Trifecta puede pagar x1.000.',
+  'Arriesga poco en lo difícil, mucho en lo seguro… o al revés, si te sientes con suerte.',
+  'Los poderes cuestan: úsalos cuando tu boleto lo valga.',
+  'Una zanahoria a tiempo puede convertir un x15 en una fortuna.',
+  'La mafia presta, pero su cobrador se lleva la mitad de tus premios hasta que pagues.',
+  'En el Gran Premio todas las cuotas pagan 50 % más.',
+  'Si tu peña ataca al mismo caballo en 5 segundos, el efecto es doble.',
+  'La carrera arranca cuando todos tocan "Estoy listo". No hay prisa.',
+];
+let introUntil = 0, introTip = '';
+function startIntro() {
+  introUntil = Date.now() + 3500;
+  introTip = TIPS[Math.floor(Math.random() * TIPS.length)];
+}
+function updateIntro() {
+  const box = document.getElementById('intro');
+  const show = state && state.phase === 'apuestas' && (!state.oddsReady || Date.now() < introUntil);
+  box.style.display = show ? 'grid' : 'none';
+  if (!show) return;
+  const s = state, size = { corta: 'Pista corta', media: 'Pista media', larga: 'Pista larga' }[s.trackSize] || '';
+  document.getElementById('introK').textContent = s.grandPrix ? 'Gran Premio · cuotas +50 %' : `Carrera ${s.match.race} de ${s.match.total}`;
+  document.getElementById('introTitle').textContent = s.grandPrix ? 'El Gran Premio' : 'Jackpot Jockeys';
+  document.getElementById('introSub').textContent = `${size} · ${s.laps} vueltas · ${s.horses.length} caballos`;
+  document.getElementById('introCalc').innerHTML = s.oddsReady ? 'Cuotas listas. ¡A apostar!'
+    : 'La casa está simulando la carrera 100 veces para sacar las cuotas <i></i><i></i><i></i>';
+  document.getElementById('introTip').innerHTML = `<b>Consejo</b>${esc(introTip)}`;
+}
+setInterval(updateIntro, 250);
+
 // ─── Cómo se juega (en las apuestas de la primera carrera de cada partida) ───
 const HOWTO = [
   ['Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Empiezas con 1000 fichas. La carrera arranca cuando todos tocan "Estoy listo".'],
-  ['Apuesta como en el hipódromo', 'Ganador, Placé (1º o 2º), Podio (top 3), Quiniela, Exacta o Trifecta. Cada tipo tiene su pozo y se reparte entre quienes acertaron: entre más difícil, más paga.'],
+  ['Apuesta como en el hipódromo', 'La casa pone cuotas fijas: Ganador, Placé (1º o 2º), Podio (top 3), Quiniela, Exacta o Trifecta. Lo que ves en tu boleto es lo que cobras. Entre más difícil, más paga: una Trifecta puede dar x1.000.'],
   ['Ayuda o sabotea', 'En carrera, usa poderes desde el celular: zanahoria, escudo, lazo, vendas, rayo… Los caballos son redes neuronales y reaccionan solos.'],
   ['Mafia, peñas y caballos', '¿Sin fichas? La mafia presta, con intereses. Alíate con amigos en una peña (o traiciónalos). Compra y entrena tu propio potro.'],
   ['8 carreras, un campeón', 'La última es el Gran Premio con pozo +50 %. Gana quien termine con más fichas menos deuda. ¡Y burlarse con reacciones es gratis!'],
 ];
 let howtoForced = null, howtoIdx = 0, howtoTimer = null;
-const howtoVisible = () => howtoForced !== null ? howtoForced : !!(state && state.phase === 'apuestas' && state.match.race === 1);
+const howtoVisible = () => howtoForced !== null ? howtoForced
+  : !!(state && state.phase === 'apuestas' && state.match.race === 1 && state.oddsReady && Date.now() >= introUntil);
 function updateHowto() {
   const box = document.getElementById('howto'), show = howtoVisible();
   box.style.display = show ? 'grid' : 'none';
@@ -1038,7 +1204,7 @@ function onServerMessage(m) {
     else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
     else if (m.type === 'state') {
       state = m;
-      if (m.raceKey !== raceKey) { raceKey = m.raceKey; frames.length = 0; finishIdx = -1; lastReplay = null; replay = null; loadTrack(); }
+      if (m.raceKey !== raceKey) { startIntro(); raceKey = m.raceKey; frames.length = 0; finishIdx = -1; lastReplay = null; replay = null; loadTrack(); }
       // Al terminar la carrera, repetición de la llegada en cámara lenta
       if (lastPhase === 'carrera' && (m.phase === 'resultados' || m.phase === 'final')) startReplay(buildReplay());
       lastPhase = m.phase;

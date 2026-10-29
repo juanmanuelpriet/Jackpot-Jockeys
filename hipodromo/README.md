@@ -61,7 +61,7 @@ Cada pantalla crea su propia sala, así que pueden jugarse varias partidas a la 
 
 ## La partida
 
-Una partida son **8 carreras**. La última es el **Gran Premio**: la casa suma 50 % al pozo. Al final hay
+Una partida son **8 carreras**. La última es el **Gran Premio**: todas las cuotas pagan 50 % más. Al final hay
 **premios de la noche** (Campeón, Saboteador, Ángel de la guarda, Ojo de halcón, Moroso del año, Judas,
 Mecenas, Entrenador estrella), que quedan como trofeos en tu cuenta. Después arranca otra partida y todos
 vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **netas** (fichas menos deuda).
@@ -70,7 +70,7 @@ vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **neta
 |------|----------|----------|
 | Apuestas | Sin reloj: arranca 5 s después de que **todos** tocan "Estoy listo" (si alguien se arrepiente, se cancela) | Ves la pista nueva, el cajón y la forma de cada caballo, y apuestas |
 | Carrera | 25–75 s según la pista | Usas poderes, pides favores a la mafia, haces combos con tu peña |
-| Resultados | 25 s | Repetición de la llegada en cámara lenta y reparto de los pozos |
+| Resultados | 25 s | Repetición de la llegada en cámara lenta y pago de los boletos |
 
 La pantalla muestra cuántos están listos y quién falta. Si alguien se distrae, la pantalla que creó la sala tiene el botón **¡Iniciar ya!** para arrancar sin esperar.
 
@@ -87,17 +87,23 @@ La pantalla muestra cuántos están listos y quién falta. Si alguien se distrae
 | Exacta | 1º y 2º | llegan en ese orden exacto |
 | Trifecta | 1º, 2º y 3º | llegan en ese orden exacto |
 
-Cada tipo tiene **su propio pozo mutuo**, que se reparte entre los boletos que acertaron ese tipo en
-proporción a lo apostado: entre más difícil la apuesta, menos gente acierta y más paga. El celular muestra
-el **pago estimado** de tu jugada (cuánto pagaría si nadie más apostara lo mismo) y tus boletos de la carrera.
-**Tu carrera** (panel del celular): lo que llevas apostado, gastado en poderes y en favores de la mafia; para
-cada boleto, cuánto cobrarías si acierta con los pozos de ese momento; durante la carrera, **cuánto cobrarías si
-terminara ahora** (con las posiciones actuales y el cobrador de la mafia ya descontado); y al final, el **balance**
-completo: apostado, poderes, cobrado, lo que se llevó la mafia, comisión de la peña, premio de propietario y el
-resultado neto en fichas. La proyección usa el mismo cálculo que el pago real.
+**Cuotas fijas, como en una casa de apuestas.** Antes de cada carrera la casa **simula esa misma carrera 100
+veces** (misma pista, cajones, forma del día y redes neuronales, con un poco de ruido) para estimar la probabilidad
+de que gane cada caballo. Las combinadas salen de la fórmula de Harville, la que usan los hipódromos, y la cuota
+es `(1 − 10 %) / probabilidad`: la casa se queda en promedio el 10 %. Mientras simula (1–2 s), la pantalla muestra
+una presentación de la carrera con un consejo y el celular avisa que está calculando.
 
-El pozo de Ganador también recibe lo gastado en poderes. Los pozos que nadie acierta pasan al **jackpot**,
-que se suma al pozo de Ganador de la siguiente carrera.
+**Lo que ves en tu boleto es lo que cobras:** la cuota queda fija al apostar y, si aciertas, cobras monto × cuota,
+sin importar lo que apuesten los demás. El favorito paga poco (x1.3–x3), un caballo sin chance paga x20–x30,
+una Exacta puede pagar x15–x400 y una **Trifecta x80–x3.000**. En el Gran Premio todas las cuotas suben 50 %.
+Se puede comprobar que son justas: los caballos que las cuotas daban por 29 % ganaron el 32 % de las carreras de
+prueba, y los de 49 %, el 52 %.
+
+**Tu carrera** (panel del celular): lo que llevas apostado, gastado en poderes y en favores de la mafia; cada
+boleto con su cuota fija y cuánto cobras si acierta; durante la carrera, **cuánto cobrarías si terminara ahora**
+(con las posiciones actuales y el cobrador de la mafia ya descontado); y al final, el **balance** completo:
+apostado, poderes, cobrado, lo que se llevó la mafia, comisión de la peña, premio de propietario y el resultado
+neto en fichas. La proyección usa el mismo cálculo que el pago real.
 
 **Conexión:** la pantalla y los celulares usan WebSocket en los dos sentidos: el estado llega 4 veces por segundo y las
 acciones del celular (apostar, poderes, reacciones…) viajan por esa misma conexión, sin abrir una petición nueva,
@@ -132,6 +138,21 @@ Hasta 3 jugadores contra el resto:
 - **Traición**: te llevas el 20 % de las fichas de cada aliado, la peña se disuelve, toda la sala se entera
   y nadie puede aliarse contigo por unos minutos. Solo se puede después de una carrera juntos.
 
+## Disfraces
+
+Cada carrera, los caballos de la casa pueden salir disfrazados al azar (40 % de probabilidad cada uno), y el
+narrador anuncia el desfile. En la pestaña **Caballo** del celular hay una **tienda de disfraces** para tu potro:
+
+| Disfraz | Precio | | Disfraz | Precio |
+|---|---|---|---|---|
+| 🦖 T-Rex | 300 | | 🐄 Vaca | 200 |
+| 🤖 Robot | 300 | | 🦆 Pato de hule | 200 |
+| 🤡 Payaso | 250 | | 🦓 Cebra | 150 |
+| 🦄 Unicornio | 400 | | 🍕 Pizza | 350 |
+| 👻 Fantasma | 350 | | 🐎 Clásico | gratis |
+
+Los disfraces comprados quedan en tu cuenta entre partidas. Solo cambian el dibujo: no hacen más rápido a nadie.
+
 ## Tu propio caballo
 
 - **Compra un potro** (400 fichas), corredor o bravo, y ponle nombre. Es tuyo entre partidas.
@@ -139,7 +160,8 @@ Hasta 3 jugadores contra el resto:
 - **Entrénalo** (150 fichas) en velocidad, agresión o control: corre una neuroevolución real de 10
   generaciones sobre su red, en un hilo aparte, contra los corredores de la casa y en pistas nuevas.
   El celular muestra cómo cambiaron sus embestidas, salidas y tropiezos.
-- Si gana, cobras un **premio de propietario** (10 % del pozo, mínimo 100).
+- Si gana, cobras un **premio de propietario**: 50 × su cuota de Ganador (mínimo 100), así que ganar con un
+  potro sin chance paga mucho más.
 
 ## Poderes
 
@@ -160,12 +182,12 @@ velocidad, las redes se estrellaban en las curvas. Ahora el jinete también evit
 
 | # | Caballo | Estilo | Cerebro |
 |---|---|---|---|
-| 1 | Backprop | corredor | `caballos_corredor.json` |
-| 2 | Overfitting | muy bravo | `caballos_bravo_150.json` |
-| 3 | Gradiente | corredor | `caballos_corredor.json` |
-| 4 | Dropout | bravo | `caballos_bravo_100.json` |
-| 5 | Tanh Tanh | corredor | `caballos_corredor.json` |
-| 6 | Bug en Producción | pícaro | `caballos_bravo_60.json` |
+| 1 | Don Galope | corredor | `caballos_corredor.json` |
+| 2 | Herradura Loca | muy bravo | `caballos_bravo_150.json` |
+| 3 | Sir Relincho | corredor | `caballos_corredor.json` |
+| 4 | Patas de Trueno | bravo | `caballos_bravo_100.json` |
+| 5 | Pura Sangre Fría | corredor | `caballos_corredor.json` |
+| 6 | Pancho Trotes | pícaro | `caballos_bravo_60.json` |
 
 La red es **13 → 8 → 3 → 3 → 2** (tanh). No tiene ninguna regla de "embestir": solo decide giro y
 acelerador a partir de lo que percibe:
@@ -227,7 +249,7 @@ jupyter notebook analisis.ipynb
 ```
 
 Los argumentos de `entrenar.js bravo` son: generaciones, premio por embestida (agresividad), velocidad a la
-que entrena y premio por cada rival que deja atrás en la llegada. Overfitting y Dropout entrenan a ×1.2,
+que entrena y premio por cada rival que deja atrás en la llegada. Herradura Loca y Patas de Trueno entrenan a ×1.2,
 la velocidad que tienen en el juego con hándicap, y con premio por puesto: así embisten **y** quieren ganar. Los bravos entrenan
 contra los corredores ya entrenados, para que no aprendan a chocarse solo entre ellos. Cada entrenamiento
 continúa desde los cerebros que ya existan y escribe una fila por generación en

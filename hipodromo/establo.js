@@ -10,13 +10,34 @@ const secs = ticks => `${+(ticks / (FPS * SIM_SPEED)).toFixed(1)} s`.replace('.'
 // Corredores: rápidos y limpios. Bravos: entrenados para embestir a los demás,
 // cada uno con distinta agresividad (premio por embestida durante el entrenamiento).
 const HORSES = [
-  { name: 'Backprop', color: '#c8102e', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 0] },
-  { name: 'Overfitting', color: '#2f5fb3', perfil: 'bravo', estilo: 'muy bravo', cerebro: ['caballos_bravo_150.json', 0] },
-  { name: 'Gradiente', color: '#e07a1f', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 1] },
-  { name: 'Dropout', color: '#1f9e86', perfil: 'bravo', estilo: 'bravo', cerebro: ['caballos_bravo_100.json', 0] },
-  { name: 'Tanh Tanh', color: '#8e3fb0', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 2] },
-  { name: 'Bug en Producción', color: '#c9a227', perfil: 'bravo', estilo: 'pícaro', cerebro: ['caballos_bravo_60.json', 0] },
+  { name: 'Don Galope', color: '#c8102e', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 0] },
+  { name: 'Herradura Loca', color: '#2f5fb3', perfil: 'bravo', estilo: 'muy bravo', cerebro: ['caballos_bravo_150.json', 0] },
+  { name: 'Sir Relincho', color: '#e07a1f', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 1] },
+  { name: 'Patas de Trueno', color: '#1f9e86', perfil: 'bravo', estilo: 'bravo', cerebro: ['caballos_bravo_100.json', 0] },
+  { name: 'Pura Sangre Fría', color: '#8e3fb0', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 2] },
+  { name: 'Pancho Trotes', color: '#c9a227', perfil: 'bravo', estilo: 'pícaro', cerebro: ['caballos_bravo_60.json', 0] },
 ];
+
+// Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores
+// los compran para su potro en la tienda del celular. Solo cambian el dibujo, no la carrera.
+const SKINS = {
+  normal: { name: 'Clásico', icon: '🐎', price: 0, desc: 'Un caballo. De los de siempre.' },
+  trex: { name: 'T-Rex', icon: '🦖', price: 300, desc: 'Bracitos cortos, ambición enorme.' },
+  robot: { name: 'Robot', icon: '🤖', price: 300, desc: 'Funciona con redes neuronales… y tornillos.' },
+  payaso: { name: 'Payaso', icon: '🤡', price: 250, desc: 'Nariz roja, peluca arcoíris, cero vergüenza.' },
+  unicornio: { name: 'Unicornio', icon: '🦄', price: 400, desc: 'Brilla. Eso no lo hace más rápido.' },
+  vaca: { name: 'Vaca', icon: '🐄', price: 200, desc: 'Muuuy competitiva.' },
+  pato: { name: 'Pato de hule', icon: '🦆', price: 200, desc: 'Flota. Corre. Hace cuac.' },
+  cebra: { name: 'Cebra', icon: '🦓', price: 150, desc: 'Un caballo en pijama.' },
+  pizza: { name: 'Pizza', icon: '🍕', price: 350, desc: 'Llega caliente o es gratis.' },
+  fantasma: { name: 'Fantasma', icon: '👻', price: 350, desc: 'Nadie lo vio venir. Literal.' },
+};
+const HOUSE_SKIN_CHANCE = 0.4;
+const randomHouseSkin = () => {
+  if (Math.random() > HOUSE_SKIN_CHANCE) return 'normal';
+  const ids = Object.keys(SKINS).filter(k => k !== 'normal');
+  return ids[Math.floor(Math.random() * ids.length)];
+};
 
 const POWERS = {
   zanahoria: { name: 'Zanahoria', icon: '🥕', cost: 70, desc: `El jinete toma las riendas ${secs(FPS * 4)}: +35% vel., salta todo y no se sale`, fx: 'carrot', ticks: FPS * 4, debuff: false },
@@ -68,4 +89,4 @@ function applyPower(horses, track, idx, key) {
   return {};
 }
 
-module.exports = { HORSES, POWERS, loadBrains, loadHandicap, applyPower };
+module.exports = { HORSES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower };

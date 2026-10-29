@@ -3,8 +3,9 @@
 
 const crypto = require('crypto');
 const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED } = require('./sim');
-const { HORSES, POWERS, loadBrains, loadHandicap, applyPower } = require('./establo');
+const { HORSES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
+const { winProbs, oddsFor, MARGIN } = require('./cuotas');
 
 const CFG = {
   races: 8,               // carreras por partida
@@ -14,7 +15,8 @@ const CFG = {
   maxRaceSeconds: 200,
   startCoins: 1000,
   powerCooldownMs: 4000,
-  grandPrixBonus: 0.5,    // la casa suma 50 % al pozo del Gran Premio
+  grandPrixBonus: 0.5,    // en el Gran Premio todas las cuotas suben 50 %
+  oddsSims: 100,          // carreras simuladas para calcular las cuotas
   playerHorsesPerRace: 3,
   // Mafia
   loanOptions: [200, 500],
@@ -31,7 +33,7 @@ const CFG = {
   // Caballos propios
   horsePrice: 400,
   trainPrice: 150,
-  ownerBonus: 0.1,
+  ownerBonus: 50,         // el dueño cobra 50 × la cuota de Ganador de su caballo (mín. 100)
 };
 
 const TRACK_SIZES = ['corta', 'media', 'media', 'larga'];
@@ -48,8 +50,8 @@ const REACTIONS = {
 };
 const REACTION_COOLDOWN_MS = 1500;
 
-// Tipos de apuesta, como en un hipódromo: cada uno tiene su propio pozo mutuo, que se reparte
-// entre los boletos que acertaron ese tipo, en proporción a lo apostado.
+// Tipos de apuesta, como en un hipódromo. La casa ofrece cuotas fijas (cuotas.js): el boleto
+// guarda la cuota del momento y, si acierta, cobra monto × cuota.
 const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
 const BET_TYPES = {
   ganador: { name: 'Ganador', picks: 1, desc: 'Tu caballo llega 1º', hit: (s, o) => s[0] === o[0] },
@@ -61,8 +63,8 @@ const BET_TYPES = {
 };
 // Clave del boleto: en la quiniela el orden no importa
 const ticketKey = (type, sel) => (type === 'quiniela' ? [...sel].sort((a, b) => a - b) : sel).join('-');
-const PEÑA_NAMES = ['Cartel del Heno', 'Los Sin Freno', 'La Peña del Gradiente', 'Herradura Nostra', 'Los Overfitteados',
-  'Club del Lazo', 'Sindicato del Galope', 'Los Tanh Tanh', 'Hermandad del Barro', 'Los Pura Sangre Fría'];
+const PEÑA_NAMES = ['Cartel del Heno', 'Los Sin Freno', 'La Peña de la Zanahoria', 'Herradura Nostra', 'Los Trotamundos',
+  'Club del Lazo', 'Sindicato del Galope', 'Los Relinchos Unidos', 'Hermandad del Barro', 'Los Cascos Ligeros'];
 const PLAYER_COLORS = ['#e85d75', '#4fb3d9', '#9bc53d', '#e0e0d8', '#b07cff', '#ff9f43'];
 
 const BRAINS = loadBrains();
@@ -91,7 +93,6 @@ class Room {
     this.log = [];
     this.lastColor = 0;
     this.history = [];
-    this.carry = 0;
     this.lastActive = Date.now();
     this.newMatch();
   }
@@ -118,7 +119,6 @@ class Room {
   newMatch() {
     this.match = { num: (this.match?.num || 0) + 1, race: 0, total: CFG.races };
     this.awards = null;
-    this.carry = 0;
     this.alliances.clear();
     for (const p of this.players.values()) this.resetPlayer(p);
     this.newRace();
@@ -138,6 +138,7 @@ class Room {
     this.grandPrix = this.match.race === this.match.total;
     const size = TRACK_SIZES[Math.floor(Math.random() * TRACK_SIZES.length)];
     this.track = new Track(Math.floor(Math.random() * 1e6), null, size);
+    this.trackSeed = this.track.seed;
     this.lineup = this.buildLineup();
     this.forms = this.lineup.map(() => +(0.93 + Math.random() * 0.14).toFixed(3));
     this.gates = drawGates(this.lineup.length);
@@ -146,6 +147,7 @@ class Room {
     }));
     this.powerSpend = 0;
     this.results = null;
+    this.requestOdds();
     this.tick = 0;
     this.leader = null;
     this.recentPowers = [];
@@ -155,6 +157,8 @@ class Room {
     }
     this.phase = 'apuestas';
     this.phaseEnds = null; // las apuestas no tienen reloj: arranca cuando todos dicen "listo"
+    const disguised = this.lineup.filter(h => !h.owner && h.skin !== 'normal');
+    if (disguised.length) this.addLog(`Desfile de disfraces: ${disguised.map(h => `${h.name} de ${SKINS[h.skin].name}`).join(', ')}.`);
     if (this.grandPrix) this.narrate('gran_premio');
     else this.narrate('apuestas', { n: `${this.match.race} de ${this.match.total}`, s: size });
   }
@@ -172,17 +176,16 @@ class Room {
       horse.lastRace = Date.now();
       return {
         name: horse.name, color: horse.color, perfil: horse.perfil, estilo: `de ${p.name}`, owner: p.id, ownerName: p.name,
-        brain: horse.brain, handicap: baseHandicap(horse.perfil), level: horse.level,
+        brain: horse.brain, handicap: baseHandicap(horse.perfil), level: horse.level, skin: horse.skin || 'normal',
       };
     });
-    const house = HORSES.map((h, i) => ({ ...h, brain: BRAINS[i], handicap: HANDICAP[i] }))
+    const house = HORSES.map((h, i) => ({ ...h, brain: BRAINS[i], handicap: HANDICAP[i], skin: randomHouseSkin() }))
       .sort(() => Math.random() - 0.5)
       .slice(0, 6 - lineup.length);
     return [...house, ...lineup].sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  // Pozos por tipo: total y lo apostado a cada combinación. El de Ganador también recibe
-  // lo gastado en poderes y el jackpot; en el Gran Premio la casa suma 50 % a todos.
+  // Volumen apostado por tipo y por combinación (informativo: los pagos salen de las cuotas)
   pools() {
     const out = {};
     for (const [type, t] of Object.entries(BET_TYPES)) out[type] = { name: t.name, desc: t.desc, picks: t.picks, total: 0, keys: {} };
@@ -191,14 +194,35 @@ class Room {
       pool.total += tk.amount;
       pool.keys[key] = (pool.keys[key] || 0) + tk.amount;
     }
-    // Ya repartida la carrera, el jackpot pertenece a la próxima: no se vuelve a sumar aquí
-    if (!this.results) out.ganador.total += this.powerSpend + this.carry;
-    const mult = this.grandPrix ? 1 + CFG.grandPrixBonus : 1;
-    for (const pool of Object.values(out)) pool.total = Math.round(pool.total * mult);
     return out;
   }
   pot() { return Object.values(this.pools()).reduce((a, p) => a + p.total, 0); }
-  winStakes() { const k = this.pools().ganador.keys; return this.lineup.map((_, i) => k[String(i)] || 0); }
+
+  // ─── Cuotas de la casa ────────────────────────────
+
+  // Pide al servidor que simule la carrera para calcular probabilidades (en otro hilo).
+  // Sin servidor (pruebas), todos parten con la misma probabilidad.
+  requestOdds() {
+    this.probs = null;
+    const key = `${this.match.num}-${this.match.race}`;
+    const job = {
+      seed: this.trackSeed, size: this.track.size, brains: this.lineup.map(h => h.brain),
+      forms: this.lineup.map((h, i) => this.forms[i] * h.handicap), gates: this.gates, sims: CFG.oddsSims,
+    };
+    if (this.hooks.odds) this.hooks.odds(job, (wins, sims) => this.setOdds(key, wins, sims));
+    else this.setOdds(key, this.lineup.map(() => 1), this.lineup.length);
+  }
+  setOdds(key, wins, sims) {
+    if (key !== `${this.match.num}-${this.match.race}`) return; // llegó tarde: ya es otra carrera
+    this.probs = winProbs(wins, sims);
+    this.addLog(this.grandPrix ? 'La casa publica las cuotas del Gran Premio: todas pagan 50 % más.' : 'La casa publica las cuotas. Que empiece el juego.');
+  }
+  oddsOf(type, sel) { return oddsFor(type, sel, this.probs, this.grandPrix ? 1 + CFG.grandPrixBonus : 1); }
+  oddsBoard() {
+    if (!this.probs) return null;
+    const one = type => this.lineup.map((_, i) => this.oddsOf(type, [i]));
+    return { win: one('ganador'), place: one('place'), podio: one('podio') };
+  }
   betOn(p) { return p.tickets.reduce((a, t) => a + t.amount, 0); }
 
   startRace() {
@@ -217,27 +241,25 @@ class Room {
 
   // Cuánto pagaría cada boleto si la llegada fuera `order` (sin tocar saldos). La usan el pago
   // real y la proyección en vivo del celular, así que siempre coinciden.
-  settle(order, pools = this.pools()) {
+  settle(order) {
     const payouts = [], byType = {};
-    let unclaimed = 0;
-    // Cada pozo se reparte entre los boletos que acertaron, en proporción a lo apostado
     for (const [type, t] of Object.entries(BET_TYPES)) {
-      const pool = pools[type];
-      const hits = [];
-      for (const p of this.players.values()) for (const tk of p.tickets) if (tk.type === type && t.hit(tk.sel, order)) hits.push({ p, tk });
-      const winStake = hits.reduce((a, h) => a + h.tk.amount, 0);
-      byType[type] = { name: t.name, pool: pool.total, winners: hits.length, odds: winStake ? +(pool.total / winStake).toFixed(2) : null };
-      if (!winStake) { unclaimed += pool.total; continue; }
-      for (const { p, tk } of hits) payouts.push({ p, type, sel: tk.sel, stake: tk.amount, win: Math.floor(pool.total * tk.amount / winStake) });
+      for (const p of this.players.values()) for (const tk of p.tickets) {
+        if (tk.type === type && t.hit(tk.sel, order)) payouts.push({ p, type, sel: tk.sel, stake: tk.amount, odds: tk.odds, win: Math.floor(tk.amount * tk.odds) });
+      }
+      // Lo que pagó la combinación ganadora de cada tipo (en Placé y Podio, cada caballo acertado)
+      const winning = type === 'place' ? order.slice(0, 2).map(i => [i]) : type === 'podio' ? order.slice(0, 3).map(i => [i])
+        : [order.slice(0, t.picks)];
+      byType[type] = { name: t.name, combos: this.probs ? winning.map(sel => ({ sel, odds: this.oddsOf(type, sel) })) : [] };
     }
-    return { payouts, byType, unclaimed };
+    return { payouts, byType };
   }
 
   finishRace() {
     const order = this.standings();
     const winner = order[0], W = this.lineup[winner];
-    const pools = this.pools();
-    const { payouts, byType, unclaimed } = this.settle(order, pools);
+    const staked = this.pot();
+    const { payouts, byType } = this.settle(order);
     const ledger = new Map([...this.players.values()].map(p => [p, { won: 0, mafia: 0, commission: 0, owner: 0 }]));
     // Pagar: primero pasa el cobrador de la mafia; los aliados cobran comisión (la paga la casa)
     for (const po of payouts) {
@@ -257,14 +279,13 @@ class Room {
         if (m) { const c = Math.floor(po.win * CFG.allianceCommission); m.coins += c; ledger.get(m).commission += c; }
       }
     }
-    // Lo que nadie acertó pasa al jackpot (se suma al pozo de Ganador de la próxima carrera)
-    const prize = Object.values(pools).reduce((a, p) => a + p.total, 0);
-    this.carry = unclaimed;
+    const paid = payouts.reduce((a, po) => a + po.win, 0);
     if (payouts.length) this.narrate('reparto', { h: W.name });
-    else if (unclaimed > 0) this.narrate('jackpot', { h: W.name });
+    else if (staked > 0) this.narrate('casa', { h: W.name });
     // Premio de propietario
     if (W.owner && this.players.has(W.owner)) {
-      const o = this.players.get(W.owner), bonus = Math.max(100, Math.floor(pools.ganador.total * CFG.ownerBonus));
+      const o = this.players.get(W.owner);
+      const bonus = Math.max(100, Math.floor(CFG.ownerBonus * (this.probs ? this.oddsOf('ganador', [winner]) : 2)));
       o.coins += bonus; o.stats.ownerWins++; ledger.get(o).owner += bonus;
       const acc = this.accounts.get(W.owner);
       if (acc?.horse) acc.horse.wins = (acc.horse.wins || 0) + 1;
@@ -282,10 +303,10 @@ class Room {
       p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
     }
     const publicPayouts = payouts.sort((a, b) => b.win - a.win)
-      .map(({ p, type, sel, stake, win, net }) => ({ name: p.name, id: p.id, type, typeName: BET_TYPES[type].name, sel, stake, win, net }));
+      .map(({ p, type, sel, stake, odds, win, net }) => ({ name: p.name, id: p.id, type, typeName: BET_TYPES[type].name, sel, stake, odds, win, net }));
     const times = order.map(i => this.horses[i].finished ? +(this.horses[i].finishTick / FPS).toFixed(2) : null);
     this.results = {
-      order, times, winner, prize, payouts: publicPayouts, byType, jackpot: unclaimed,
+      order, times, winner, staked, paid, payouts: publicPayouts, byType,
       hits: this.horses.map(h => h.hitsGiven), grandPrix: this.grandPrix,
       quip: quip(times[1] != null && times[0] != null ? times[1] - times[0] : null, times[1] != null && times[0] != null ? times[1] - times[0] : 99),
     };
@@ -385,6 +406,7 @@ class Room {
   publicState() {
     const pools = this.pools(), total = Object.values(pools).reduce((a, p) => a + p.total, 0);
     const win = this.lineup.map((_, i) => pools.ganador.keys[String(i)] || 0);
+    const board = this.oddsBoard();
     const order = this.phase === 'apuestas' ? null : this.standings();
     const online = this.connectedIds();
     return {
@@ -394,11 +416,12 @@ class Room {
       readyCount: [...online].filter(id => this.players.get(id)?.ready).length,
       onlineCount: [...online].filter(id => this.players.has(id)).length,
       laps: this.track.laps, trackSize: this.track.size,
-      pot: this.results ? this.results.prize : total, carry: this.carry, pools,
+      pot: this.results ? this.results.staked : total, pools,
+      probs: this.probs, oddsReady: !!this.probs, margin: MARGIN, gpBonus: this.grandPrix ? 1 + CFG.grandPrixBonus : 1,
       horses: this.lineup.map((h, i) => ({
-        name: h.name, color: h.color, perfil: h.perfil, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null,
+        name: h.name, color: h.color, perfil: h.perfil, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null, skin: h.skin,
         form: this.forms[i], gate: this.gates[i] + 1, hits: this.horses[i].hitsGiven, bets: win[i],
-        odds: win[i] > 0 ? +(pools.ganador.total / win[i]).toFixed(2) : null,
+        odds: board ? board.win[i] : null, oddsPlace: board ? board.place[i] : null, oddsPodio: board ? board.podio[i] : null,
         lap: Math.min(this.track.laps, Math.floor(this.horses[i].laps) + 1),
         pos: order ? order.indexOf(i) + 1 : null,
       })),
@@ -416,7 +439,7 @@ class Room {
       reactions: REACTIONS,
       powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
-        horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
+        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
     };
   }
 
@@ -428,6 +451,7 @@ class Room {
     const horse = acc.horse ? {
       name: acc.horse.name, color: acc.horse.color, perfil: acc.horse.perfil, level: acc.horse.level, enrolled: acc.horse.enrolled,
       training: acc.horse.training || null, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
+      skin: acc.horse.skin || 'normal',
     } : null;
     return {
       id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p), ready: p.ready,
@@ -436,23 +460,17 @@ class Room {
       alliance: a ? { id: a.id, name: a.name, members: [...a.members].map(m => ({ id: m, name: this.players.get(m)?.name })) } : null,
       invites: p.invites.filter(i => this.alliances.has(i.alliance)).map(i => ({ alliance: i.alliance, name: this.alliances.get(i.alliance).name, from: i.from })),
       canAlly: Date.now() >= p.noAllianceUntil,
-      horse, trophies: (acc.trophies || []).length,
+      horse, trophies: (acc.trophies || []).length, skins: acc.skins || ['normal'],
     };
   }
 
   // Boletos del jugador con lo que pagarían si aciertan, lo que lleva gastado en la carrera
   // y, durante la carrera, cuánto cobraría si terminara con las posiciones actuales.
   myBets(p) {
-    const pools = this.pools();
-    const tickets = p.tickets.map(tk => {
-      const pool = pools[tk.type], same = pool.keys[ticketKey(tk.type, tk.sel)] || tk.amount;
-      // En Placé y Podio otros caballos también pueden acertar y compartir el pozo: es un máximo
-      const shared = tk.type === 'place' || tk.type === 'podio';
-      return { ...tk, ifHit: Math.floor(pool.total * tk.amount / same), shared };
-    });
+    const tickets = p.tickets.map(tk => ({ ...tk, ifHit: Math.floor(tk.amount * tk.odds) }));
     let live = null;
     if (this.phase === 'carrera' && p.tickets.length) {
-      const mine = this.settle(this.standings(), pools).payouts.filter(po => po.p === p);
+      const mine = this.settle(this.standings()).payouts.filter(po => po.p === p);
       const gross = mine.reduce((a, po) => a + po.win, 0);
       const mafia = p.debt > 0 ? Math.min(p.debt, mine.reduce((a, po) => a + Math.floor(po.win * CFG.collectorCut), 0)) : 0;
       live = { gross, mafia, hits: mine.map(po => ({ type: po.type, sel: po.sel, win: po.win })) };
@@ -485,14 +503,15 @@ class Room {
     }
     if (!(amount > 0)) return { error: 'Monto inválido' };
     if (amount > p.coins) return { error: 'No tienes suficientes fichas. La mafia presta…' };
+    if (!this.probs) return { error: 'La casa está calculando las cuotas, un segundo…' };
     p.coins -= amount;
     p.stats.bet += amount;
     p.race.bets += amount;
-    const key = ticketKey(type, sel);
-    const same = p.tickets.find(tk => tk.type === type && ticketKey(type, tk.sel) === key);
-    if (same) same.amount += amount; else p.tickets.push({ type, sel, amount });
+    const odds = this.oddsOf(type, sel), key = ticketKey(type, sel);
+    const same = p.tickets.find(tk => tk.type === type && ticketKey(type, tk.sel) === key && tk.odds === odds);
+    if (same) same.amount += amount; else p.tickets.push({ type, sel, amount, odds });
     const names = sel.map(i => this.lineup[i].name).join(type === 'quiniela' ? ' y ' : ' → ');
-    this.addLog(`${p.name} juega ${amount} a ${t.name}: ${names}.`);
+    this.addLog(`${p.name} juega ${amount} a ${t.name}: ${names} (x${odds}).`);
     return {};
   }
 
@@ -683,6 +702,33 @@ class Room {
       color: PLAYER_COLORS.find(c => !used.has(c)) || PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
     };
     this.narrate('potro', { p: p.name, h: name });
+    this.hooks.save();
+    return {};
+  }
+
+  // ─── Tienda de disfraces ──────────────────────────
+
+  buySkin(p, { skin }) {
+    const acc = this.accounts.get(p.id), sk = SKINS[skin];
+    if (!sk) return { error: 'Ese disfraz no existe' };
+    if (!acc.horse) return { error: 'Primero compra un potro para disfrazarlo' };
+    acc.skins = acc.skins || ['normal'];
+    if (acc.skins.includes(skin)) return this.equipSkin(p, { skin });
+    if (p.coins < sk.price) return { error: `Cuesta ${sk.price} fichas` };
+    p.coins -= sk.price;
+    acc.skins.push(skin);
+    this.addLog(`${p.name} compró el disfraz ${sk.name}. La dignidad equina, por los suelos.`);
+    return this.equipSkin(p, { skin });
+  }
+
+  equipSkin(p, { skin }) {
+    const acc = this.accounts.get(p.id);
+    if (!acc.horse) return { error: 'Primero compra un potro para disfrazarlo' };
+    if (!(acc.skins || ['normal']).includes(skin)) return { error: 'Todavía no tienes ese disfraz' };
+    acc.horse.skin = skin;
+    // Si su caballo está en esta carrera, se cambia ya mismo
+    const i = this.lineup.findIndex(h => h.owner === p.id);
+    if (i >= 0 && this.phase === 'apuestas') this.lineup[i].skin = skin;
     this.hooks.save();
     return {};
   }

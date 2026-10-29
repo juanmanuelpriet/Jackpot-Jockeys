@@ -23,7 +23,7 @@ const ROOM_IDLE_MS = 30 * 60 * 1000;
 const accounts = new Map();
 try {
   for (const a of JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'))) {
-    accounts.set(a.id, { id: a.id, name: a.name, horse: a.horse || null, trophies: a.trophies || [] });
+    accounts.set(a.id, { id: a.id, name: a.name, horse: a.horse || null, trophies: a.trophies || [], skins: a.skins || ['normal'] });
   }
 } catch { /* primera vez */ }
 
@@ -52,10 +52,18 @@ function startTraining({ accountId, room, focus, brain, form }) {
   });
 }
 
+// ─── Cuotas: simular cada carrera en un hilo aparte ───
+
+function computeOdds(job, done) {
+  const worker = new Worker(path.join(__dirname, 'cuotasWorker.js'), { workerData: job });
+  worker.once('message', ({ wins, sims }) => done(wins, sims));
+  worker.once('error', err => { console.error('Error calculando cuotas:', err); done(job.brains.map(() => 1), job.brains.length); });
+}
+
 // ─── Salas ───
 
 const rooms = new Map();
-const hooks = { save: saveAccounts, train: startTraining };
+const hooks = { save: saveAccounts, train: startTraining, odds: computeOdds };
 
 function createRoom() {
   let code;
@@ -118,7 +126,7 @@ function broadcastState(room) {
 // ─── Acciones ───
 
 const ROOM_ACTIONS = ['react', 'bet', 'ready', 'power', 'loan', 'repay', 'mafiaFavor', 'createAlliance', 'invite', 'answerInvite',
-  'leaveAlliance', 'gift', 'betray', 'buyHorse', 'enroll', 'train'];
+  'leaveAlliance', 'gift', 'betray', 'buyHorse', 'enroll', 'train', 'buySkin', 'equipSkin'];
 
 function handleAction(name, body) {
   if (name === 'sala') {
@@ -139,7 +147,7 @@ function handleAction(name, body) {
     let acc = body.id && accounts.get(body.id);
     if (!acc) {
       if (!nm) return { error: 'Escribe tu nombre' };
-      acc = { id: crypto.randomUUID(), name: nm, horse: null, trophies: [] };
+      acc = { id: crypto.randomUUID(), name: nm, horse: null, trophies: [], skins: ['normal'] };
       accounts.set(acc.id, acc);
     } else if (nm) acc.name = nm;
     room.join({ id: acc.id, name: acc.name });
@@ -188,7 +196,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       raceKey: `${room.match.num}-${room.match.race}`, track: room.track, gates: room.gates,
-      horses: room.lineup.map(h => ({ name: h.name, color: h.color })),
+      horses: room.lineup.map(h => ({ name: h.name, color: h.color, skin: h.skin })),
       joinUrl: `${publicBase(req)}/cel?sala=${room.code}`,
     }));
     return;

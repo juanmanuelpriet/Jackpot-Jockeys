@@ -42,7 +42,8 @@ const rivals = PROFILE === 'bravo' && exists('caballos_corredor.json') ? read('c
 let rivalForm = 1;
 if (rivals.length && exists('handicap.json')) {
   const h = read('handicap.json');
-  const vals = ['Backprop', 'Gradiente', 'Tanh Tanh'].map(n => h[n]).filter(Boolean);
+  const { HORSES } = require('./establo');
+  const vals = HORSES.filter(x => x.perfil === 'corredor').map(x => h[x.name]).filter(Boolean);
   if (vals.length) rivalForm = vals.reduce((a, b) => a + b, 0) / vals.length;
 }
 const opts = { fitness, rivals, rivalForm, form: SPEED, rng };

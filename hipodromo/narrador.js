@@ -50,7 +50,7 @@ const LINES = {
   rayo: ['¡RAYO de {p}! Todos congelados menos {h}.', '{p} lanza un rayo. Física cuántica equina a favor de {h}.'],
   bloqueado: ['El escudo de {h} rebota lo de {p}. Plata perdida.', '{p} intentó sabotear a {h}, pero el escudo dijo que no.'],
   meta: ['¡{h} cruza primero la meta!', '¡{h} gana! Las redes neuronales también tienen días buenos.'],
-  jackpot: ['Nadie le apostó a {h}. El jackpot crece y la casa sonríe.', 'Ganó {h} y nadie le creyó. Jackpot acumulado.'],
+  casa: ['Ganó {h} y nadie acertó. La casa se queda con todo y sonríe.', 'Ganó {h}. Boletos al piso: hoy la banca invita… a nada.'],
   reparto: ['Ganó {h}. Hay cobro para los que creyeron.', '{h} paga. Alguien hoy invita la cena.'],
   gran_premio: ['¡GRAN PREMIO! Última carrera: la casa pone 50 % extra al pozo.', 'Llegó el Gran Premio. Aquí se hacen las fortunas… y las deudas.'],
   fin_partida: ['¡Se acabó la partida! {p} se lleva la noche.', 'Fin de la partida. {p} es el rey del hipódromo, por ahora.'],

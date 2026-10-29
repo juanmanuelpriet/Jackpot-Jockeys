@@ -112,6 +112,14 @@
   .liveBox .big { font-size: 22px; font-weight: 700; }
   .pos { color: var(--ok); } .neg { color: var(--red); }
   .ledger .row span:last-child { font-variant-numeric: tabular-nums; }
+  .shop { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .skin { background: var(--card2); border: 1px solid var(--line); padding: 10px; color: var(--txt); font-family: var(--display); text-align: left; }
+  .skin .i { font-size: 30px; line-height: 1; }
+  .skin b { display: block; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .skin small { display: block; font-size: 11px; color: var(--mute); margin: 2px 0 6px; line-height: 1.3; min-height: 28px; }
+  .skin .p { color: var(--amber); font-weight: 600; }
+  .skin.on { border-color: var(--gold); background: rgba(201,162,74,0.15); }
+  .skin.on .p { color: var(--ok); }
   .hidden { display: none !important; }
   .hint { color: var(--mute); font-size: 14px; line-height: 1.4; letter-spacing: .3px; }
 </style>
@@ -189,6 +197,37 @@ let myId = store.get('jj_id');
 let state = null, me = null, selHorse = null, amount = 50, lastRaceKey = null, joining = false;
 let betType = 'ganador', picks = []; // apuesta en preparación: tipo y caballos en orden (1º, 2º, 3º)
 const ORD = ['1º', '2º', '3º'];
+// Las mismas cuotas que calcula la casa (cuotas.js): Harville + margen, con las probabilidades del servidor
+function orderedProb(p, sel) { let prob = 1, used = 0; for (const i of sel) { prob *= p[i] / (1 - used); used += p[i]; } return prob; }
+function betProb(type, sel, p) {
+  const n = p.length, others = i => [...Array(n).keys()].filter(x => x !== i), i = sel[0];
+  if (type === 'ganador') return p[i];
+  if (type === 'place') return p[i] + others(i).reduce((a, j) => a + orderedProb(p, [j, i]), 0);
+  if (type === 'podio') { let r = p[i]; for (const j of others(i)) { r += orderedProb(p, [j, i]); for (const k of others(i)) if (k !== j) r += orderedProb(p, [j, k, i]); } return r; }
+  if (type === 'quiniela') return orderedProb(p, [sel[0], sel[1]]) + orderedProb(p, [sel[1], sel[0]]);
+  return orderedProb(p, sel);
+}
+function quote(type, sel) {
+  const prob = betProb(type, sel, state.probs);
+  return +Math.min(5000, Math.max(1.05, (1 - state.margin) / prob * state.gpBonus)).toFixed(2);
+}
+// Rango de cuotas de cada tipo (de la más segura a la más difícil)
+function oddsRange(type, picks) {
+  const n = state.horses.length, all = [];
+  const rec = sel => { if (sel.length === picks) { all.push(quote(type, sel)); return; } for (let i = 0; i < n; i++) if (!sel.includes(i)) rec([...sel, i]); };
+  rec([]);
+  return [Math.min(...all), Math.max(...all)];
+}
+const TIPS = [
+  'Lo que ves en tu boleto es lo que cobras: la cuota queda fija aunque los demás apuesten.',
+  'Las cuotas salen de simular esta misma carrera 100 veces con estas mismas redes neuronales.',
+  'Placé y Podio pagan poco, pero aciertas seguido. La Trifecta puede pagar x1.000.',
+  'Los poderes cuestan: úsalos cuando tu boleto lo valga.',
+  'La mafia presta, pero su cobrador se lleva la mitad de tus premios hasta que pagues.',
+  'En el Gran Premio todas las cuotas pagan 50 % más.',
+];
+let tip = TIPS[Math.floor(Math.random() * TIPS.length)];
+const xs = n => 'x' + (n >= 100 ? Math.round(n).toLocaleString('es') : n.toFixed(2));
 const ticketKey = (type, sel) => (type === 'quiniela' ? [...sel].sort((a, b) => a - b) : sel).join('-');
 const pickNames = (type, sel) => sel.map(i => state.horses[i].name).join(type === 'quiniela' ? ' y ' : ' → ');
 const AMOUNTS = [10, 50, 100, 250, 'Todo'];
@@ -258,14 +297,15 @@ function renderMyRace() {
       <div>Mafia<b>${me.race.favor ? '+' + fmt(me.race.favor) : '0'}</b>${me.race.favor ? 'de deuda' : ''}</div></div>`;
   html += me.tickets.map(tk => `<div class="tk ${liveKeys.has(tk.type + ':' + tk.sel.join('-')) ? 'hit' : ''}">
       <span><b>${esc(s.pools[tk.type].name)}</b>${esc(pickNames(tk.type, tk.sel))}</span><span>${fmt(tk.amount)}</span>
-      <span class="if">Si acierta cobras ${tk.shared ? 'hasta ' : ''}<em>${fmt(tk.ifHit)}</em> (x${(tk.ifHit / tk.amount).toFixed(2)}) con los pozos de ahora</span></div>`).join('');
+      <span class="if">Cuota fija ${xs(tk.odds)}: si acierta cobras <em>${fmt(tk.ifHit)}</em></span></div>`).join('');
   if (s.phase === 'carrera' && me.live) {
     const got = me.live.gross - me.live.mafia, bal = got - spent;
     html += `<div class="liveBox">Si la carrera terminara ahora:<br>
       ${me.live.gross ? `cobrarías <span class="big pos">${fmt(me.live.gross)}</span>${me.live.mafia ? ` (la mafia se queda ${fmt(me.live.mafia)})` : ''}`
         : '<span class="big neg">no cobrarías nada</span>'}<br>Balance de la carrera: <b>${signed(bal)}</b></div>`;
   } else if (s.phase === 'apuestas' && spent) {
-    html += `<p class="hint" style="margin:8px 0 0">Llevas ${fmt(spent)} en juego. Los pagos cambian a medida que todos apuestan; el final se calcula al cruzar la meta.</p>`;
+    const best = me.tickets.reduce((a, tk) => a + tk.ifHit, 0);
+    html += `<p class="hint" style="margin:8px 0 0">Llevas ${fmt(spent)} en juego. Si aciertan todos tus boletos cobrarías ${fmt(best)}.</p>`;
   }
   setHTML('myRace', html);
 }
@@ -290,7 +330,7 @@ function render() {
   document.getElementById('myName').textContent = `${me.name} · sala ${s.sala}${me.trophies ? ` · ${me.trophies} trofeos` : ''}`;
   document.getElementById('coins').innerHTML = `${fmt(me.coins)} <small>fichas</small>`;
   document.getElementById('debtTxt').textContent = me.debt ? `Debes ${fmt(me.debt)} a la mafia · neto ${fmt(me.net)}` : '';
-  document.getElementById('potTxt').innerHTML = `${s.grandPrix ? 'Pozo Gran Premio' : s.carry ? 'Pozo + jackpot' : 'Pozo'}<b>${fmt(s.pot)}</b>`;
+  document.getElementById('potTxt').innerHTML = `${s.grandPrix ? 'Gran Premio · cuotas +50 %' : 'En juego'}<b>${fmt(s.pot)}</b>`;
   const phaseNames = {
     apuestas: `${s.grandPrix ? 'Gran Premio' : `Carrera ${s.match.race}/${s.match.total}`} · pista ${s.trackSize}`,
     carrera: s.grandPrix ? 'Gran Premio en curso' : 'En carrera', resultados: 'Resultados', final: 'Fin de la partida',
@@ -335,33 +375,32 @@ function renderCarrera() {
   setHTML('horses', rows.map(({ h, i }) => {
     const mine = me.tickets.filter(tk => tk.sel.includes(i)).reduce((a, tk) => a + tk.amount, 0), formPct = Math.round((h.form - 1) * 100);
     const pk = picks.indexOf(i), chosen = betting ? pk >= 0 : selHorse === i;
-    // Cuota de este caballo en el pozo del tipo elegido (solo para apuestas de un caballo)
-    const oneKey = T.picks === 1 ? T.keys[String(i)] || 0 : 0;
-    const odds = betting && T.picks === 1 ? (oneKey ? T.total / oneKey : null) : h.odds;
+    // Cuota de este caballo en el tipo elegido (en las combinadas, la de Ganador como referencia)
+    const odds = !s.oddsReady ? null : betting && T.picks === 1 ? quote(betType, [i]) : h.odds;
     const who = h.ownerName ? `De ${esc(h.ownerName)}${h.level ? ` · nivel ${h.level}` : ''}` : esc(h.estilo[0].toUpperCase() + h.estilo.slice(1));
     return `<div class="horse ${chosen ? 'sel' : ''}" data-i="${i}">
       <div class="silk" style="background:${h.color}"></div>
       <div class="num">${betting ? i + 1 : h.pos}</div>
-      <div><b>${esc(h.name)}</b>${betting && pk >= 0 && T.picks > 1 ? `<span class="pick">${betType === 'quiniela' ? '✓' : ORD[pk]}</span>` : ''}
+      <div><b>${h.skin && h.skin !== 'normal' && s.cfg.skins[h.skin] ? s.cfg.skins[h.skin].icon + ' ' : ''}${esc(h.name)}</b>${betting && pk >= 0 && T.picks > 1 ? `<span class="pick">${betType === 'quiniela' ? '✓' : ORD[pk]}</span>` : ''}
         <div class="sub">${who} · ${betting ? `cajón ${h.gate} · forma ${formPct >= 0 ? '+' : ''}${formPct}%` : `vuelta ${h.lap}/${s.laps}${h.hits ? ` · ${h.hits} embestidas` : ''}`}</div>
         ${mine ? `<div class="mine">En tus boletos: ${fmt(mine)}</div>` : ''}</div>
-      <div class="right"><div class="odds">${odds ? 'x' + odds.toFixed(2) : '—'}</div><div class="sub">${betting && T.picks === 1 ? `${fmt(oneKey)} en ${esc(T.name)}` : `${fmt(h.bets)} a ganador`}</div></div>
+      <div class="right"><div class="odds">${odds ? xs(odds) : '—'}</div><div class="sub">${betting ? (T.picks === 1 ? esc(T.name) : 'a ganador') : `${fmt(h.bets)} apostado`}</div></div>
     </div>`;
   }).join(''));
 
   setHTML('chips', AMOUNTS.map(a => `<button class="chip ${amount === a ? 'sel' : ''}" data-a="${a}">${a}</button>`).join(''));
   setHTML('types', Object.entries(s.pools).map(([k, t]) =>
-    `<button class="type ${betType === k ? 'sel' : ''}" data-t="${k}"><b>${esc(t.name)}</b><small>pozo ${fmt(t.total)}</small></button>`).join(''));
+    `<button class="type ${betType === k ? 'sel' : ''}" data-t="${k}"><b>${esc(t.name)}</b><small>${s.oddsReady ? (([lo, hi]) => `${xs(lo)} – ${xs(hi)}`)(oddsRange(k, t.picks)) : '…'}</small></button>`).join(''));
   // Jugada en preparación y pago estimado (si nadie más apostara lo mismo después)
   const a = amount === 'Todo' ? me.coins : amount;
   let info = `<b>${esc(T.name)}:</b> ${esc(T.desc)}.`;
-  if (picks.length === T.picks) {
-    const same = T.keys[ticketKey(betType, picks)] || 0;
-    const est = a > 0 ? (T.total + a) / (same + a) : 0;
-    info += `<br>Tu jugada: <b>${esc(pickNames(betType, picks))}</b><br>Pago estimado <span class="est">x${est.toFixed(2)}</span> · cobrarías ~${fmt(Math.floor(est * a))}`;
+  if (!s.oddsReady) info = `<b>La casa está calculando las cuotas…</b><br>Está simulando esta carrera 100 veces. Un segundo.<br><span class="hint">Consejo: ${esc(tip)}</span>`;
+  else if (picks.length === T.picks) {
+    const q = quote(betType, picks), back = Math.floor(q * a);
+    info += `<br>Tu jugada: <b>${esc(pickNames(betType, picks))}</b><br>Cuota fija <span class="est">${xs(q)}</span> · apuestas ${fmt(a)} y si aciertas cobras <span class="est">${fmt(back)}</span> (ganas ${fmt(back - a)})`;
   } else if (T.picks > 1) info += `<br>Elegidos ${picks.length} de ${T.picks}${betType === 'quiniela' ? '' : ': el primero que toques es el 1º'}.`;
   setHTML('pickInfo', info);
-  document.getElementById('betBtn').disabled = picks.length !== T.picks || me.coins <= 0;
+  document.getElementById('betBtn').disabled = !s.oddsReady || picks.length !== T.picks || me.coins <= 0;
   renderMyRace();
 
   const cd = me.cooldown || 0;
@@ -381,9 +420,9 @@ function renderCarrera() {
     setHTML('results', `<div class="result"><div class="k">${r.grandPrix ? 'Ganador del Gran Premio' : 'Ganador'}</div>
       <h2>${esc(s.horses[r.winner].name)}</h2><p class="hint">${esc(r.quip || '')}</p>
       ${win ? `<p>Cobras <span class="win">${fmt(win.win)}</span> fichas${win.net < win.win ? `, pero la mafia se quedó con ${fmt(win.win - win.net)}` : ''}.</p>
-        ${wins.map(w => `<div class="ticket"><span><b>${esc(w.typeName)}</b>${esc(pickNames(w.type, w.sel))}</span><span>+${fmt(w.win)}</span></div>`).join('')}` : lost ? '<p>Tus boletos tenían otros planes. Hay revancha en segundos.</p>' : ''}
+        ${wins.map(w => `<div class="ticket"><span><b>${esc(w.typeName)}</b>${esc(pickNames(w.type, w.sel))} · ${xs(w.odds)}</span><span>+${fmt(w.win)}</span></div>`).join('')}` : lost ? '<p>Tus boletos tenían otros planes. Hay revancha en segundos.</p>' : ''}
       ${ledgerHTML(me.lastRace)}
-      ${r.jackpot ? `<p class="hint">Nadie le apostó: ${fmt(r.jackpot)} fichas pasan al jackpot.</p>` : ''}</div>
+</div>
       ${s.phase === 'final' && s.awards ? `<div class="card"><h3>Premios de la noche</h3>
         ${s.awards.map(a => `<div class="row"><span>${esc(a.title)}<br><small class="hint">${esc(a.desc)}</small></span><b>${esc(a.name)}</b></div>`).join('')}
         <p class="hint">Nueva partida en ${s.timeLeft}s. Todos vuelven a 1000 fichas y sin deudas.</p></div>` : ''}`);
@@ -400,7 +439,8 @@ function renderCaballo() {
         <button class="btn2" data-buy="corredor">Corredor<br><small class="hint">rápido y limpio</small></button>
         <button class="btn2 red" data-buy="bravo">Bravo<br><small class="hint">nació para embestir</small></button>
       </div>
-      <p class="hint">Cuesta ${c.horsePrice} fichas.</p></div>`);
+      <p class="hint">Cuesta ${c.horsePrice} fichas.</p></div>
+      ${shopHTML(null)}`);
     return;
   }
   const last = h.history[h.history.length - 1];
@@ -421,7 +461,20 @@ function renderCaballo() {
         <button class="btn2" data-train="control">Control</button>
       </div>`}
       ${last ? `<p class="hint" style="margin-top:10px">Último entrenamiento (${esc(last.focus)}): embestidas ${last.antes.golpes} → ${last.despues.golpes}, salidas ${last.antes.salidas} → ${last.despues.salidas}, tropiezos ${last.antes.tropiezos} → ${last.despues.tropiezos}.</p>` : ''}
-    </div>`);
+    </div>
+    ${shopHTML(h)}`);
+}
+
+// Tienda de disfraces: solo cambian cómo se ve tu potro en la pantalla grande
+function shopHTML(h) {
+  const skins = state.cfg.skins, owned = me.skins || ['normal'];
+  return `<div class="card"><h3>Tienda de disfraces</h3>
+    <p class="hint" style="margin-top:0">${h ? 'Disfraza a tu potro: no corre más rápido, pero la dignidad está sobrevalorada.' : 'Compra un potro y podrás disfrazarlo. Los caballos de la casa también salen disfrazados a veces.'}</p>
+    <div class="shop">${Object.entries(skins).map(([k, sk]) => {
+      const has = owned.includes(k), on = h && h.skin === k;
+      const label = on ? 'Puesto' : has ? 'Ponérselo' : `${sk.price} fichas`;
+      return `<button class="skin ${on ? 'on' : ''}" data-skin="${k}" ${!h ? 'disabled' : ''}><div class="i">${sk.icon}</div><b>${esc(sk.name)}</b><small>${esc(sk.desc)}</small><span class="p">${label}</span></button>`;
+    }).join('')}</div></div>`;
 }
 
 function renderMafia() {
@@ -493,7 +546,10 @@ document.getElementById('nav').onclick = e => {
 };
 document.getElementById('game').addEventListener('click', async e => {
   const d = e.target.closest('button')?.dataset; if (!d) return;
-  if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) toast(`¡${n} es tuyo!`); }
+  if (d.skin) {
+    const owned = (me.skins || []).includes(d.skin), sk = state.cfg.skins[d.skin];
+    if (await api(owned ? 'equipSkin' : 'buySkin', { skin: d.skin })) toast(owned ? `${sk.icon} ¡Listo! Tu potro ahora es ${sk.name}.` : `${sk.icon} Compraste ${sk.name}. Sin devoluciones.`);
+  } else if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) toast(`¡${n} es tuyo!`); }
   else if (d.enroll) api('enroll', { enrolled: d.enroll === '1' });
   else if (d.train) { if (await api('train', { focus: d.train })) toast('A entrenar. La red vuelve en unos segundos.'); }
   else if (d.loan) { if (await api('loan', { amount: +d.loan })) toast('Don Caballone sonríe. Eso nunca es buena señal.'); }
@@ -550,7 +606,7 @@ document.getElementById('reactBar').onclick = e => {
 
 // ─── Cómo se juega ───
 const TUTO = [
-  ['Apuesta', 'No hay prisa: la carrera arranca cuando <b>todos</b> tocan "Estoy listo". Como en un hipódromo: <b>Ganador</b> (1º), <b>Placé</b> (1º o 2º), <b>Podio</b> (entre los 3 primeros), <b>Quiniela</b> (los 2 primeros en cualquier orden), <b>Exacta</b> (1º y 2º en orden) y <b>Trifecta</b> (1º, 2º y 3º en orden). Cada tipo tiene su propio pozo: entre más difícil, más paga. Si nadie acierta, el pozo va al <b>jackpot</b>.'],
+  ['Apuesta', 'No hay prisa: la carrera arranca cuando <b>todos</b> tocan "Estoy listo". La casa pone <b>cuotas fijas</b>, como en un hipódromo: <b>Ganador</b> (1º), <b>Placé</b> (1º o 2º), <b>Podio</b> (entre los 3 primeros), <b>Quiniela</b> (los 2 primeros en cualquier orden), <b>Exacta</b> (1º y 2º en orden) y <b>Trifecta</b> (1º, 2º y 3º en orden). Lo que ves en tu boleto es lo que cobras: entre más difícil, más paga. Una Trifecta puede darte x1.000… o dejarte en la ruina.'],
   ['Ayuda o sabotea', 'Durante la carrera toca un caballo y lánzale un poder: <b>zanahoria</b> para ayudarlo, <b>lazo</b> o <b>vendas</b> para frenarlo, <b>rayo</b> para congelar a todos los demás. Los caballos son redes neuronales: reaccionan solos.'],
   ['La mafia', '¿Sin fichas? <b>Don Caballone</b> te presta… al 12 % por carrera, y su cobrador se queda con la mitad de lo que ganes hasta que pagues. También "arregla" carreras, si no te importa deber más.'],
   ['Tu peña', 'Alíate con hasta dos amigos: se pasan fichas, cobran comisión cuando uno gana y, si sabotean juntos al mismo caballo, el efecto es doble. O traiciónalos y llévate el 20 % de sus fichas.'],
@@ -582,7 +638,7 @@ function connect() {
   if (es) es.close();
   es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;
-    if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; }
+    if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; tip = TIPS[Math.floor(Math.random() * TIPS.length)]; }
     lastRaceKey = m.raceKey;
     state = m;
     if (m.me) { me = m.me; drawReactions(); render(); return; }

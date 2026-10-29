@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED } = require('./sim');
 const { HORSES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
-const { probsFromRatings, updateRating, payFactors, oddsFor } = require('./cuotas');
+const { probsFromRatings, updateRating, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
 
 const CFG = {
   grandPrixEvery: 8,      // la partida no se acaba: cada 8 carreras hay un Gran Premio
@@ -436,7 +436,7 @@ class Room {
       onlineCount: [...online].filter(id => this.players.has(id)).length,
       laps: this.track.laps, trackSize: this.track.size,
       pot: this.results ? this.results.staked : total, pools,
-      probs: this.probs, oddsReady: !!this.probs, pay: this.pay,
+      probs: this.probs, oddsReady: !!this.probs, pay: this.pay, oddsCap: ODDS_CAP,
       horses: this.lineup.map((h, i) => ({
         name: h.name, color: h.color, perfil: h.perfil, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null, skin: h.skin,
         form: this.forms[i], recent: this.recent[h.name] || [], gate: this.gates[i] + 1, hits: this.horses[i].hitsGiven, bets: win[i],

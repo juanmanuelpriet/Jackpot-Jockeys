@@ -113,11 +113,18 @@ La pantalla muestra cuántos están listos y quién falta. Si alguien se distrae
 **Cuotas fijas que salen de los resultados** (`cuotas.js`). En la **carrera 1 todos los caballos son iguales** y
 manda el azar: "Que gane" paga x2 en cualquiera. Cada caballo tiene una **forma** que empieza en 0 y, después de
 cada carrera, sube o baja según su puesto (1º +0.6 … 6º −0.5; las carreras viejas pesan menos). La probabilidad de
-ganar sale de esa forma y las combinadas de la fórmula de Harville, la de los hipódromos. Así, **el que gana paga
-menos la próxima vez y el que pierde paga más**: tras ganar dos veces seguidas un caballo baja a x1.4 y el que llegó
-último dos veces sube a x9–x10. Además, el **factor de pago** sube carrera a carrera: en la carrera 1 la casa es
-tacaña (x2) y desde la carrera 5 devuelve en promedio el 85 % de lo apostado, así que la partida se pone más jugosa
-según avanza la partida. En el Gran Premio (cada 8 carreras) todo paga 50 % más. No hay que esperar a ninguna simulación: las cuotas están listas
+ganar sale de esa forma (mezclada con "todos iguales") y las combinadas de la fórmula de Harville, la de los
+hipódromos. Así, **el que gana paga menos la próxima vez y el que pierde paga más**: tras ganar dos veces un caballo
+baja a ~x2.25 y el que llegó último sube a ~x4 (carrera 3). Además, el **factor de pago** sube carrera a carrera: en la
+carrera 1 la casa es tacaña (x2) y desde la carrera 5 devuelve como mucho el 80–87 % de lo apostado.
+
+**La casa nunca pierde a la larga.** Los resultados pasados casi no predicen la próxima carrera (manda la forma del
+día, que se sortea en cada carrera). Si las cuotas les hicieran caso del todo, el caballo que pierde seguido llegaría
+a pagar x30 y aun así ganaría 1 de cada 6: apostar a todo devolvía ~3 fichas por ficha. Por eso en `cuotas.js` la
+forma pesa solo el 35 % (`FORM_WEIGHT`), tiene tope (`MAX_RATING`) y ninguna cuota paga más de 1.2 veces lo que
+pagaría con todos iguales (`ODDS_CAP`). Comprobado con 2.000 carreras simuladas: desde la carrera 5 ninguna estrategia
+(apostar a todo, al favorito o siempre a lo que más paga, en cualquier tipo de apuesta) recupera más de ~0.87 por
+ficha. El análisis completo está en `analisis/Jackpot_Jockeys_Analisis.xlsx`. En el Gran Premio (cada 8 carreras) todo paga 50 % más. No hay que esperar a ninguna simulación: las cuotas están listas
 apenas empieza la carrera. El celular y la pantalla muestran los últimos puestos de cada caballo (🥇 🥈 🥉 4º…).
 
 **Lo que ves en tu boleto es lo que cobras:** la cuota queda fija al apostar y, si aciertas, cobras monto × cuota,

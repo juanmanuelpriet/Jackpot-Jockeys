@@ -24,6 +24,7 @@ const ROOM_IDLE_MS = 30 * 60 * 1000;
 const accounts = new Map();
 try {
   for (const a of JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'))) {
+    if (!a || !a.id) continue; // una entrada dañada no debe borrar las demás cuentas
     accounts.set(a.id, { id: a.id, name: a.name, horse: a.horse || null, trophies: a.trophies || [], skins: a.skins || ['normal'] });
   }
 } catch { /* primera vez */ }

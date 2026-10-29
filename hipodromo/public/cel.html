@@ -290,7 +290,8 @@ function betProb(type, sel, p) {
 }
 function quote(type, sel) {
   const prob = betProb(type, sel, state.probs);
-  return +Math.min(5000, Math.max(1.05, state.pay[type] / prob)).toFixed(2);
+  const even = state.pay[type] / betProb(type, sel, state.probs.map(() => 1 / state.probs.length)); // si todos fueran iguales
+  return +Math.min(5000, Math.max(1.05, Math.min(state.pay[type] / prob, even * state.oddsCap))).toFixed(2);
 }
 // Pago máximo de un tipo (para decirle al jugador "hasta cuánto paga")
 function maxOdds(type, picks) {
@@ -720,7 +721,7 @@ const TUTO = [
   ['🎟️', 'Cómo apostar', '① Elige <b>qué apuestas</b>. ② Toca el <b>caballo</b>. ③ Elige <b>cuánto</b> y toca <b>Apostar</b>. Puedes hacer varias apuestas en la misma carrera.',
     'Apuestas <b>100</b> a que gana Don Galope, que paga <b>x2</b> → si gana recibes <b>200</b>. Si no, pierdes los 100.'],
   ['🎲', 'Las cuotas', 'La cuota (x2, x5…) dice <b>cuánto multiplica</b> tu apuesta. En la carrera 1 todos los caballos son iguales y manda el azar. Después, <b>el que gana paga menos</b> y el que pierde paga más.',
-    'Don Galope ganó 2 veces → ahora paga x1.4. Pancho Trotes llegó último → ahora paga x9.'],
+    'Don Galope ganó 2 veces → ahora paga x2.25. Pancho Trotes llegó último → ahora paga x4.'],
   ['🏆', 'Lo difícil paga más', '<b>Que gane</b>: tu caballo llega 1º. <b>Top 2 / Podio</b>: llega entre los 2 o 3 primeros (fácil, paga poco). <b>Pareja</b>, <b>1º y 2º</b> y <b>1º, 2º y 3º</b>: adivinas varios puestos (difícil, paga muchísimo).',
     'En la carrera 1: Podio x1.2 · Que gane x2 · 1º y 2º x8 · 1º, 2º y 3º <b>x30</b>. Y las cuotas suben carrera a carrera.'],
   ['✅', 'Listo y ¡arrancan!', 'Cuando todos tocan <b>Listo</b>, la carrera arranca. No hay reloj: piensa con calma. En la pantalla grande el anfitrión también puede tocar <b>¡Iniciar ya!</b>',

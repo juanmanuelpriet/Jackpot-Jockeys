@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Hipódromo · Apuestas</title>
+<style>
+  :root { --bg: #0d1410; --card: #18241c; --line: #2a3a2f; --txt: #e8f0ea; --mute: #8fa597; --gold: #f5c542; --red: #ff5d5d; --green: #4ade80; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 16px; padding-bottom: 40px; max-width: 520px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .coins { font-size: 26px; font-weight: 800; color: var(--gold); }
+  .name { color: var(--mute); font-size: 14px; }
+  .phase { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-weight: 700; display: flex; justify-content: space-between; }
+  .phase .t { color: var(--gold); }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--mute); margin: 18px 0 8px; }
+  .horses { display: grid; gap: 8px; }
+  .horse { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 10px 12px; cursor: pointer; }
+  .horse.sel { border-color: var(--gold); }
+  .horse .num { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; }
+  .horse .sub { font-size: 12px; color: var(--mute); }
+  .horse .right { text-align: right; font-size: 13px; }
+  .horse .odds { font-weight: 800; font-size: 16px; }
+  .mine { color: var(--green); font-size: 12px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { flex: 1; min-width: 56px; padding: 12px 0; border-radius: 10px; background: var(--card); border: 1px solid var(--line); color: var(--txt); font-weight: 700; font-size: 15px; }
+  .chip.sel { background: var(--gold); color: #111; }
+  button.main { width: 100%; padding: 16px; border: 0; border-radius: 14px; background: var(--gold); color: #111; font-size: 18px; font-weight: 800; margin-top: 12px; }
+  button:disabled { opacity: .4; }
+  .powers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .power { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; color: var(--txt); text-align: left; }
+  .power b { display: block; font-size: 16px; }
+  .power small { color: var(--mute); display: block; margin: 2px 0 6px; }
+  .power .cost { color: var(--gold); font-weight: 800; }
+  .power.bad b { color: var(--red); }
+  input { width: 100%; padding: 16px; font-size: 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--txt); }
+  .msg { position: fixed; left: 16px; right: 16px; bottom: 16px; background: #000d; padding: 14px; border-radius: 12px; text-align: center; font-weight: 700; display: none; }
+  .big { text-align: center; padding: 24px 12px; background: var(--card); border-radius: 16px; }
+  .big .e { font-size: 54px; }
+  .big h2 { margin: 8px 0; }
+  .hidden { display: none; }
+  .hint { color: var(--mute); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>🏇 Hipódromo Neuronal</h1>
+  <p class="hint">Los caballos son redes neuronales entrenadas. Apuesta, ayuda a tu favorito y sabotea a los demás.</p>
+  <input id="nameIn" placeholder="Tu nombre" maxlength="16" autocomplete="off">
+  <button class="main" id="joinBtn">Entrar</button>
+</div>
+
+<div id="game" class="hidden">
+  <header>
+    <div><div class="name" id="myName"></div><div class="coins" id="coins">0</div></div>
+    <div class="right hint" id="potTxt"></div>
+  </header>
+  <div class="phase"><span id="phaseTxt"></span><span class="t" id="timeTxt"></span></div>
+
+  <div id="results" class="hidden"></div>
+
+  <h3 id="horsesTitle">Elige un caballo</h3>
+  <div class="horses" id="horses"></div>
+
+  <div id="betBox">
+    <h3>Monto</h3>
+    <div class="chips" id="chips"></div>
+    <button class="main" id="betBtn">Apostar</button>
+  </div>
+
+  <div id="powerBox" class="hidden">
+    <h3>Poderes sobre el caballo elegido</h3>
+    <div class="powers" id="powers"></div>
+    <p class="hint">Lo que gastas en poderes se suma al pozo.</p>
+  </div>
+</div>
+
+<div class="msg" id="msg"></div>
+
+<script>
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let myId = store.get('hip_id');
+let state = null, me = null, selHorse = null, amount = 50;
+const AMOUNTS = [10, 50, 100, 250, 'Todo'];
+const setHTML = (id, html) => { const el = document.getElementById(id); if (el._h !== html) { el.innerHTML = html; el._h = html; } };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function toast(text) {
+  const m = document.getElementById('msg');
+  m.textContent = text; m.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => m.style.display = 'none', 2200);
+}
+
+async function api(action, body) {
+  const r = await fetch('/api/' + action, { method: 'POST', body: JSON.stringify({ id: myId, ...body }) });
+  const j = await r.json();
+  if (j.error) { toast(j.error); return null; }
+  if (j.me) { me = { ...me, ...j.me }; render(); }
+  return j;
+}
+
+document.getElementById('joinBtn').onclick = async () => {
+  const j = await api('join', { name: document.getElementById('nameIn').value });
+  if (j) { myId = j.me.id; store.set('hip_id', myId); connect(); }
+};
+
+document.getElementById('betBtn').onclick = async () => {
+  if (selHorse == null) return toast('Elige un caballo');
+  const a = amount === 'Todo' ? me.coins : amount;
+  const j = await api('bet', { horse: selHorse, amount: a });
+  if (j) toast(`✅ Apostaste ${a} a ${state.horses[selHorse].name}`);
+};
+
+function usePower(key) {
+  if (selHorse == null) return toast('Elige un caballo primero');
+  api('power', { power: key, horse: selHorse }).then(j => j && toast(`${state.powers[key].name} → ${state.horses[selHorse].name}`));
+}
+
+function render() {
+  if (!state || !me) return;
+  const s = state;
+  document.getElementById('myName').textContent = me.name;
+  document.getElementById('coins').textContent = me.coins.toLocaleString('es') + ' fichas';
+  document.getElementById('potTxt').innerHTML = `Pozo<br><b style="color:var(--gold)">${s.pot.toLocaleString('es')}</b>` + (s.carry ? '<br>🔥 Jackpot' : '');
+  const phaseNames = { apuestas: `Carrera #${s.raceNum} · Apuestas abiertas`, carrera: '🏇 ¡En carrera!', resultados: 'Resultados' };
+  document.getElementById('phaseTxt').textContent = phaseNames[s.phase];
+  document.getElementById('timeTxt').textContent = s.phase === 'carrera' ? '' : s.timeLeft != null ? s.timeLeft + 's' : 'esperando';
+
+  const betting = s.phase === 'apuestas', racing = s.phase === 'carrera';
+  document.getElementById('betBox').classList.toggle('hidden', !betting);
+  document.getElementById('powerBox').classList.toggle('hidden', !racing);
+  document.getElementById('horsesTitle').textContent = betting ? 'Elige un caballo' : racing ? 'Posiciones · toca uno para usar un poder' : 'Llegada';
+
+  const rows = s.horses.map((h, i) => ({ h, i }));
+  if (!betting) rows.sort((a, b) => a.h.pos - b.h.pos);
+  setHTML('horses', rows.map(({ h, i }) => {
+    const mine = me.bets[i];
+    const formPct = Math.round((h.form - 1) * 100);
+    return `<div class="horse ${selHorse === i ? 'sel' : ''}" data-i="${i}">
+      <div class="num" style="background:${h.color}">${i + 1}</div>
+      <div><b>${!betting ? h.pos + 'º · ' : ''}${esc(h.name)}</b>
+        <div class="sub">${betting ? `Forma ${formPct >= 0 ? '+' : ''}${formPct}% · ${h.wins} victorias` : `Vuelta ${h.lap}/${s.laps}`}</div>
+        ${mine ? `<div class="mine">Tu apuesta: ${mine}</div>` : ''}</div>
+      <div class="right"><div class="odds">${h.odds ? 'x' + h.odds : '—'}</div><div class="sub">${h.bets} apostado</div></div>
+    </div>`;
+  }).join(''));
+
+  setHTML('chips', AMOUNTS.map(a =>
+    `<button class="chip ${amount === a ? 'sel' : ''}" data-a="${a}">${a}</button>`).join(''));
+  document.getElementById('betBtn').disabled = selHorse == null || me.coins <= 0;
+
+  const cd = me.cooldown || 0;
+  setHTML('powers', Object.entries(s.powers).map(([k, p]) =>
+    `<button class="power ${p.debuff ? 'bad' : ''}" data-k="${k}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}>
+      <b>${{ zanahoria: '🥕', escudo: '🛡️', vendas: '🙈', lazo: '🪢' }[k]} ${p.name}</b><small>${p.desc}</small>
+      <span class="cost">${p.cost} fichas</span></button>`).join(''));
+
+  const res = document.getElementById('results');
+  if (s.phase === 'resultados' && s.results) {
+    const r = s.results, win = r.payouts.find(p => p.id === me.id);
+    const lost = Object.keys(me.bets).length > 0 && !win;
+    res.classList.remove('hidden');
+    res.innerHTML = `<div class="big"><div class="e">${win ? '🤑' : lost ? '😩' : '🏆'}</div>
+      <h2>Ganó ${esc(s.horses[r.winner].name)}</h2>
+      ${win ? `<p>¡Ganaste <b style="color:var(--gold)">${win.win}</b> fichas!</p>` : lost ? '<p>Esta vez no… ¡la próxima!</p>' : ''}
+      ${r.jackpot ? `<p class="hint">Nadie le apostó: ${r.jackpot} fichas pasan al jackpot 🔥</p>` : ''}</div>`;
+  } else res.classList.add('hidden');
+}
+
+// Delegación de eventos: los botones se redibujan, los manejadores no
+document.getElementById('horses').onclick = e => {
+  const el = e.target.closest('.horse'); if (el) { selHorse = +el.dataset.i; render(); }
+};
+document.getElementById('chips').onclick = e => {
+  const el = e.target.closest('.chip'); if (el) { amount = el.dataset.a === 'Todo' ? 'Todo' : +el.dataset.a; render(); }
+};
+document.getElementById('powers').onclick = e => {
+  const el = e.target.closest('.power'); if (el && !el.disabled) usePower(el.dataset.k);
+};
+
+let es;
+function connect() {
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('game').classList.remove('hidden');
+  if (es) es.close();
+  es = new EventSource('/events?id=' + encodeURIComponent(myId));
+  es.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type !== 'state') return;
+    if (state && state.raceNum !== m.raceNum) selHorse = null;
+    state = m;
+    if (m.me) me = m.me;
+    else { // el servidor no conoce este id: volver a registrarse
+      es.close(); myId = null;
+      document.getElementById('login').classList.remove('hidden');
+      document.getElementById('game').classList.add('hidden');
+      return;
+    }
+    render();
+  };
+}
+
+if (myId) connect();
+</script>
+</body>
+</html>

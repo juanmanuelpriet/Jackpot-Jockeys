@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hipódromo Neuronal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root { --bg: #0d1410; --panel: #16201a; --line: #2a3a2f; --txt: #e8f0ea; --mute: #8fa597; --gold: #f5c542; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; }
+  #app { display: grid; grid-template-columns: 1fr 340px; height: 100vh; }
+  #stage { position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; }
+  canvas { max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: 0 10px 40px #0008; }
+  #banner { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); background: #000a; padding: 10px 26px; border-radius: 40px; font-size: 26px; font-weight: 800; letter-spacing: .5px; backdrop-filter: blur(4px); white-space: nowrap; }
+  #toasts { position: absolute; bottom: 24px; left: 24px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+  .toast { background: #000b; padding: 8px 14px; border-radius: 10px; font-size: 16px; animation: fade 6s forwards; }
+  @keyframes fade { 0%{opacity:0;transform:translateY(8px)} 6%{opacity:1;transform:none} 85%{opacity:1} 100%{opacity:0} }
+  #results { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
+  #results .card { background: #0d1410ee; border: 2px solid var(--gold); border-radius: 20px; padding: 28px 40px; min-width: 420px; text-align: center; }
+  #results h1 { margin: 0 0 6px; font-size: 40px; color: var(--gold); }
+  #results ol { text-align: left; font-size: 20px; padding-left: 28px; }
+  #results .pay { color: var(--mute); font-size: 17px; }
+  aside { background: var(--panel); border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--mute); margin: 0 0 8px; }
+  #join { display: flex; gap: 12px; align-items: center; }
+  #qr { background: #fff; padding: 6px; border-radius: 8px; line-height: 0; }
+  #joinUrl { font-size: 15px; font-weight: 700; word-break: break-all; }
+  .pot { font-size: 34px; font-weight: 800; color: var(--gold); }
+  .jack { font-size: 14px; color: #ff9f43; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 5px 4px; border-bottom: 1px solid var(--line); }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .stars { color: var(--gold); letter-spacing: -1px; }
+  #log div { font-size: 13px; color: var(--mute); padding: 3px 0; }
+  button { background: var(--gold); color: #111; border: 0; border-radius: 10px; padding: 12px; font-weight: 800; font-size: 16px; cursor: pointer; }
+  .hint { font-size: 12px; color: var(--mute); }
+  @media (max-width: 900px) { #app { grid-template-columns: 1fr; grid-template-rows: 60vh auto; } body { overflow: auto; height: auto; } #banner { font-size: 18px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="c" width="1200" height="800"></canvas>
+    <div id="banner">Cargando…</div>
+    <div id="toasts"></div>
+    <div id="results"><div class="card" id="resCard"></div></div>
+  </div>
+  <aside>
+    <section>
+      <h2>Escanea para jugar</h2>
+      <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
+    </section>
+    <section>
+      <h2>Pozo</h2>
+      <div class="pot" id="pot">0</div>
+      <div class="jack" id="jack"></div>
+    </section>
+    <button id="startBtn">¡Arrancar ya!</button>
+    <section>
+      <h2>Caballos</h2>
+      <table id="horses"></table>
+    </section>
+    <section>
+      <h2>Jugadores</h2>
+      <table id="players"></table>
+    </section>
+    <section>
+      <h2>Narrador</h2>
+      <div id="log"></div>
+    </section>
+    <div class="hint">Tecla S: mostrar/ocultar sensores de la red neuronal</div>
+  </aside>
+</div>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let track = null, horsesMeta = [], state = null, raceNum = -1;
+let pos = [], disp = [];   // posiciones del servidor y posiciones suavizadas
+let showSensors = true;
+let seenLog = 0;
+const SENSOR_ANGLES = [-Math.PI / 2.5, -Math.PI / 5, 0, Math.PI / 5, Math.PI / 2.5];
+
+document.addEventListener('keydown', e => { if (e.key === 's' || e.key === 'S') showSensors = !showSensors; });
+document.getElementById('startBtn').onclick = () => fetch('/api/start', { method: 'POST', body: '{}' });
+
+async function loadTrack() {
+  const r = await fetch('/api/track').then(r => r.json());
+  track = r.track; horsesMeta = r.horses; raceNum = r.raceNum;
+  bakeTrack();
+  // Caballos en la línea de salida
+  pos = []; disp = [];
+  const p0 = track.path[0], p1 = track.path[1];
+  const a = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+  horsesMeta.forEach((_, i) => {
+    const lane = (i - (horsesMeta.length - 1) / 2) * 12;
+    pos.push([p0[0] - Math.sin(a) * lane, p0[1] + Math.cos(a) * lane, a, 0, 0, [1, 1, 1, 1, 1]]);
+  });
+  disp = pos.map(p => p.slice());
+  const qr = document.getElementById('qr');
+  if (!qr.dataset.url) {
+    qr.dataset.url = r.joinUrl;
+    document.getElementById('joinUrl').textContent = r.joinUrl;
+    if (window.QRCode) new QRCode(qr, { text: r.joinUrl, width: 120, height: 120 });
+    else qr.style.display = 'none';
+  }
+}
+
+// ─── Pista pre-renderizada ──────────────────────────
+const bg = document.createElement('canvas'); bg.width = 1200; bg.height = 800;
+function bakeTrack() {
+  const g = bg.getContext('2d');
+  // Césped a franjas
+  for (let i = 0; i < 24; i++) { g.fillStyle = i % 2 ? '#2f6b34' : '#2a6230'; g.fillRect(i * 50, 0, 50, 800); }
+  const path = new Path2D();
+  track.path.forEach((p, i) => i ? path.lineTo(p[0], p[1]) : path.moveTo(p[0], p[1]));
+  path.closePath();
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  g.strokeStyle = '#f4f1e8'; g.lineWidth = track.width * 2 + 8; g.stroke(path);  // barandas
+  g.strokeStyle = '#a8784c'; g.lineWidth = track.width * 2; g.stroke(path);       // tierra
+  g.strokeStyle = '#b8875a'; g.lineWidth = track.width * 1.2; g.stroke(path);
+  g.setLineDash([2, 14]); g.strokeStyle = '#8e623b'; g.lineWidth = 2; g.stroke(path); g.setLineDash([]);
+  // Meta a cuadros
+  const p0 = track.path[0], p1 = track.path[1];
+  const a = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+  g.save(); g.translate(p0[0], p0[1]); g.rotate(a);
+  for (let k = -track.width; k < track.width; k += 6) {
+    for (let c = 0; c < 2; c++) { g.fillStyle = ((k / 6 + c) & 1) ? '#fff' : '#111'; g.fillRect(c * 6 - 6, k, 6, 6); }
+  }
+  g.restore();
+  // Obstáculos
+  for (const o of track.obstacles) {
+    g.save(); g.translate(o.x, o.y); g.rotate(o.angle);
+    if (o.type === 'barro') {
+      g.fillStyle = '#5b3a1e'; g.beginPath(); g.ellipse(0, 0, o.r, o.r * 0.75, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#6e4826'; g.beginPath(); g.ellipse(-4, -3, o.r * 0.5, o.r * 0.35, 0.4, 0, Math.PI * 2); g.fill();
+    } else {
+      g.fillStyle = '#0005'; g.fillRect(-o.r + 3, -2, o.r * 2, 10);
+      g.fillStyle = '#e8e2d0'; g.fillRect(-o.r, -4, o.r * 2, 7);
+      g.fillStyle = '#d22'; for (let k = -o.r; k < o.r; k += 8) g.fillRect(k, -4, 4, 7);
+      g.fillStyle = '#6b4a2b'; g.fillRect(-o.r - 3, -7, 6, 13); g.fillRect(o.r - 3, -7, 6, 13);
+    }
+    g.restore();
+  }
+}
+
+// ─── Dibujo de un caballo (vista cenital) ───────────
+function drawHorse(i, p, t) {
+  const [x, y, ang, speed, fx, sensors] = p;
+  const meta = horsesMeta[i];
+  const jumping = fx & 32, finished = fx & 64;
+  if (showSensors && !finished) {
+    ctx.lineWidth = 1;
+    sensors.forEach((s, k) => {
+      const a = ang + SENSOR_ANGLES[k], d = s * 180;
+      ctx.strokeStyle = fx & 2 ? '#0006' : `rgba(255,255,255,${0.12 + (1 - s) * 0.4})`;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d); ctx.stroke();
+      if (s < 1) { ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 2.5, 0, 7); ctx.fill(); }
+    });
+  }
+  ctx.save(); ctx.translate(x, y);
+  // Turbo: estela de fuego
+  if (fx & 1) {
+    for (let k = 1; k < 6; k++) {
+      ctx.fillStyle = `rgba(255,${120 + k * 20},0,${0.5 - k * 0.08})`;
+      ctx.beginPath(); ctx.arc(-Math.cos(ang) * k * 7, -Math.sin(ang) * k * 7, 7 - k, 0, 7); ctx.fill();
+    }
+  }
+  const s = (jumping ? 1.35 : 1) * 1.3;
+  // Sombra
+  ctx.fillStyle = '#0004'; ctx.beginPath();
+  ctx.ellipse(jumping ? 6 : 2, jumping ? 8 : 3, 15, 8, ang, 0, 7); ctx.fill();
+  ctx.rotate(ang); ctx.scale(s, s);
+  const gallop = Math.sin(t / 60 * (1 + speed / 3) + i) * (speed > 0.5 ? 1 : 0);
+  // Patas
+  ctx.fillStyle = '#3b2414';
+  [[8, -6, 1], [8, 6, -1], [-9, -6, -1], [-9, 6, 1]].forEach(([lx, ly, ph]) => {
+    ctx.fillRect(lx + gallop * 3 * ph - 2, ly - 1.5, 5, 3);
+  });
+  // Cola
+  ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 3; ctx.beginPath();
+  ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-19, gallop * 4, -23, gallop * 2); ctx.stroke();
+  // Cuerpo, cuello y cabeza
+  ctx.fillStyle = ['#6b3e1f', '#3d2412', '#8a5a2b', '#d9c8a9', '#2b2b2b', '#a0522d'][i % 6];
+  ctx.beginPath(); ctx.ellipse(0, 0, 14, 7, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(13, 0, 6, 4, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(20, 0, 5, 3.4, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1a0e06'; ctx.fillRect(10, -1.2, 8, 2.4); // crin
+  // Jinete con la seda del color del caballo
+  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.ellipse(-1, 0, 6, 7.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2, 0, 3.6, 0, 7); ctx.fill();
+  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.arc(2, 0, 2.2, 0, 7); ctx.fill();
+  ctx.restore();
+
+  // Efectos
+  if (fx & 8) { ctx.strokeStyle = '#5ee7ff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
+  if (fx & 4) { ctx.strokeStyle = '#d8b26e'; ctx.lineWidth = 3; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(x, y, 18, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+  if (fx & 2) ctx.fillText('🙈', x, y - 20);
+  if (fx & 16) { for (let k = 0; k < 3; k++) { const a = t / 200 + k * 2.1; ctx.fillText('⭐', x + Math.cos(a) * 14, y - 16 + Math.sin(a) * 5); } }
+  if (fx & 4) ctx.fillText('🪢', x, y - 20);
+  // Número
+  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.arc(x, y + 22, 9, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textBaseline = 'middle';
+  ctx.fillText(i + 1, x, y + 22.5); ctx.textBaseline = 'alphabetic';
+}
+
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (!track) return;
+  ctx.drawImage(bg, 0, 0);
+  for (let i = 0; i < pos.length; i++) {
+    const d = disp[i], p = pos[i];
+    if (!d) { disp[i] = p.slice(); continue; }
+    const jump = Math.hypot(p[0] - d[0], p[1] - d[1]) > 60;  // reaparición en pista: sin suavizar
+    d[0] += (p[0] - d[0]) * (jump ? 1 : 0.45);
+    d[1] += (p[1] - d[1]) * (jump ? 1 : 0.45);
+    let da = p[2] - d[2]; da = Math.atan2(Math.sin(da), Math.cos(da));
+    d[2] += da * 0.45; d[3] = p[3]; d[4] = p[4]; d[5] = p[5];
+  }
+  // Dibujar primero los de atrás para que el puntero quede encima
+  const order = state && state.phase !== 'apuestas'
+    ? state.horses.map((h, i) => [h.pos, i]).sort((a, b) => b[0] - a[0]).map(x => x[1])
+    : disp.map((_, i) => i);
+  for (const i of order) drawHorse(i, disp[i], t);
+}
+requestAnimationFrame(frame);
+
+// ─── Panel lateral ──────────────────────────────────
+const stars = f => '★'.repeat(Math.max(1, Math.round((f - 0.93) / 0.14 * 4) + 1)).padEnd(5, '☆');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderPanel() {
+  const s = state;
+  const banner = document.getElementById('banner');
+  if (s.phase === 'apuestas') {
+    banner.textContent = s.timeLeft == null ? `Carrera #${s.raceNum} · Esperando jugadores…` : `Carrera #${s.raceNum} · Apuestas cierran en ${s.timeLeft}s`;
+  } else if (s.phase === 'carrera') {
+    const lead = s.horses.find(h => h.pos === 1);
+    banner.textContent = `🏇 Vuelta ${lead ? lead.lap : 1}/${s.laps} · Punta: ${lead ? lead.name : ''}`;
+  } else banner.textContent = `Próxima carrera en ${s.timeLeft}s`;
+
+  document.getElementById('startBtn').style.display = s.phase === 'apuestas' ? '' : 'none';
+  document.getElementById('pot').textContent = s.pot.toLocaleString('es') + ' fichas';
+  document.getElementById('jack').textContent = s.carry > 0 ? `🔥 JACKPOT acumulado: ${s.carry.toLocaleString('es')}` : '';
+
+  const rows = s.horses.map((h, i) => ({ h, i }));
+  if (s.phase !== 'apuestas') rows.sort((a, b) => a.h.pos - b.h.pos);
+  document.getElementById('horses').innerHTML = rows.map(({ h, i }) => `<tr>
+    <td>${s.phase !== 'apuestas' ? h.pos + 'º ' : ''}<span class="dot" style="background:${h.color}"></span>${i + 1}. ${esc(h.name)}</td>
+    <td class="stars" title="Forma">${stars(h.form)}</td>
+    <td class="n">${h.bets}</td>
+    <td class="n">${h.odds ? 'x' + h.odds : '—'}</td></tr>`).join('');
+
+  document.getElementById('players').innerHTML = s.players.slice(0, 10).map(p =>
+    `<tr><td>${esc(p.name)}</td><td class="n">${p.coins.toLocaleString('es')}</td><td class="n">${p.bet ? '🎟 ' + p.bet : ''}</td></tr>`).join('')
+    || '<tr><td class="hint">Nadie aún. ¡Escanea el código!</td></tr>';
+
+  document.getElementById('log').innerHTML = s.log.slice().reverse().map(l => `<div>${esc(l.text)}</div>`).join('');
+  // Toasts para eventos nuevos
+  const fresh = s.log.filter(l => l.t > seenLog);
+  if (seenLog) fresh.forEach(l => {
+    const d = document.createElement('div'); d.className = 'toast'; d.textContent = l.text;
+    const box = document.getElementById('toasts'); box.appendChild(d);
+    setTimeout(() => d.remove(), 6000);
+    while (box.children.length > 5) box.firstChild.remove();
+  });
+  if (s.log.length) seenLog = s.log[s.log.length - 1].t;
+
+  const res = document.getElementById('results');
+  if (s.phase === 'resultados' && s.results) {
+    const r = s.results;
+    res.style.display = 'flex';
+    document.getElementById('resCard').innerHTML = `<h1>🏆 ${esc(s.horses[r.winner].name)}</h1>
+      <ol>${r.order.map((i, k) => `<li><span class="dot" style="background:${s.horses[i].color}"></span>${esc(s.horses[i].name)} <span class="pay">${r.times[k] ? r.times[k] + 's' : 'no terminó'}</span></li>`).join('')}</ol>
+      ${r.payouts.length ? r.payouts.map(p => `<div class="pay">💰 ${esc(p.name)} gana <b>${p.win}</b> (apostó ${p.stake})</div>`).join('')
+        : r.jackpot ? `<div class="pay">Nadie le apostó: <b>${r.jackpot}</b> fichas pasan al JACKPOT 🔥</div>` : ''}`;
+  } else res.style.display = 'none';
+}
+
+// ─── Conexión ───────────────────────────────────────
+const es = new EventSource('/events?role=screen');
+es.onmessage = ev => {
+  const m = JSON.parse(ev.data);
+  if (m.type === 'pos') pos = m.h;
+  else if (m.type === 'state') {
+    state = m;
+    if (m.raceNum !== raceNum) { raceNum = m.raceNum; loadTrack(); }
+    renderPanel();
+  }
+};
+</script>
+</body>
+</html>

@@ -90,8 +90,18 @@ La pantalla muestra cuántos están listos y quién falta. Si alguien se distrae
 Cada tipo tiene **su propio pozo mutuo**, que se reparte entre los boletos que acertaron ese tipo en
 proporción a lo apostado: entre más difícil la apuesta, menos gente acierta y más paga. El celular muestra
 el **pago estimado** de tu jugada (cuánto pagaría si nadie más apostara lo mismo) y tus boletos de la carrera.
+**Tu carrera** (panel del celular): lo que llevas apostado, gastado en poderes y en favores de la mafia; para
+cada boleto, cuánto cobrarías si acierta con los pozos de ese momento; durante la carrera, **cuánto cobrarías si
+terminara ahora** (con las posiciones actuales y el cobrador de la mafia ya descontado); y al final, el **balance**
+completo: apostado, poderes, cobrado, lo que se llevó la mafia, comisión de la peña, premio de propietario y el
+resultado neto en fichas. La proyección usa el mismo cálculo que el pago real.
+
 El pozo de Ganador también recibe lo gastado en poderes. Los pozos que nadie acierta pasan al **jackpot**,
 que se suma al pozo de Ganador de la siguiente carrera.
+
+**Conexión:** la pantalla y los celulares usan WebSocket en los dos sentidos: el estado llega 4 veces por segundo y las
+acciones del celular (apostar, poderes, reacciones…) viajan por esa misma conexión, sin abrir una petición nueva,
+así responden al instante incluso por internet.
 
 **Repeticiones y clips:** al terminar cada carrera la pantalla repite la llegada en cámara lenta. El botón
 "Guardar clip" la graba como video (`.webm`) para mandarla al grupo.

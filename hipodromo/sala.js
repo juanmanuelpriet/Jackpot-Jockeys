@@ -127,6 +127,7 @@ class Room {
   resetPlayer(p) {
     Object.assign(p, {
       coins: CFG.startCoins, debt: 0, tickets: [], cooldownUntil: 0, ready: false, gifted: 0, favorUsed: false,
+      race: { bets: 0, powers: 0, favor: 0 }, lastRace: null,
       invites: [], noAllianceUntil: 0,
       stats: { bet: 0, wins: 0, best: 0, debuffs: 0, buffs: 0, combos: 0, betrayals: 0, maxDebt: 0, loans: 0, gifts: 0, ownerWins: 0 },
     });
@@ -148,7 +149,10 @@ class Room {
     this.tick = 0;
     this.leader = null;
     this.recentPowers = [];
-    for (const p of this.players.values()) { p.tickets = []; p.ready = false; p.gifted = 0; p.favorUsed = false; }
+    for (const p of this.players.values()) {
+      p.tickets = []; p.ready = false; p.gifted = 0; p.favorUsed = false;
+      p.race = { bets: 0, powers: 0, favor: 0 }; p.lastRace = null;
+    }
     this.phase = 'apuestas';
     this.phaseEnds = null; // las apuestas no tienen reloj: arranca cuando todos dicen "listo"
     if (this.grandPrix) this.narrate('gran_premio');
@@ -211,10 +215,9 @@ class Room {
     }).map(s => s.i);
   }
 
-  finishRace() {
-    const order = this.standings();
-    const winner = order[0], W = this.lineup[winner];
-    const pools = this.pools();
+  // Cuánto pagaría cada boleto si la llegada fuera `order` (sin tocar saldos). La usan el pago
+  // real y la proyección en vivo del celular, así que siempre coinciden.
+  settle(order, pools = this.pools()) {
     const payouts = [], byType = {};
     let unclaimed = 0;
     // Cada pozo se reparte entre los boletos que acertaron, en proporción a lo apostado
@@ -227,21 +230,31 @@ class Room {
       if (!winStake) { unclaimed += pool.total; continue; }
       for (const { p, tk } of hits) payouts.push({ p, type, sel: tk.sel, stake: tk.amount, win: Math.floor(pool.total * tk.amount / winStake) });
     }
+    return { payouts, byType, unclaimed };
+  }
+
+  finishRace() {
+    const order = this.standings();
+    const winner = order[0], W = this.lineup[winner];
+    const pools = this.pools();
+    const { payouts, byType, unclaimed } = this.settle(order, pools);
+    const ledger = new Map([...this.players.values()].map(p => [p, { won: 0, mafia: 0, commission: 0, owner: 0 }]));
     // Pagar: primero pasa el cobrador de la mafia; los aliados cobran comisión (la paga la casa)
     for (const po of payouts) {
       const p = po.p;
       let net = po.win;
       if (p.debt > 0) {
         const cut = Math.min(p.debt, Math.floor(net * CFG.collectorCut));
-        if (cut > 0) { p.debt -= cut; net -= cut; this.narrate('cobrador', { p: p.name, n: cut }); }
+        if (cut > 0) { p.debt -= cut; net -= cut; ledger.get(p).mafia += cut; this.narrate('cobrador', { p: p.name, n: cut }); }
       }
       p.coins += net; po.net = net;
+      ledger.get(p).won += po.win;
       p.stats.wins++; p.stats.best = Math.max(p.stats.best, po.win);
       const a = this.allianceOf(p.id);
       if (a) for (const mid of a.members) {
         if (mid === p.id) continue;
         const m = this.players.get(mid);
-        if (m) m.coins += Math.floor(po.win * CFG.allianceCommission);
+        if (m) { const c = Math.floor(po.win * CFG.allianceCommission); m.coins += c; ledger.get(m).commission += c; }
       }
     }
     // Lo que nadie acertó pasa al jackpot (se suma al pozo de Ganador de la próxima carrera)
@@ -252,10 +265,16 @@ class Room {
     // Premio de propietario
     if (W.owner && this.players.has(W.owner)) {
       const o = this.players.get(W.owner), bonus = Math.max(100, Math.floor(pools.ganador.total * CFG.ownerBonus));
-      o.coins += bonus; o.stats.ownerWins++;
+      o.coins += bonus; o.stats.ownerWins++; ledger.get(o).owner += bonus;
       const acc = this.accounts.get(W.owner);
       if (acc?.horse) acc.horse.wins = (acc.horse.wins || 0) + 1;
       this.narrate('propietario', { p: o.name, h: W.name });
+    }
+    // Balance de la carrera de cada jugador: lo que puso contra lo que recibió
+    for (const [p, l] of ledger) {
+      const spent = p.race.bets + p.race.powers;
+      const got = l.won - l.mafia + l.commission + l.owner;
+      if (spent || got || p.race.favor) p.lastRace = { ...p.race, ...l, net: got - spent };
     }
     // Intereses de la mafia
     for (const p of this.players.values()) {
@@ -411,13 +430,34 @@ class Room {
       training: acc.horse.training || null, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
     } : null;
     return {
-      id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p), tickets: p.tickets, ready: p.ready,
+      id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p), ready: p.ready,
+      ...this.myBets(p),
       cooldown: Math.max(0, p.cooldownUntil - Date.now()), favorUsed: p.favorUsed, gifted: p.gifted,
       alliance: a ? { id: a.id, name: a.name, members: [...a.members].map(m => ({ id: m, name: this.players.get(m)?.name })) } : null,
       invites: p.invites.filter(i => this.alliances.has(i.alliance)).map(i => ({ alliance: i.alliance, name: this.alliances.get(i.alliance).name, from: i.from })),
       canAlly: Date.now() >= p.noAllianceUntil,
       horse, trophies: (acc.trophies || []).length,
     };
+  }
+
+  // Boletos del jugador con lo que pagarían si aciertan, lo que lleva gastado en la carrera
+  // y, durante la carrera, cuánto cobraría si terminara con las posiciones actuales.
+  myBets(p) {
+    const pools = this.pools();
+    const tickets = p.tickets.map(tk => {
+      const pool = pools[tk.type], same = pool.keys[ticketKey(tk.type, tk.sel)] || tk.amount;
+      // En Placé y Podio otros caballos también pueden acertar y compartir el pozo: es un máximo
+      const shared = tk.type === 'place' || tk.type === 'podio';
+      return { ...tk, ifHit: Math.floor(pool.total * tk.amount / same), shared };
+    });
+    let live = null;
+    if (this.phase === 'carrera' && p.tickets.length) {
+      const mine = this.settle(this.standings(), pools).payouts.filter(po => po.p === p);
+      const gross = mine.reduce((a, po) => a + po.win, 0);
+      const mafia = p.debt > 0 ? Math.min(p.debt, mine.reduce((a, po) => a + Math.floor(po.win * CFG.collectorCut), 0)) : 0;
+      live = { gross, mafia, hits: mine.map(po => ({ type: po.type, sel: po.sel, win: po.win })) };
+    }
+    return { tickets, race: p.race, live, lastRace: p.lastRace };
   }
 
   // ─── Acciones de jugadores ────────────────────────
@@ -447,6 +487,7 @@ class Room {
     if (amount > p.coins) return { error: 'No tienes suficientes fichas. La mafia presta…' };
     p.coins -= amount;
     p.stats.bet += amount;
+    p.race.bets += amount;
     const key = ticketKey(type, sel);
     const same = p.tickets.find(tk => tk.type === type && ticketKey(type, tk.sel) === key);
     if (same) same.amount += amount; else p.tickets.push({ type, sel, amount });
@@ -472,6 +513,7 @@ class Room {
     if (Date.now() < p.cooldownUntil) return { error: 'Espera un momento…' };
     if (p.coins < pw.cost) return { error: 'No tienes suficientes fichas' };
     p.coins -= pw.cost;
+    p.race.powers += pw.cost;
     this.powerSpend += pw.cost; // lo gastado en poderes engorda el pozo
     p.cooldownUntil = Date.now() + CFG.powerCooldownMs;
     p.stats[pw.debuff ? 'debuffs' : 'buffs']++;
@@ -528,6 +570,7 @@ class Room {
     const h = this.horses[horse];
     if (!h || h.finished) return { error: 'Caballo inválido' };
     p.debt += CFG.mafiaFavorCost; p.favorUsed = true; p.stats.debuffs++;
+    p.race.favor += CFG.mafiaFavorCost;
     p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
     h.fx.freeze = Math.max(h.fx.freeze, Math.round(FPS * 2));
     h.fx.blind = Math.max(h.fx.blind, Math.round(FPS * 3));

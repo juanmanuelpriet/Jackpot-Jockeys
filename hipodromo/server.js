@@ -94,6 +94,16 @@ function attach(room, conn, params) {
   } else {
     room.phones.set(conn, params.get('id'));
     conn.onClose(() => room.phones.delete(conn));
+    // Las acciones del celular viajan por la misma conexión: responde al instante, sin abrir
+    // una petición nueva (mucho más rápido, sobre todo por internet)
+    if (conn.onMessage) conn.onMessage(text => {
+      let msg;
+      try { msg = JSON.parse(text); } catch { return; }
+      let out;
+      try { out = handleAction(String(msg.action || ''), { ...msg, sala: room.code, id: params.get('id') }); }
+      catch (e) { console.error(e); out = { error: 'Petición inválida' }; }
+      conn.send(JSON.stringify({ type: 'reply', rid: msg.rid, ...out }));
+    });
   }
   room.lastActive = Date.now();
   broadcastState(room);
@@ -224,7 +234,7 @@ setInterval(() => {
   }
   // El hándicap se puede recalibrar sin reiniciar el servidor
   if (tick % 150 === 0) setHandicap(loadHandicap());
-}, 400);
+}, 250);
 
 // WebSocket: la vía principal para empujar el estado y las posiciones de la carrera
 server.on('upgrade', (req, socket) => {

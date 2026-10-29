@@ -15,8 +15,8 @@ function frame(text) {
   return Buffer.concat([header, payload]);
 }
 
-// Acepta la conexión y devuelve { send(texto), onClose(fn) }. Los mensajes del navegador
-// se ignoran salvo ping (responde pong) y close.
+// Acepta la conexión y devuelve { send(texto), onMessage(fn), onClose(fn) }. Entiende mensajes
+// de texto (las acciones de los celulares), ping (responde pong) y close.
 function accept(req, socket) {
   const key = req.headers['sec-websocket-key'];
   if (!key) { socket.destroy(); return null; }
@@ -24,7 +24,7 @@ function accept(req, socket) {
   socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
     `Sec-WebSocket-Accept: ${acceptKey}\r\n\r\n`);
   socket.setNoDelay(true);
-  const closers = [];
+  const closers = [], listeners = [];
   let closed = false;
   const close = () => { if (closed) return; closed = true; closers.forEach(f => f()); socket.destroy(); };
   let buf = Buffer.alloc(0);
@@ -38,11 +38,11 @@ function accept(req, socket) {
       const total = off + (masked ? 4 : 0) + len;
       if (buf.length < total) return;
       if (op === 8) return close();
-      if (op === 9) { // ping → pong con el mismo contenido
-        const mask = buf.subarray(off, off + 4), data = Buffer.from(buf.subarray(off + 4, total));
-        if (masked) for (let i = 0; i < data.length; i++) data[i] ^= mask[i % 4];
-        socket.write(Buffer.concat([Buffer.from([0x8a, data.length]), data]));
-      }
+      const mask = masked ? buf.subarray(off, off + 4) : null;
+      const data = Buffer.from(buf.subarray(off + (masked ? 4 : 0), total));
+      if (mask) for (let i = 0; i < data.length; i++) data[i] ^= mask[i % 4];
+      if (op === 1) listeners.forEach(fn => fn(data.toString('utf8')));
+      if (op === 9) socket.write(Buffer.concat([Buffer.from([0x8a, data.length]), data])); // ping → pong
       buf = buf.subarray(total);
     }
   });
@@ -51,6 +51,7 @@ function accept(req, socket) {
   return {
     send(text) { if (!closed) socket.write(frame(text)); },
     onClose(fn) { closers.push(fn); },
+    onMessage(fn) { listeners.push(fn); },
     close,
   };
 }

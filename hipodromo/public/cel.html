@@ -98,6 +98,20 @@
   #pickInfo .est { color: var(--amber); font-weight: 700; font-size: 18px; }
   .ticket { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.07); font-size: 15px; }
   .ticket b { color: var(--gold-hi); text-transform: uppercase; letter-spacing: 1px; font-weight: 500; margin-right: 6px; }
+  #myRace { background: var(--card); border-top: 3px solid var(--gold); padding: 12px 14px; margin-bottom: 4px; }
+  #myRace .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0 4px; }
+  #myRace .sum div { background: rgba(241,232,211,0.05); padding: 6px 8px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--mute); }
+  #myRace .sum b { display: block; font-size: 18px; color: var(--txt); letter-spacing: 0; }
+  #myRace .tk { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.07); font-size: 14px; }
+  #myRace .tk:last-child { border-bottom: 0; }
+  #myRace .tk b { color: var(--gold-hi); text-transform: uppercase; letter-spacing: 1px; font-weight: 500; margin-right: 6px; }
+  #myRace .tk .if { grid-column: 1 / 3; font-size: 12px; color: var(--mute); }
+  #myRace .tk .if em { font-style: normal; color: var(--amber); font-weight: 600; }
+  #myRace .tk.hit { background: rgba(127,196,138,0.08); }
+  .liveBox { margin-top: 8px; padding: 10px 12px; border-left: 3px solid var(--amber); background: var(--card2); font-size: 15px; line-height: 1.4; }
+  .liveBox .big { font-size: 22px; font-weight: 700; }
+  .pos { color: var(--ok); } .neg { color: var(--red); }
+  .ledger .row span:last-child { font-variant-numeric: tabular-nums; }
   .hidden { display: none !important; }
   .hint { color: var(--mute); font-size: 14px; line-height: 1.4; letter-spacing: .3px; }
 </style>
@@ -121,6 +135,7 @@
 
   <section id="tab-carrera">
     <div id="results" class="hidden"></div>
+    <div id="myRace" class="hidden"></div>
     <h3 id="horsesTitle">Elige un caballo</h3>
     <div class="horses" id="horses"></div>
     <div id="betBox">
@@ -130,7 +145,6 @@
       <h3>Monto</h3>
       <div class="chips" id="chips"></div>
       <button class="main" id="betBtn">Apostar</button>
-      <div id="myTickets"></div>
       <button class="main alt" id="readyBtn">Estoy listo</button>
       <p class="hint" style="margin-top:8px" id="readyHint">La carrera arranca cuando todos digan "Estoy listo". Tómate tu tiempo.</p>
     </div>
@@ -192,8 +206,13 @@ function toast(text) {
 }
 
 async function api(action, body = {}) {
-  const r = await fetch('/api/' + action, { method: 'POST', body: JSON.stringify({ sala, id: myId, ...body }) });
-  const j = await r.json();
+  // Por la conexión abierta es inmediato; si no hay conexión, por HTTP. No se reintenta por HTTP
+  // una acción ya enviada, para no duplicar apuestas si la respuesta se demora.
+  let j;
+  if (es && es.ready() && action !== 'join') {
+    j = await es.request({ action, ...body });
+    if (!j) { toast('La conexión está lenta: revisa en un momento si se aplicó.'); return null; }
+  } else j = await fetch('/api/' + action, { method: 'POST', body: JSON.stringify({ sala, id: myId, ...body }) }).then(r => r.json());
   if (j.error) { toast(j.error); return null; }
   return j;
 }
@@ -223,6 +242,45 @@ function usePower(key) {
   if (selHorse == null) return toast('Elige un caballo primero');
   if (key === 'mafia') return api('mafiaFavor', { horse: selHorse }).then(j => j && toast('Don Caballone se encarga.'));
   api('power', { power: key, horse: selHorse }).then(j => j && toast(`${state.powers[key].name} para ${state.horses[selHorse].name}.`));
+}
+
+// ─── Tu carrera: lo apostado, lo gastado y lo que cobrarías ───
+const signed = n => `<span class="${n > 0 ? 'pos' : n < 0 ? 'neg' : ''}">${n > 0 ? '+' : ''}${fmt(n)}</span>`;
+function renderMyRace() {
+  const s = state, box = document.getElementById('myRace');
+  const show = (s.phase === 'apuestas' || s.phase === 'carrera') && (me.tickets.length || me.race.powers || me.race.favor);
+  box.classList.toggle('hidden', !show);
+  if (!show) return;
+  const spent = me.race.bets + me.race.powers;
+  const liveKeys = new Set((me.live?.hits || []).map(h => h.type + ':' + h.sel.join('-')));
+  let html = `<h3 style="margin:0">Tu carrera</h3>
+    <div class="sum"><div>Apostado<b>${fmt(me.race.bets)}</b></div><div>Poderes<b>${fmt(me.race.powers)}</b></div>
+      <div>Mafia<b>${me.race.favor ? '+' + fmt(me.race.favor) : '0'}</b>${me.race.favor ? 'de deuda' : ''}</div></div>`;
+  html += me.tickets.map(tk => `<div class="tk ${liveKeys.has(tk.type + ':' + tk.sel.join('-')) ? 'hit' : ''}">
+      <span><b>${esc(s.pools[tk.type].name)}</b>${esc(pickNames(tk.type, tk.sel))}</span><span>${fmt(tk.amount)}</span>
+      <span class="if">Si acierta cobras ${tk.shared ? 'hasta ' : ''}<em>${fmt(tk.ifHit)}</em> (x${(tk.ifHit / tk.amount).toFixed(2)}) con los pozos de ahora</span></div>`).join('');
+  if (s.phase === 'carrera' && me.live) {
+    const got = me.live.gross - me.live.mafia, bal = got - spent;
+    html += `<div class="liveBox">Si la carrera terminara ahora:<br>
+      ${me.live.gross ? `cobrarías <span class="big pos">${fmt(me.live.gross)}</span>${me.live.mafia ? ` (la mafia se queda ${fmt(me.live.mafia)})` : ''}`
+        : '<span class="big neg">no cobrarías nada</span>'}<br>Balance de la carrera: <b>${signed(bal)}</b></div>`;
+  } else if (s.phase === 'apuestas' && spent) {
+    html += `<p class="hint" style="margin:8px 0 0">Llevas ${fmt(spent)} en juego. Los pagos cambian a medida que todos apuestan; el final se calcula al cruzar la meta.</p>`;
+  }
+  setHTML('myRace', html);
+}
+function ledgerHTML(l) {
+  if (!l) return '';
+  const row = (k, v) => v ? `<div class="row"><span>${k}</span><span>${v}</span></div>` : '';
+  return `<div class="card ledger" style="margin-top:10px"><h3>Balance de tu carrera</h3>
+    ${row('Apostaste', l.bets ? '−' + fmt(l.bets) : '')}
+    ${row('Poderes', l.powers ? '−' + fmt(l.powers) : '')}
+    ${row('Cobraste', l.won ? '+' + fmt(l.won) : '')}
+    ${row('Se quedó la mafia (abona a tu deuda)', l.mafia ? '−' + fmt(l.mafia) : '')}
+    ${row('Comisión de tu peña', l.commission ? '+' + fmt(l.commission) : '')}
+    ${row('Premio de propietario', l.owner ? '+' + fmt(l.owner) : '')}
+    ${row('Favor de la mafia (deuda)', l.favor ? '+' + fmt(l.favor) + ' de deuda' : '')}
+    <div class="row" style="font-size:18px"><span><b>Resultado en fichas</b></span><b>${signed(l.net)}</b></div></div>`;
 }
 
 // ─── Render ───
@@ -304,8 +362,7 @@ function renderCarrera() {
   } else if (T.picks > 1) info += `<br>Elegidos ${picks.length} de ${T.picks}${betType === 'quiniela' ? '' : ': el primero que toques es el 1º'}.`;
   setHTML('pickInfo', info);
   document.getElementById('betBtn').disabled = picks.length !== T.picks || me.coins <= 0;
-  setHTML('myTickets', me.tickets.length ? `<h3>Mis boletos</h3>${me.tickets.map(tk =>
-    `<div class="ticket"><span><b>${esc(s.pools[tk.type].name)}</b>${esc(pickNames(tk.type, tk.sel))}</span><span>${fmt(tk.amount)}</span></div>`).join('')}` : '');
+  renderMyRace();
 
   const cd = me.cooldown || 0;
   setHTML('powers', Object.entries(s.powers).map(([k, p]) =>
@@ -325,6 +382,7 @@ function renderCarrera() {
       <h2>${esc(s.horses[r.winner].name)}</h2><p class="hint">${esc(r.quip || '')}</p>
       ${win ? `<p>Cobras <span class="win">${fmt(win.win)}</span> fichas${win.net < win.win ? `, pero la mafia se quedó con ${fmt(win.win - win.net)}` : ''}.</p>
         ${wins.map(w => `<div class="ticket"><span><b>${esc(w.typeName)}</b>${esc(pickNames(w.type, w.sel))}</span><span>+${fmt(w.win)}</span></div>`).join('')}` : lost ? '<p>Tus boletos tenían otros planes. Hay revancha en segundos.</p>' : ''}
+      ${ledgerHTML(me.lastRace)}
       ${r.jackpot ? `<p class="hint">Nadie le apostó: ${fmt(r.jackpot)} fichas pasan al jackpot.</p>` : ''}</div>
       ${s.phase === 'final' && s.awards ? `<div class="card"><h3>Premios de la noche</h3>
         ${s.awards.map(a => `<div class="row"><span>${esc(a.title)}<br><small class="hint">${esc(a.desc)}</small></span><b>${esc(a.name)}</b></div>`).join('')}
@@ -450,14 +508,30 @@ document.getElementById('game').addEventListener('click', async e => {
 
 // Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola
 function openStream(query, onMessage, onClosed) {
+  let handle = null;
   let sock = null, stopped = false;
   const open = () => {
     sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?${query}`);
-    sock.onmessage = e => onMessage(JSON.parse(e.data));
+    sock.onmessage = e => { const m = JSON.parse(e.data); if (m.type === 'reply') handle && handle._reply(m); else onMessage(m); };
     sock.onclose = () => { if (stopped) return; if (onClosed) onClosed(); setTimeout(() => !stopped && open(), 1000); };
   };
   open();
-  return { close() { stopped = true; sock && sock.close(); } };
+  const waiting = new Map();
+  let rid = 0;
+  return handle = {
+    close() { stopped = true; sock && sock.close(); },
+    ready: () => sock && sock.readyState === 1,
+    // Envía una acción y espera su respuesta (null si no llega en 4 s, para reintentar por HTTP)
+    request(msg) {
+      return new Promise(resolve => {
+        const id = ++rid;
+        const t = setTimeout(() => { waiting.delete(id); resolve(null); }, 4000);
+        waiting.set(id, r => { clearTimeout(t); resolve(r); });
+        sock.send(JSON.stringify({ ...msg, rid: id }));
+      });
+    },
+    _reply(m) { const f = waiting.get(m.rid); if (f) { waiting.delete(m.rid); f(m); } },
+  };
 }
 
 // ─── Reacciones ───

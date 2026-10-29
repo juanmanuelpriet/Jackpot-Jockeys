@@ -13,7 +13,8 @@ const { HORSES, loadHandicap } = require('./establo');
 const { Room, roomCode, setHandicap } = require('./sala');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const ACCOUNTS_FILE = path.join(__dirname, 'jugadores.json');
+// Dentro de la app de escritorio las cuentas se guardan en la carpeta de datos del usuario
+const ACCOUNTS_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'jugadores.json');
 const ROOM_IDLE_MS = 30 * 60 * 1000;
 
 // ─── Cuentas (persisten entre partidas: nombre, caballo propio y trofeos) ───
@@ -208,6 +209,14 @@ setInterval(() => {
   // El hándicap se puede recalibrar sin reiniciar el servidor
   if (tick % 150 === 0) setHandicap(loadHandicap());
 }, 400);
+
+server.on('error', err => {
+  if (err.code === 'EADDRINUSE') console.error(`\n⚠️  El puerto ${PORT} ya está en uso. Prueba con: PORT=3001 node server.js\n`);
+  else console.error(err);
+  process.exitCode = 1;
+});
+
+module.exports = { server };
 
 server.listen(PORT, () => {
   console.log(`\n🏇 Jackpot Jockeys listo`);

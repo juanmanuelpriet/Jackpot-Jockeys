@@ -5,3 +5,7 @@ logs/anteriores/**/*.txt
 logs/anteriores/*.csv
 logs/anteriores/*.txt
 logs/salida_*.txt
+# App de escritorio
+node_modules/
+dist/
+app/icono.iconset/

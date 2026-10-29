@@ -2,13 +2,27 @@
   "name": "jackpot-jockeys",
   "version": "1.0.0",
   "description": "Jackpot Jockeys: carreras de caballos con redes neuronales, apuestas desde el celular, mafia y alianzas",
-  "main": "server.js",
+  "main": "app/main.js",
   "scripts": {
     "start": "node server.js",
     "compartir": "node compartir.js",
     "entrenar": "node entrenar.js corredor 300",
     "calibrar": "node calibrar.js 8 500",
-    "torneo": "node torneo.js 600 0.7"
+    "torneo": "node torneo.js 600 0.7",
+    "app": "electron .",
+    "empaquetar": "electron-packager . 'Jackpot Jockeys' --platform=darwin --arch=arm64 --icon=app/icono.icns --app-bundle-id=com.jackpotjockeys.juego --out=dist --overwrite --no-asar --ignore='^/(logs|analisis|dist|node_modules|calibrar\\.js|torneo\\.js|entrenar\\.js|compartir\\.js|analisis\\.ipynb|jugadores\\.json|README\\.md|caballos\\.json)($|/)'",
+    "empaquetar-windows": "electron-packager . 'Jackpot Jockeys' --platform=win32 --arch=x64 --icon=app/icono.ico --out=dist --overwrite --no-asar --ignore='^/(logs|analisis|dist|node_modules|calibrar\\.js|torneo\\.js|entrenar\\.js|compartir\\.js|analisis\\.ipynb|jugadores\\.json|README\\.md|caballos\\.json)($|/)'"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "@electron-internal/extract-zip": "1.0.7"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "39.8.10"
+  },
+  "allowScripts": {
+    "electron@39.8.10": true
+  },
+  "productName": "Jackpot Jockeys"
 }

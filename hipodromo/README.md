@@ -20,6 +20,30 @@ node server.js
 No necesita `npm install`: solo Node 18+. En la pantalla, la tecla **S** muestra los sensores de las
 redes y la **C** activa o desactiva la cámara que sigue a la punta.
 
+### App de escritorio
+
+Jackpot Jockeys también es una app normal de Mac: doble clic en **Jackpot Jockeys** (en Aplicaciones o en
+Launchpad) y abre el juego en su propia ventana, con el servidor por dentro, la sala creada y el QR listo
+para los celulares. No hace falta terminal ni navegador.
+
+- Menú **Juego**: Nueva sala (⌘N), Pantalla completa (⌃⌘F), **Compartir por internet** (⌘I: abre el túnel
+  de Cloudflare, copia el enlace y el QR pasa a servir desde cualquier lugar), Dejar de compartir y Abrir en
+  el navegador.
+- Usa el primer puerto libre desde el 3000 y guarda las cuentas en `~/Library/Application Support/Jackpot Jockeys`.
+
+Para generarla o actualizarla después de cambiar el juego:
+
+```bash
+npm install                 # una vez: Electron y el empaquetador (solo para construir la app)
+npm run app                 # probarla sin empaquetar
+npm run empaquetar          # → dist/Jackpot Jockeys-darwin-arm64/Jackpot Jockeys.app
+npm run empaquetar-windows  # → versión para Windows (Jackpot Jockeys.exe)
+```
+
+Luego copia `Jackpot Jockeys.app` a Aplicaciones. Si npm se niega a correr el instalador de Electron, apruébalo
+con `npm install-scripts approve electron`. La app no está firmada: si la pasas a otra Mac, la primera vez hay que
+abrirla con clic derecho → Abrir.
+
 ### Jugar por internet
 
 ```bash

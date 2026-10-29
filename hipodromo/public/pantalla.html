@@ -128,15 +128,46 @@
   @keyframes blink { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .odd .px { font-size: 11px; color: var(--cream-dim); letter-spacing: .5px; white-space: nowrap; }
-  #howto { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, 90%); z-index: 2; padding: 16px 22px 14px;
-    display: none; grid-template-columns: 64px 1fr; gap: 16px; align-items: center; }
-  #howto .n { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 54px; color: var(--gold-hi); text-align: center; line-height: 1; }
-  #howto .t { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
-  #howto h3 { margin: 2px 0 4px; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; }
-  #howto p { margin: 0; color: var(--cream-dim); font-size: 16px; line-height: 1.35; }
-  #howto .bar { grid-column: 1 / 3; height: 3px; background: rgba(241,232,211,0.12); margin-top: 6px; }
-  #howto .bar i { display: block; height: 100%; background: var(--gold); animation: howtoBar 7s linear infinite; }
-  @keyframes howtoBar { from { width: 0; } to { width: 100%; } }
+  /* ─── Intro con caballos corriendo + tutorial a pantalla completa (se puede saltar) ─── */
+  #splash { position: fixed; inset: 0; z-index: 20; background: var(--green-900); display: none; animation: fadeIn .5s; }
+  #splash.on { display: block; }
+  #splash.out { animation: fadeOut .6s forwards; }
+  @keyframes fadeOut { to { opacity: 0; } }
+  #splashCv { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #splashLogo { position: absolute; left: 0; right: 0; top: 9vh; text-align: center; pointer-events: none; transition: opacity .6s, transform .6s; }
+  #splashLogo .k { font-size: 1.6vh; letter-spacing: .8vh; color: var(--gold); text-transform: uppercase; }
+  #splashLogo h1 { margin: 1vh 0; font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 12vh; line-height: 1; color: var(--gold-hi);
+    text-shadow: 0 .6vh 0 #000, 0 0 6vh rgba(231,200,115,.35); animation: logoIn 1.1s cubic-bezier(.2,1.4,.4,1); }
+  #splashLogo h1 span { color: var(--cream); }
+  #splashLogo .sub { font-size: 2.4vh; letter-spacing: .5vh; color: var(--cream); text-transform: uppercase; }
+  @keyframes logoIn { from { transform: scale(.4) translateY(-6vh); opacity: 0; } to { transform: none; opacity: 1; } }
+  #splash.tut #splashLogo { opacity: 0; transform: translateY(-4vh); }
+  #tutorial { position: absolute; inset: 7vh 6vw 9vh; display: none; grid-template-columns: minmax(0, 1fr) 30vh; gap: 4vw; align-items: center;
+    background: rgba(11,31,21,0.9); border: 1px solid var(--line); box-shadow: 0 2vh 6vh rgba(0,0,0,.5); padding: 5vh 4vw; animation: fadeIn .5s; }
+  #splash.tut #tutorial { display: grid; }
+  #tutorial .k { font-size: 1.7vh; letter-spacing: .6vh; color: var(--gold); text-transform: uppercase; }
+  #tutorial .e { font-size: 11vh; line-height: 1.1; margin: 1vh 0; }
+  #tutorial h2 { margin: 0 0 2vh; font-size: 6vh; letter-spacing: .2vh; text-transform: uppercase; line-height: 1.05; }
+  #tutorial p { margin: 0; font-size: 3vh; line-height: 1.4; color: var(--cream-dim); max-width: 60ch; }
+  #tutorial p b { color: var(--cream); }
+  #tutSlide { animation: slideIn .45s ease-out; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(3vw); } to { opacity: 1; transform: none; } }
+  #tutDots { display: flex; gap: 1vh; margin-top: 4vh; }
+  #tutDots i { width: 5vh; height: .6vh; background: rgba(241,232,211,0.15); overflow: hidden; }
+  #tutDots i.done { background: var(--gold); }
+  #tutDots i.on::after { content: ''; display: block; height: 100%; background: var(--gold); animation: dotFill var(--slide, 9s) linear forwards; }
+  @keyframes dotFill { from { width: 0; } to { width: 100%; } }
+  #tutJoin { text-align: center; }
+  #tutJoin .k { margin-bottom: 1.5vh; }
+  #tutQr { background: var(--cream); padding: 1.2vh; line-height: 0; display: inline-block; }
+  #tutQr img, #tutQr canvas { width: 24vh !important; height: 24vh !important; }
+  #tutSala { font-size: 7vh; font-weight: 700; letter-spacing: 1.2vh; color: var(--gold-hi); margin-top: 1.5vh; }
+  #tutUrl { font-size: 1.6vh; color: var(--cream-dim); overflow-wrap: anywhere; }
+  #splashBar { position: absolute; left: 0; right: 0; bottom: 2.5vh; display: flex; justify-content: center; gap: 2vw; align-items: center; }
+  #splashBar button { font: inherit; font-size: 2.2vh; letter-spacing: .3vh; text-transform: uppercase; color: var(--green-900); background: var(--gold-hi);
+    border: 0; padding: 1.2vh 3vh; cursor: pointer; }
+  #splashBar button.ghost { background: transparent; color: var(--cream); border: 1px solid var(--line); }
+  #splashBar small { font-size: 1.5vh; color: var(--cream-dim); letter-spacing: .2vh; text-transform: uppercase; }
   .hint { position: absolute; bottom: 8px; right: 10px; font-size: 11px; letter-spacing: 2px; color: rgba(241, 232, 211, 0.4); text-transform: uppercase; }
   @media (max-width: 1100px) {
     #stage { grid-template-columns: 190px minmax(0, 1fr) 220px; }
@@ -147,8 +178,6 @@
   @media (max-width: 760px) {
     #stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto 46px; grid-template-areas: "top" "track" "tote" "ticker"; }
     #tower { display: none; } #tote { max-height: 30vh; }
-    #howto { grid-template-columns: 34px 1fr; gap: 10px; padding: 10px 12px; bottom: 8px; width: 94%; }
-    #howto .n { font-size: 30px; } #howto h3 { font-size: 16px; } #howto p { font-size: 13px; } #howto .t { font-size: 10px; }
     #top { grid-template-columns: 1fr auto; } #brand { display: none; } #clock { min-width: 0; padding: 6px 14px; }
     #clock .big { font-size: 20px; } #potBox { padding: 6px 12px; } #ticker .tag { padding: 0 10px; font-size: 11px; letter-spacing: 1px; }
     #ticker .msg { font-size: 14px; padding: 0 10px; }
@@ -171,7 +200,6 @@
     <div id="reacts"></div>
     <div id="intro"><div class="plate card"><div class="k" id="introK"></div><h2 id="introTitle"></h2><div class="sub" id="introSub"></div>
       <div class="calc" id="introCalc"></div><div class="tip" id="introTip"></div></div></div>
-    <div class="plate" id="howto"><div class="n" id="howtoN"></div><div><div class="t">Cómo se juega</div><h3 id="howtoTitle"></h3><p id="howtoText"></p></div><div class="bar"><i id="howtoBar"></i></div></div>
     <div id="results"><div class="plate card" id="resCard"></div></div>
   </div>
   <div class="plate" id="tote">
@@ -187,8 +215,18 @@
   </div>
   <div class="plate" id="ticker"><div class="tag">Narrador</div><div class="msg" id="tickerMsg">Bienvenidos a Jackpot Jockeys.</div></div>
 </div>
+<div id="splash">
+  <canvas id="splashCv"></canvas>
+  <div id="splashLogo"><div class="k">Carreras de caballos con cerebro</div><h1>Jackpot <span>Jockeys</span></h1><div class="sub">Apuesta · Sabotea · Gana</div></div>
+  <div id="tutorial">
+    <div><div class="k">Cómo se juega</div><div id="tutSlide"></div><div id="tutDots"></div></div>
+    <div id="tutJoin"><div class="k">Entra desde tu celular</div><div id="tutQr"></div><div id="tutSala"></div><div id="tutUrl"></div></div>
+  </div>
+  <div id="splashBar"><button class="ghost" id="splashNext">Siguiente ›</button><button id="splashSkip">Saltar y jugar</button><small>Enter · saltar &nbsp; H · ver de nuevo</small></div>
+</div>
 <script>
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = document.getElementById('c');
+let ctx = cv.getContext('2d'); // let: la intro dibuja los mismos caballos en su propio lienzo
 // El lienzo toma el tamaño real de su caja (sin paneles encima de la pista)
 function fitCanvas() {
   const box = document.getElementById('trackBox').getBoundingClientRect();
@@ -219,7 +257,8 @@ const COATS = ['#5a321a', '#2c1a0e', '#7b4a24', '#9a7a55', '#1d1d1f', '#8a4b2a']
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'h' || e.key === 'H') { howtoForced = howtoForced === null ? !howtoVisible() : !howtoForced; updateHowto(); }
+  if (e.key === 'h' || e.key === 'H') return splashOn ? closeSplash() : openTutorial();
+  if (splashOn && ['Enter', ' ', 'Escape', 'ArrowRight'].includes(e.key)) { e.preventDefault(); return e.key === 'ArrowRight' ? nextSlide() : skipSplash(); }
   if (e.key === 's' || e.key === 'S') showSensors = !showSensors;
   if (e.key === 'c' || e.key === 'C') camOn = !camOn;
 });
@@ -246,6 +285,7 @@ async function loadTrack() {
     if (window.QRCode) new QRCode(qr, { text: r.joinUrl, width: 96, height: 96, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
     else qr.style.display = 'none';
   }
+  fillTutJoin(r.joinUrl);
 }
 
 // ─── Utilidades de geometría ────────────────────────
@@ -1152,29 +1192,123 @@ function updateIntro() {
 }
 setInterval(updateIntro, 250);
 
-// ─── Cómo se juega (en las apuestas de la primera carrera de cada partida) ───
-const HOWTO = [
-  ['Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Empiezas con 1000 fichas. La carrera arranca cuando todos tocan "Estoy listo".'],
-  ['Apuesta como en el hipódromo', 'La casa pone cuotas fijas: Ganador, Placé (1º o 2º), Podio (top 3), Quiniela, Exacta o Trifecta. Lo que ves en tu boleto es lo que cobras. Entre más difícil, más paga: una Trifecta puede dar x1.000.'],
-  ['Ayuda o sabotea', 'En carrera, usa poderes desde el celular: zanahoria, escudo, lazo, vendas, rayo… Los caballos son redes neuronales y reaccionan solos.'],
-  ['Mafia, peñas y caballos', '¿Sin fichas? La mafia presta, con intereses. Alíate con amigos en una peña (o traiciónalos). Compra, entrena y disfraza tu propio potro: T-Rex, robot, payaso, pato de hule…'],
-  ['8 carreras, un campeón', 'La última es el Gran Premio con pozo +50 %. Gana quien termine con más fichas menos deuda. ¡Y burlarse con reacciones es gratis!'],
+// ─── Intro con caballos corriendo y tutorial a pantalla completa ───
+// Sale al abrir el juego (una vez por sesión) mientras la casa simula las cuotas; se salta con Enter.
+const SLIDES = [
+  ['📱', 'Entra desde tu celular', 'Escanea el código o abre el enlace y escribe el código de la sala. Todos empiezan con <b>1.000 fichas</b>.'],
+  ['🧠', 'Los caballos piensan solos', 'Cada caballo es una <b>red neuronal</b> que aprendió a correr, esquivar y empujar. Nadie los maneja: tú <b>apuestas</b>.'],
+  ['🎯', 'Apuesta en 3 toques', 'Elige <b>qué apuestas</b> (que gane, top 2, podio, 1º-2º-3º…), toca tu <b>caballo</b> y el <b>monto</b>. El botón te dice cuánto ganas.'],
+  ['🏆', 'Lo difícil paga más', 'Acertar el podio es fácil y paga poco. Adivinar <b>1º, 2º y 3º en orden</b> casi nunca pasa… pero puede pagar <b>x1.000</b>.'],
+  ['🥕', 'Ayuda o sabotea', 'En carrera lanza poderes desde el celular: 🥕 acelera, 🪢 frena, 🛡️ protege, ⚡ congela a todos los demás.'],
+  ['🕴️', 'Mafia, peñas y disfraces', '¿Sin fichas? La <b>mafia</b> presta (y cobra caro). Arma una <b>peña</b> con amigos. Compra tu potro y vístelo de <b>T-Rex</b> 🦖.'],
+  ['✅', 'Todos deciden cuándo', 'La carrera arranca cuando todos tocan <b>Listo</b>. Son 8 carreras y la última es el <b>Gran Premio</b>. ¡Gana quien termine más rico!'],
 ];
-let howtoForced = null, howtoIdx = 0, howtoTimer = null;
-const howtoVisible = () => howtoForced !== null ? howtoForced
-  : !!(state && state.phase === 'apuestas' && state.match.race === 1 && state.oddsReady && Date.now() >= introUntil);
-function updateHowto() {
-  const box = document.getElementById('howto'), show = howtoVisible();
-  box.style.display = show ? 'grid' : 'none';
-  if (show && !howtoTimer) { renderHowto(); howtoTimer = setInterval(() => { howtoIdx = (howtoIdx + 1) % HOWTO.length; renderHowto(); }, 7000); }
-  if (!show && howtoTimer) { clearInterval(howtoTimer); howtoTimer = null; howtoIdx = 0; }
+const SLIDE_MS = 9000, INTRO_MS = 4500;
+const splash = document.getElementById('splash'), scv = document.getElementById('splashCv');
+let splashOn = false, slideIdx = 0, slideTimer = null, introTimer = null, outTimer = null;
+// Desfile de caballos con disfraces al azar
+const PARADE_SKINS = ['normal', 'trex', 'robot', 'payaso', 'unicornio', 'vaca', 'pato', 'cebra', 'pizza', 'fantasma'];
+const PARADE_COLORS = ['#c0392b', '#2e86de', '#e7c873', '#27ae60', '#8e44ad'];
+const parade = PARADE_COLORS.map((color, i) => ({
+  color, lane: i, skin: i !== 2 ? PARADE_SKINS[1 + Math.floor(Math.random() * (PARADE_SKINS.length - 1))] : 'normal',
+  x: 0.05 + Math.random() * 0.7, v: 0.11 + Math.random() * 0.05, ph: Math.random() * 6,
+}));
+function drawParade(t, dt) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = Math.round(scv.clientWidth * dpr), H = Math.round(scv.clientHeight * dpr);
+  if (scv.width !== W || scv.height !== H) { scv.width = W; scv.height = H; }
+  const c = scv.getContext('2d');
+  // Césped a rayas, pista de arena con barandas y líneas de carril que corren
+  const stripe = H / 9;
+  for (let k = 0; k < 10; k++) { c.fillStyle = k % 2 ? '#123522' : '#0f2d1d'; c.fillRect(0, k * stripe, W, stripe); }
+  const top = H * 0.46, bottom = H * 0.92, laneH = (bottom - top) / parade.length;
+  const dirt = c.createLinearGradient(0, top, 0, bottom);
+  dirt.addColorStop(0, '#8a6038'); dirt.addColorStop(1, '#6e4a2a');
+  c.fillStyle = dirt; c.fillRect(0, top, W, bottom - top);
+  const scroll = (t * 0.6 * W / 1000) % (W / 8);
+  c.strokeStyle = 'rgba(241,232,211,0.18)'; c.lineWidth = Math.max(1, H / 500); c.setLineDash([W / 40, W / 40]);
+  for (let k = 1; k < parade.length; k++) { c.lineDashOffset = scroll; c.beginPath(); c.moveTo(0, top + k * laneH); c.lineTo(W, top + k * laneH); c.stroke(); }
+  c.setLineDash([]);
+  for (const y of [top, bottom]) { c.fillStyle = '#f1e8d3'; c.fillRect(0, y - H / 240, W, H / 120);
+    for (let x = -scroll; x < W; x += W / 16) c.fillRect(x, y - H / 80, W / 300, H / 40); }
+  // Caballos: los mismos dibujos de la carrera, más grandes
+  const scale = laneH / 15;
+  const saved = ctx; ctx = c;
+  for (const h of parade) {
+    h.x += h.v * (1 + 0.25 * Math.sin(t / 900 + h.ph)) * dt / 1000;
+    if (h.x > 1.15) { h.x = -0.15 - Math.random() * 0.2; h.v = 0.11 + Math.random() * 0.05;
+      h.skin = Math.random() < 0.3 ? 'normal' : PARADE_SKINS[1 + Math.floor(Math.random() * (PARADE_SKINS.length - 1))]; }
+    const x = h.x * W, y = top + (h.lane + 0.5) * laneH, gallop = Math.sin(t / 55 * 1.3 + h.ph * 3);
+    c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(x + 3 * scale, y + 4 * scale, 17 * scale, 7 * scale, 0, 0, 7); c.fill();
+    c.save(); c.translate(x, y); c.scale(scale, scale);
+    if (!drawSkin(h.skin, h.lane, gallop, t)) drawClassicHorse(h.lane, gallop);
+    c.fillStyle = h.color; c.fillRect(-7, -6.2, 9, 12.4);
+    c.fillStyle = shade(h.color, 0.85); c.beginPath(); c.ellipse(1, 0, 4.6, 5.6, 0, 0, 7); c.fill();
+    c.fillStyle = h.color; c.beginPath(); c.arc(4, 0, 2.9, 0, 7); c.fill();
+    c.restore();
+    // Polvo detrás
+    c.fillStyle = 'rgba(210,180,140,0.25)';
+    for (let k = 0; k < 3; k++) { c.beginPath(); c.arc(x - (26 + k * 9 + (t / 20 + k * 7) % 9) * scale, y + Math.sin(t / 80 + k) * 4 * scale, (3 + k) * scale, 0, 7); c.fill(); }
+  }
+  ctx = saved;
 }
-function renderHowto() {
-  document.getElementById('howtoN').textContent = howtoIdx + 1;
-  document.getElementById('howtoTitle').textContent = HOWTO[howtoIdx][0];
-  document.getElementById('howtoText').textContent = HOWTO[howtoIdx][1];
-  const bar = document.getElementById('howtoBar'); bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+let paradeLast = 0;
+function paradeLoop(t) {
+  if (!splashOn) return;
+  drawParade(t, Math.min(50, t - (paradeLast || t)));
+  paradeLast = t;
+  requestAnimationFrame(paradeLoop);
 }
+function showSplash(tutorial) {
+  clearTimeout(outTimer);
+  const wasOn = splashOn; splashOn = true; paradeLast = 0;
+  splash.classList.remove('out'); splash.classList.add('on'); splash.classList.toggle('tut', tutorial);
+  if (!wasOn) requestAnimationFrame(paradeLoop);
+  clearTimeout(introTimer);
+  if (tutorial) showSlide(0); else introTimer = setTimeout(() => openTutorial(), INTRO_MS);
+}
+function openTutorial() {
+  if (!splashOn) return showSplash(true);
+  clearTimeout(introTimer);
+  splash.classList.add('tut'); showSlide(0);
+}
+function showSlide(i) {
+  clearTimeout(slideTimer);
+  if (i >= SLIDES.length) return skipSplash();
+  slideIdx = i;
+  const [e, title, text] = SLIDES[i], el = document.getElementById('tutSlide');
+  el.innerHTML = `<div class="e">${e}</div><h2>${esc(title)}</h2><p>${text}</p>`;
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  document.getElementById('tutDots').innerHTML = SLIDES.map((_, k) => `<i class="${k < i ? 'done' : k === i ? 'on' : ''}"></i>`).join('');
+  document.getElementById('splashNext').textContent = i === SLIDES.length - 1 ? '¡A jugar! ›' : 'Siguiente ›';
+  slideTimer = setTimeout(() => showSlide(i + 1), SLIDE_MS);
+}
+const nextSlide = () => splash.classList.contains('tut') ? showSlide(slideIdx + 1) : openTutorial();
+function skipSplash() {
+  try { sessionStorage.setItem('jj_splash', '1'); } catch {}
+  closeSplash();
+}
+function closeSplash() {
+  clearTimeout(slideTimer); clearTimeout(introTimer);
+  splash.classList.add('out');
+  outTimer = setTimeout(() => { splashOn = false; splash.classList.remove('on', 'out', 'tut'); }, 600);
+}
+document.getElementById('splashSkip').onclick = skipSplash;
+document.getElementById('splashNext').onclick = nextSlide;
+splash.addEventListener('click', e => { if (!e.target.closest('button') && !splash.classList.contains('tut')) openTutorial(); });
+splash.style.setProperty('--slide', SLIDE_MS / 1000 + 's');
+function fillTutJoin(url) {
+  document.getElementById('tutSala').textContent = SALA;
+  document.getElementById('tutUrl').textContent = url;
+  const q = document.getElementById('tutQr');
+  if (q.dataset.url === url) return;
+  q.dataset.url = url; q.innerHTML = '';
+  if (window.QRCode) new QRCode(q, { text: url, width: 220, height: 220, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
+  else q.style.display = 'none';
+}
+let seenSplash = false;
+try { seenSplash = !!sessionStorage.getItem('jj_splash'); } catch {}
+if (!seenSplash) showSplash(false);
 
 // ─── Conexión ───────────────────────────────────────
 // Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola
@@ -1209,7 +1343,6 @@ function onServerMessage(m) {
       if (lastPhase === 'carrera' && (m.phase === 'resultados' || m.phase === 'final')) startReplay(buildReplay());
       lastPhase = m.phase;
       renderUI();
-      updateHowto();
     }
   }
 }

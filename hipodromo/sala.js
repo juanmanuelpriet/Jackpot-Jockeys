@@ -437,7 +437,7 @@ class Room {
         net: [...a.members].reduce((s, id) => s + (this.players.has(id) ? this.net(this.players.get(id)) : 0), 0),
       })).sort((a, b) => b.net - a.net),
       reactions: REACTIONS,
-      powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
+      powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, icon: p.icon, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
         skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
     };

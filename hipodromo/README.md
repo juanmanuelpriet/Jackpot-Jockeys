@@ -99,11 +99,14 @@ una Exacta puede pagar x15–x400 y una **Trifecta x80–x3.000**. En el Gran Pr
 Se puede comprobar que son justas: los caballos que las cuotas daban por 29 % ganaron el 32 % de las carreras de
 prueba, y los de 49 %, el 52 %.
 
-**Tu carrera** (panel del celular): lo que llevas apostado, gastado en poderes y en favores de la mafia; cada
-boleto con su cuota fija y cuánto cobras si acierta; durante la carrera, **cuánto cobrarías si terminara ahora**
-(con las posiciones actuales y el cobrador de la mafia ya descontado); y al final, el **balance** completo:
-apostado, poderes, cobrado, lo que se llevó la mafia, comisión de la peña, premio de propietario y el resultado
-neto en fichas. La proyección usa el mismo cálculo que el pago real.
+**El celular** tiene estilo iOS (modo claro u oscuro según el teléfono) y está pensado para que hasta un niño
+pueda jugar: apostar son 3 toques. ① Eliges **qué apuestas** en una cuadrícula de 6 fichas con palabras sencillas
+(Que gane, Top 2, Podio, Pareja, 1º y 2º, 1º-2º-3º) y "hasta cuánto paga" cada una. ② Tocas tu **caballo**: en las
+apuestas de un caballo cada fila dice directamente "gana 720"; en las combinadas los vas eligiendo en orden y
+aparecen 1º, 2º, 3º. ③ Eliges el **monto** en el panel fijo de abajo, cuyo botón dice "Apostar 50 · ganas 360".
+Al lado está **Listo**. Durante la carrera ese panel cambia a los **poderes** (toca un caballo y luego el poder),
+arriba aparece **cuánto cobrarías si terminara ahora** y tus boletos con lo que paga cada uno. Al terminar, una
+tarjeta con el ganador y tu resultado neto. Las reacciones están en el botón 😂 de arriba.
 
 **Conexión:** la pantalla y los celulares usan WebSocket en los dos sentidos: el estado llega 4 veces por segundo y las
 acciones del celular (apostar, poderes, reacciones…) viajan por esa misma conexión, sin abrir una petición nueva,
@@ -112,13 +115,15 @@ así responden al instante incluso por internet.
 **Repeticiones y clips:** al terminar cada carrera la pantalla repite la llegada en cámara lenta. El botón
 "Guardar clip" la graba como video (`.webm`) para mandarla al grupo.
 
-**Reacciones:** desde la barra inferior del celular cada jugador lanza reacciones (😂 Jajaja, 🔥 ¡Vamos!,
+**Reacciones:** desde el botón 😂 del celular cada jugador lanza reacciones (😂 Jajaja, 🔥 ¡Vamos!,
 🤡 Payaso, 💸 Mi plata…, 😱 ¡Nooo!, 😭 Llora, 👑 El rey, 🐎 ¡Corre!) que suben flotando por la pantalla grande con
 su nombre. Una cada 1.5 s por jugador, para que nadie llene la pantalla.
 
-**Cómo se juega:** el celular muestra un tutorial de 6 pasos la primera vez (y con el botón **?** cuando quieras).
-La pantalla grande repasa las reglas en 5 pasos durante las apuestas de la primera carrera de cada partida;
-la tecla **H** lo muestra u oculta.
+**Cómo se juega:** al abrir el juego, la pantalla grande arranca con una **intro de caballos corriendo** (con
+disfraces al azar) y luego un **tutorial a pantalla completa** de 7 pasos, con el QR y el código de la sala siempre
+a la vista para que la gente vaya entrando mientras la casa simula las cuotas. Se salta con **Enter** o el botón
+"Saltar y jugar", sale una vez por sesión y la tecla **H** lo vuelve a mostrar. El celular tiene su propio tutorial
+de 6 pasos (hoja inferior) la primera vez y con el botón **?**.
 
 ## La mafia de Don Caballone
 

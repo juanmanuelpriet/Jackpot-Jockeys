@@ -158,6 +158,12 @@ function handleAction(name, body) {
     if (room.phase === 'apuestas') room.startRace();
     return {};
   }
+  if (name === 'resetCoins') {
+    if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede reiniciar las fichas' };
+    const out = room.resetCoins();
+    setImmediate(() => broadcastState(room));
+    return out;
+  }
   if (name === 'join') {
     const nm = String(body.name || '').trim().slice(0, 16);
     let acc = body.id && accounts.get(body.id);

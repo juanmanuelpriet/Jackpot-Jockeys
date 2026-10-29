@@ -352,6 +352,19 @@ class Room {
     ];
   }
 
+  // Botón del anfitrión: todos vuelven a las fichas iniciales (para cuando entra alguien nuevo). Solo las
+  // fichas: se anulan los boletos de esta carrera, pero deudas, caballos, disfraces, peñas y podios quedan igual.
+  resetCoins() {
+    if (this.phase === 'carrera') return { error: 'Espera a que termine la carrera' };
+    for (const p of this.players.values()) {
+      p.coins = CFG.startCoins; p.tickets = []; p.ready = false;
+      p.race = { bets: 0, powers: 0, favor: 0 };
+    }
+    this.phaseEnds = this.phase === 'apuestas' ? null : this.phaseEnds; // si había cuenta regresiva, se cancela
+    this.addLog(`🔄 Fichas reiniciadas: todos vuelven a empezar con ${CFG.startCoins}.`);
+    return {};
+  }
+
   // ─── Bucle ────────────────────────────────────────
 
   step() {

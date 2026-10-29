@@ -44,6 +44,9 @@ Luego copia `Jackpot Jockeys.app` a Aplicaciones. Si npm se niega a correr el in
 con `npm install-scripts approve electron`. La app no está firmada: si la pasas a otra Mac, la primera vez hay que
 abrirla con clic derecho → Abrir.
 
+Nada queda corriendo en segundo plano: el juego, la sala y el enlace de internet existen solo mientras la app
+está abierta. Al cerrarla se apagan el servidor y el túnel.
+
 ### Jugar por internet
 
 ```bash
@@ -77,6 +80,14 @@ le apostó al ganador, todo el pozo pasa al **jackpot** de la siguiente carrera.
 
 **Repeticiones y clips:** al terminar cada carrera la pantalla repite la llegada en cámara lenta. El botón
 "Guardar clip" la graba como video (`.webm`) para mandarla al grupo.
+
+**Reacciones:** desde la barra inferior del celular cada jugador lanza reacciones (😂 Jajaja, 🔥 ¡Vamos!,
+🤡 Payaso, 💸 Mi plata…, 😱 ¡Nooo!, 😭 Llora, 👑 El rey, 🐎 ¡Corre!) que suben flotando por la pantalla grande con
+su nombre. Una cada 1.5 s por jugador, para que nadie llene la pantalla.
+
+**Cómo se juega:** el celular muestra un tutorial de 6 pasos la primera vez (y con el botón **?** cuando quieras).
+La pantalla grande repasa las reglas en 5 pasos durante las apuestas de la primera carrera de cada partida;
+la tecla **H** lo muestra u oculta.
 
 ## La mafia de Don Caballone
 

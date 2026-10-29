@@ -107,7 +107,7 @@ function broadcastState(room) {
 
 // ─── Acciones ───
 
-const ROOM_ACTIONS = ['bet', 'ready', 'power', 'loan', 'repay', 'mafiaFavor', 'createAlliance', 'invite', 'answerInvite',
+const ROOM_ACTIONS = ['react', 'bet', 'ready', 'power', 'loan', 'repay', 'mafiaFavor', 'createAlliance', 'invite', 'answerInvite',
   'leaveAlliance', 'gift', 'betray', 'buyHorse', 'enroll', 'train'];
 
 function handleAction(name, body) {
@@ -141,6 +141,7 @@ function handleAction(name, body) {
   if (!p) return { error: 'No estás en esta sala' };
   const out = room[name](p, body) || {};
   if (out.obstacle) broadcastScreens(room, { type: 'obst', o: out.obstacle });
+  if (out.reaction) { broadcastScreens(room, { type: 'react', ...out.reaction }); delete out.reaction; return out; }
   delete out.obstacle;
   setImmediate(() => broadcastState(room));
   return out;

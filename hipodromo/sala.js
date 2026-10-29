@@ -35,6 +35,18 @@ const CFG = {
 };
 
 const TRACK_SIZES = ['corta', 'media', 'media', 'larga'];
+// Reacciones que los jugadores lanzan desde el celular a la pantalla grande
+const REACTIONS = {
+  risa: { icon: '😂', text: 'Jajaja' },
+  fuego: { icon: '🔥', text: '¡Vamos!' },
+  payaso: { icon: '🤡', text: 'Payaso' },
+  plata: { icon: '💸', text: 'Mi plata…' },
+  susto: { icon: '😱', text: '¡Nooo!' },
+  llora: { icon: '😭', text: 'Llora' },
+  rey: { icon: '👑', text: 'El rey' },
+  caballo: { icon: '🐎', text: '¡Corre!' },
+};
+const REACTION_COOLDOWN_MS = 1500;
 const PEÑA_NAMES = ['Cartel del Heno', 'Los Sin Freno', 'La Peña del Gradiente', 'Herradura Nostra', 'Los Overfitteados',
   'Club del Lazo', 'Sindicato del Galope', 'Los Tanh Tanh', 'Hermandad del Barro', 'Los Pura Sangre Fría'];
 const PLAYER_COLORS = ['#e85d75', '#4fb3d9', '#9bc53d', '#e0e0d8', '#b07cff', '#ff9f43'];
@@ -347,6 +359,7 @@ class Room {
         id: a.id, name: a.name, members: [...a.members].map(id => this.players.get(id)?.name).filter(Boolean),
         net: [...a.members].reduce((s, id) => s + (this.players.has(id) ? this.net(this.players.get(id)) : 0), 0),
       })).sort((a, b) => b.net - a.net),
+      reactions: REACTIONS,
       powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
         horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
@@ -551,6 +564,17 @@ class Room {
     this.alliances.delete(a.id);
     this.narrate('traicion', { p: p.name, n: a.name, h: loot });
     return {};
+  }
+
+  // ─── Reacciones ───────────────────────────────────
+
+  react(p, { kind }) {
+    const r = REACTIONS[kind];
+    if (!r) return { error: 'Reacción inválida' };
+    const now = Date.now();
+    if (now - (p.lastReact || 0) < REACTION_COOLDOWN_MS) return { error: 'Más despacio…' };
+    p.lastReact = now;
+    return { reaction: { name: p.name, icon: r.icon, text: r.text } };
   }
 
   // ─── Caballos propios ─────────────────────────────

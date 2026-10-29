@@ -11,7 +11,7 @@
     --gold: #c9a24a; --gold-hi: #e7c873; --amber: #ffb43a; --wine: #8e1d22; --red: #ff6b5e; --ok: #7fc48a;
     --display: 'Oswald', 'Arial Narrow', sans-serif; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0 auto; background: var(--bg); color: var(--txt); font-family: var(--display); padding: 14px 14px 96px; max-width: 520px; letter-spacing: .3px; }
+  body { margin: 0 auto; background: var(--bg); color: var(--txt); font-family: var(--display); padding: 14px 14px 150px; max-width: 520px; letter-spacing: .3px; }
   h1 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 36px; margin: 26px 0 6px; line-height: 1; }
   h1 span { color: var(--gold-hi); }
   header { display: grid; grid-template-columns: 1fr auto; align-items: end; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
@@ -61,7 +61,7 @@
   .card h3:first-child { margin-top: 0; }
   .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.07); }
   .row:last-child { border-bottom: 0; }
-  .msg { position: fixed; left: 14px; right: 14px; bottom: 74px; background: var(--card2); border-left: 3px solid var(--amber); padding: 13px; font-weight: 500; letter-spacing: .5px; display: none; box-shadow: 0 10px 30px #0008; z-index: 5; }
+  .msg { position: fixed; left: 14px; right: 14px; bottom: 112px; background: var(--card2); border-left: 3px solid var(--amber); padding: 13px; font-weight: 500; letter-spacing: .5px; display: none; box-shadow: 0 10px 30px #0008; z-index: 5; }
   .result { padding: 18px 16px; background: var(--card); border-top: 3px solid var(--gold); margin-bottom: 10px; }
   .result .k { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
   .result h2 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 30px; margin: 6px 0; }
@@ -71,6 +71,22 @@
   nav button { background: none; border: 0; color: var(--mute); font-family: var(--display); padding: 12px 0 14px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; position: relative; }
   nav button.on { color: var(--gold-hi); box-shadow: inset 0 3px 0 var(--gold); }
   nav .dot { position: absolute; top: 8px; right: 22%; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+  #reactBar { position: fixed; left: 0; right: 0; bottom: 49px; z-index: 4; display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px;
+    background: linear-gradient(180deg, rgba(8,22,15,0.6), #08160f); border-top: 1px solid rgba(201,162,74,0.15); scrollbar-width: none; }
+  #reactBar::-webkit-scrollbar { display: none; }
+  #reactBar button { flex: none; background: var(--card); border: 1px solid var(--line); color: var(--txt); font-family: var(--display); padding: 6px 10px; font-size: 14px; letter-spacing: .5px; border-radius: 20px; }
+  #reactBar button span { font-size: 18px; margin-right: 4px; vertical-align: -2px; }
+  #reactBar button:active { transform: scale(0.93); background: var(--card2); }
+  #helpBtn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold); background: none; color: var(--gold-hi); font-family: var(--display); font-size: 18px; margin-left: 10px; }
+  #tuto { position: fixed; inset: 0; z-index: 10; background: rgba(5,14,9,0.92); display: flex; align-items: center; justify-content: center; padding: 18px; }
+  #tuto .box { background: var(--card); border-top: 3px solid var(--gold); padding: 24px 20px 18px; max-width: 440px; width: 100%; }
+  #tuto .step { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  #tuto h2 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 32px; margin: 8px 0 10px; line-height: 1.05; }
+  #tuto p { font-size: 17px; line-height: 1.45; margin: 0 0 8px; }
+  #tuto .dots { display: flex; gap: 6px; margin: 16px 0 12px; }
+  #tuto .dots i { width: 22px; height: 3px; background: rgba(241,232,211,0.2); }
+  #tuto .dots i.on { background: var(--gold); }
+  #tuto .btns { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
   .hidden { display: none !important; }
   .hint { color: var(--mute); font-size: 14px; line-height: 1.4; letter-spacing: .3px; }
 </style>
@@ -88,7 +104,7 @@
 <div id="game" class="hidden">
   <header>
     <div><div class="name" id="myName"></div><div class="coins" id="coins">0</div><div class="debt" id="debtTxt"></div></div>
-    <div id="potTxt"></div>
+    <div style="display:flex;align-items:flex-end"><div id="potTxt"></div><button id="helpBtn" title="Cómo se juega">?</button></div>
   </header>
   <div class="phase" id="phaseBox"><span id="phaseTxt"></span><span class="t" id="timeTxt"></span></div>
 
@@ -113,6 +129,16 @@
   <section id="tab-mafia" class="hidden"></section>
   <section id="tab-pena" class="hidden"></section>
 </div>
+
+<div id="reactBar" class="hidden"></div>
+
+<div id="tuto" class="hidden"><div class="box">
+  <div class="step" id="tutoStep"></div>
+  <h2 id="tutoTitle"></h2>
+  <div id="tutoText"></div>
+  <div class="dots" id="tutoDots"></div>
+  <div class="btns"><button class="main alt" id="tutoSkip" style="margin:0">Saltar</button><button class="main" id="tutoNext" style="margin:0">Siguiente</button></div>
+</div></div>
 
 <nav id="nav" class="hidden">
   <button data-tab="carrera" class="on">Carrera</button>
@@ -366,18 +392,58 @@ function openStream(query, onMessage, onClosed) {
   return { close() { stopped = true; sock && sock.close(); } };
 }
 
+// ─── Reacciones ───
+let reactionsDrawn = false;
+function drawReactions() {
+  if (reactionsDrawn || !state || !state.reactions) return;
+  reactionsDrawn = true;
+  document.getElementById('reactBar').innerHTML = Object.entries(state.reactions)
+    .map(([k, r]) => `<button data-react="${k}"><span>${r.icon}</span>${esc(r.text)}</button>`).join('');
+}
+document.getElementById('reactBar').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  try { navigator.vibrate && navigator.vibrate(15); } catch {}
+  api('react', { kind: b.dataset.react });
+};
+
+// ─── Cómo se juega ───
+const TUTO = [
+  ['Apuesta', 'Elige un caballo y un monto antes de que cierren las apuestas. Todo lo apostado va a un pozo que se reparte entre quienes acertaron. Si nadie acierta, el pozo crece: <b>jackpot</b>.'],
+  ['Ayuda o sabotea', 'Durante la carrera toca un caballo y lánzale un poder: <b>zanahoria</b> para ayudarlo, <b>lazo</b> o <b>vendas</b> para frenarlo, <b>rayo</b> para congelar a todos los demás. Los caballos son redes neuronales: reaccionan solos.'],
+  ['La mafia', '¿Sin fichas? <b>Don Caballone</b> te presta… al 12 % por carrera, y su cobrador se queda con la mitad de lo que ganes hasta que pagues. También "arregla" carreras, si no te importa deber más.'],
+  ['Tu peña', 'Alíate con hasta dos amigos: se pasan fichas, cobran comisión cuando uno gana y, si sabotean juntos al mismo caballo, el efecto es doble. O traiciónalos y llévate el 20 % de sus fichas.'],
+  ['Tu caballo', 'Compra un potro, ponle nombre y entrénalo: se entrena de verdad con neuroevolución. Inscríbelo en las carreras y, si gana, cobras como dueño.'],
+  ['Cómo se gana', 'Cada partida son <b>8 carreras</b>; la última es el <b>Gran Premio</b> con pozo +50 %. Gana quien tenga más fichas <b>menos su deuda</b>. Abajo tienes reacciones para burlarte de tus amigos.'],
+];
+let tutoStep = 0;
+function showTuto(i) {
+  tutoStep = i;
+  if (i >= TUTO.length) { document.getElementById('tuto').classList.add('hidden'); store.set('jj_tuto', '1'); return; }
+  document.getElementById('tuto').classList.remove('hidden');
+  document.getElementById('tutoStep').textContent = `Cómo se juega · ${i + 1} de ${TUTO.length}`;
+  document.getElementById('tutoTitle').textContent = TUTO[i][0];
+  document.getElementById('tutoText').innerHTML = `<p>${TUTO[i][1]}</p>`;
+  document.getElementById('tutoDots').innerHTML = TUTO.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+  document.getElementById('tutoNext').textContent = i === TUTO.length - 1 ? '¡A jugar!' : 'Siguiente';
+}
+document.getElementById('tutoNext').onclick = () => showTuto(tutoStep + 1);
+document.getElementById('tutoSkip').onclick = () => showTuto(TUTO.length);
+document.getElementById('helpBtn').onclick = () => showTuto(0);
+
 let es;
 function connect() {
   document.getElementById('login').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
   document.getElementById('nav').classList.remove('hidden');
+  document.getElementById('reactBar').classList.remove('hidden');
+  if (!store.get('jj_tuto')) showTuto(0);
   if (es) es.close();
   es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;
     if (lastRaceKey && lastRaceKey !== m.raceKey) selHorse = null;
     lastRaceKey = m.raceKey;
     state = m;
-    if (m.me) { me = m.me; render(); return; }
+    if (m.me) { me = m.me; drawReactions(); render(); return; }
     // Cuenta conocida pero todavía no está en esta sala: entrar con el mismo nombre
     if (!joining) { joining = true; api('join', {}).then(j => { joining = false; if (!j) backToLogin(); }); }
   }, async () => {
@@ -391,6 +457,7 @@ function backToLogin(text) {
   document.getElementById('login').classList.remove('hidden');
   document.getElementById('game').classList.add('hidden');
   document.getElementById('nav').classList.add('hidden');
+  document.getElementById('reactBar').classList.add('hidden');
   document.getElementById('salaIn').style.display = '';
   if (text) toast(text);
 }

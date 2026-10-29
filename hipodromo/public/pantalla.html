@@ -97,6 +97,24 @@
   .award b { color: var(--gold-hi); font-size: 19px; text-transform: uppercase; }
   .award small { display: block; color: var(--cream-dim); font-size: 13px; }
   .award span:last-child { font-size: 20px; text-transform: uppercase; align-self: center; }
+  #reacts { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+  .react { position: absolute; bottom: -60px; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px;
+    background: rgba(11,31,21,0.88); border: 1px solid var(--line); border-radius: 30px; box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    animation: floatUp 3.6s ease-out forwards; white-space: nowrap; }
+  .react .e { font-size: 34px; line-height: 1; }
+  .react b { display: block; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-hi); }
+  .react small { display: block; font-size: 13px; color: var(--cream); }
+  @keyframes floatUp { 0% { transform: translateY(0) scale(.6); opacity: 0; } 12% { transform: translateY(-80px) scale(1.08); opacity: 1; }
+    75% { opacity: 1; } 100% { transform: translateY(-62vh) scale(.95); opacity: 0; } }
+  #howto { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, 90%); z-index: 2; padding: 16px 22px 14px;
+    display: none; grid-template-columns: 64px 1fr; gap: 16px; align-items: center; }
+  #howto .n { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 54px; color: var(--gold-hi); text-align: center; line-height: 1; }
+  #howto .t { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  #howto h3 { margin: 2px 0 4px; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; }
+  #howto p { margin: 0; color: var(--cream-dim); font-size: 16px; line-height: 1.35; }
+  #howto .bar { grid-column: 1 / 3; height: 3px; background: rgba(241,232,211,0.12); margin-top: 6px; }
+  #howto .bar i { display: block; height: 100%; background: var(--gold); animation: howtoBar 7s linear infinite; }
+  @keyframes howtoBar { from { width: 0; } to { width: 100%; } }
   .hint { position: absolute; bottom: 8px; right: 10px; font-size: 11px; letter-spacing: 2px; color: rgba(241, 232, 211, 0.4); text-transform: uppercase; }
   @media (max-width: 1100px) {
     #stage { grid-template-columns: 190px minmax(0, 1fr) 220px; }
@@ -124,7 +142,9 @@
     <div class="label" style="margin-top:14px">Mapa</div><canvas id="miniView"></canvas></div>
   <div id="trackBox">
     <canvas id="c"></canvas>
-    <div class="hint">S · sensores de la red &nbsp;&nbsp; C · cámara</div>
+    <div class="hint">S · sensores de la red &nbsp;&nbsp; C · cámara &nbsp;&nbsp; H · cómo se juega</div>
+    <div id="reacts"></div>
+    <div class="plate" id="howto"><div class="n" id="howtoN"></div><div><div class="t">Cómo se juega</div><h3 id="howtoTitle"></h3><p id="howtoText"></p></div><div class="bar"><i id="howtoBar"></i></div></div>
     <div id="results"><div class="plate card" id="resCard"></div></div>
   </div>
   <div class="plate" id="tote">
@@ -171,6 +191,7 @@ const COATS = ['#5a321a', '#2c1a0e', '#7b4a24', '#9a7a55', '#1d1d1f', '#8a4b2a']
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'h' || e.key === 'H') { howtoForced = howtoForced === null ? !howtoVisible() : !howtoForced; updateHowto(); }
   if (e.key === 's' || e.key === 'S') showSensors = !showSensors;
   if (e.key === 'c' || e.key === 'C') camOn = !camOn;
 });
@@ -928,6 +949,41 @@ function renderUI() {
       : r.jackpot ? `<div class="pay">Nadie le apostó. <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}${buttons}`;
 }
 
+// ─── Reacciones del público ─────────────────────────
+function showReaction(m) {
+  const box = document.getElementById('reacts');
+  const el = document.createElement('div');
+  el.className = 'react';
+  el.style.left = `${8 + Math.random() * 70}%`;
+  el.innerHTML = `<span class="e">${esc(m.icon)}</span><span><b>${esc(m.name)}</b><small>${esc(m.text)}</small></span>`;
+  box.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+  while (box.children.length > 14) box.firstChild.remove();
+}
+
+// ─── Cómo se juega (en las apuestas de la primera carrera de cada partida) ───
+const HOWTO = [
+  ['Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Empiezas con 1000 fichas.'],
+  ['Apuesta', 'Elige caballo y monto antes de que cierren. El pozo se reparte entre quienes acertaron; si nadie acierta, crece el jackpot.'],
+  ['Ayuda o sabotea', 'En carrera, usa poderes desde el celular: zanahoria, escudo, lazo, vendas, rayo… Los caballos son redes neuronales y reaccionan solos.'],
+  ['Mafia, peñas y caballos', '¿Sin fichas? La mafia presta, con intereses. Alíate con amigos en una peña (o traiciónalos). Compra y entrena tu propio potro.'],
+  ['8 carreras, un campeón', 'La última es el Gran Premio con pozo +50 %. Gana quien termine con más fichas menos deuda. ¡Y burlarse con reacciones es gratis!'],
+];
+let howtoForced = null, howtoIdx = 0, howtoTimer = null;
+const howtoVisible = () => howtoForced !== null ? howtoForced : !!(state && state.phase === 'apuestas' && state.match.race === 1);
+function updateHowto() {
+  const box = document.getElementById('howto'), show = howtoVisible();
+  box.style.display = show ? 'grid' : 'none';
+  if (show && !howtoTimer) { renderHowto(); howtoTimer = setInterval(() => { howtoIdx = (howtoIdx + 1) % HOWTO.length; renderHowto(); }, 7000); }
+  if (!show && howtoTimer) { clearInterval(howtoTimer); howtoTimer = null; howtoIdx = 0; }
+}
+function renderHowto() {
+  document.getElementById('howtoN').textContent = howtoIdx + 1;
+  document.getElementById('howtoTitle').textContent = HOWTO[howtoIdx][0];
+  document.getElementById('howtoText').textContent = HOWTO[howtoIdx][1];
+  const bar = document.getElementById('howtoBar'); bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+}
+
 // ─── Conexión ───────────────────────────────────────
 // Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola
 function openStream(query, onMessage, onClosed) {
@@ -952,6 +1008,7 @@ async function connect() {
 function onServerMessage(m) {
   {
     if (m.type === 'pos') { if (!replay) pos = m.h; recordFrame(m.h); }
+    else if (m.type === 'react') showReaction(m);
     else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
     else if (m.type === 'state') {
       state = m;
@@ -960,6 +1017,7 @@ function onServerMessage(m) {
       if (lastPhase === 'carrera' && (m.phase === 'resultados' || m.phase === 'final')) startReplay(buildReplay());
       lastPhase = m.phase;
       renderUI();
+      updateHowto();
     }
   }
 }

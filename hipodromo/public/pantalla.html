@@ -93,6 +93,12 @@
   .gp { color: var(--amber) !important; }
   .resBtns { display: flex; gap: 8px; margin-top: 14px; }
   .resBtns button { flex: 1; background: transparent; border: 1px solid var(--gold); color: var(--gold-hi); padding: 8px; font-family: var(--display); letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+  .pool { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; border-bottom: 1px solid rgba(241,232,211,0.06); text-transform: uppercase; letter-spacing: .5px; }
+  .pool span:last-child { color: var(--amber); font-variant-numeric: tabular-nums; }
+  .bytype { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0 4px; }
+  .bytype div { background: rgba(241,232,211,0.05); padding: 6px 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; }
+  .bytype b { display: block; color: var(--amber); font-size: 17px; }
+  .bytype .none b { color: var(--cream-dim); }
   .award { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(241,232,211,0.08); }
   .award b { color: var(--gold-hi); font-size: 19px; text-transform: uppercase; }
   .award small { display: block; color: var(--cream-dim); font-size: 13px; }
@@ -125,6 +131,8 @@
   @media (max-width: 760px) {
     #stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto 46px; grid-template-areas: "top" "track" "tote" "ticker"; }
     #tower { display: none; } #tote { max-height: 30vh; }
+    #howto { grid-template-columns: 34px 1fr; gap: 10px; padding: 10px 12px; bottom: 8px; width: 94%; }
+    #howto .n { font-size: 30px; } #howto h3 { font-size: 16px; } #howto p { font-size: 13px; } #howto .t { font-size: 10px; }
     #top { grid-template-columns: 1fr auto; } #brand { display: none; } #clock { min-width: 0; padding: 6px 14px; }
     #clock .big { font-size: 20px; } #potBox { padding: 6px 12px; } #ticker .tag { padding: 0 10px; font-size: 11px; letter-spacing: 1px; }
     #ticker .msg { font-size: 14px; padding: 0 10px; }
@@ -151,6 +159,8 @@
     <div class="label">Cuotas</div>
     <div class="jack" id="jack"></div>
     <div class="odds" id="odds"></div>
+    <div class="label" style="margin-top:12px">Pozos por tipo</div>
+    <div class="odds" id="poolRows"></div>
     <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
     <div id="sala"></div>
     <button id="startBtn">Arrancar carrera</button>
@@ -900,6 +910,8 @@ function renderUI() {
   document.getElementById('odds').innerHTML = s.horses.map((h, i) => `<div class="odd">
     <div class="num" style="background:${h.color}">${i + 1}</div><div class="nm">${esc(h.name)}</div>
     <div class="bet">${h.bets ? h.bets.toLocaleString('es') : ''}</div><div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
+  document.getElementById('poolRows').innerHTML = Object.values(s.pools).map(p =>
+    `<div class="pool"><span>${esc(p.name)} <small style="color:var(--cream-dim);text-transform:none">· ${esc(p.desc)}</small></span><span>${p.total.toLocaleString('es')}</span></div>`).join('');
   const betting = s.phase === 'apuestas';
   document.getElementById('join').style.display = betting ? 'flex' : 'none';
   document.getElementById('startBtn').style.display = betting && HOSTKEY ? '' : 'none';
@@ -945,8 +957,10 @@ function renderUI() {
     ${r.order.map((i, k) => `<div class="fin"><div class="p">${k + 1}</div><div class="silk" style="width:8px;height:22px;background:${s.horses[i].color}"></div>
       <div>${esc(s.horses[i].name)}</div><div class="t">${r.times[k] ? r.times[k].toFixed(2) + ' s' : 'no terminó'}</div></div>`).join('')}
     ${maxHits > 0 ? `<div class="pay">Más bravo: <b>${esc(s.horses[r.hits.indexOf(maxHits)].name)}</b> con ${maxHits} embestidas</div>` : ''}
-    ${r.payouts.length ? r.payouts.map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b>${p.net < p.win ? ` (la mafia se queda ${(p.win - p.net).toLocaleString('es')})` : ''}</div>`).join('')
-      : r.jackpot ? `<div class="pay">Nadie le apostó. <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}${buttons}`;
+    ${r.byType ? `<div class="bytype">${Object.values(r.byType).filter(b => b.pool > 0).map(b =>
+      `<div class="${b.odds ? '' : 'none'}">${esc(b.name)}<b>${b.odds ? 'paga x' + b.odds.toFixed(2) : 'sin aciertos'}</b></div>`).join('')}</div>` : ''}
+    ${r.payouts.length ? r.payouts.slice(0, 6).map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b> en ${esc(p.typeName || 'Ganador')} ${p.sel ? esc(p.sel.map(i => s.horses[i].name).join(p.type === 'quiniela' ? ' y ' : ' → ')) : ''}${p.net < p.win ? ` (la mafia se queda ${(p.win - p.net).toLocaleString('es')})` : ''}</div>`).join('')
+      : ''}${r.jackpot ? `<div class="pay">Pozos sin aciertos: <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}${buttons}`;
 }
 
 // ─── Reacciones del público ─────────────────────────
@@ -964,7 +978,7 @@ function showReaction(m) {
 // ─── Cómo se juega (en las apuestas de la primera carrera de cada partida) ───
 const HOWTO = [
   ['Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Empiezas con 1000 fichas.'],
-  ['Apuesta', 'Elige caballo y monto antes de que cierren. El pozo se reparte entre quienes acertaron; si nadie acierta, crece el jackpot.'],
+  ['Apuesta como en el hipódromo', 'Ganador, Placé (1º o 2º), Podio (top 3), Quiniela, Exacta o Trifecta. Cada tipo tiene su pozo y se reparte entre quienes acertaron: entre más difícil, más paga.'],
   ['Ayuda o sabotea', 'En carrera, usa poderes desde el celular: zanahoria, escudo, lazo, vendas, rayo… Los caballos son redes neuronales y reaccionan solos.'],
   ['Mafia, peñas y caballos', '¿Sin fichas? La mafia presta, con intereses. Alíate con amigos en una peña (o traiciónalos). Compra y entrena tu propio potro.'],
   ['8 carreras, un campeón', 'La última es el Gran Premio con pozo +50 %. Gana quien termine con más fichas menos deuda. ¡Y burlarse con reacciones es gratis!'],

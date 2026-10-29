@@ -74,9 +74,22 @@ vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **neta
 
 Solo la pantalla que creó la sala puede usar el botón "Arrancar carrera"; los celulares arrancan con "Estoy listo".
 
-**Pozo (apuesta mutua):** todo lo apostado + lo gastado en poderes + el jackpot acumulado se
-reparte entre quienes apostaron al ganador, en proporción a lo que apostó cada uno. Si nadie
-le apostó al ganador, todo el pozo pasa al **jackpot** de la siguiente carrera.
+**Tipos de apuesta**, como en un hipódromo:
+
+| Apuesta | Eliges | Ganas si… |
+|---|---|---|
+| Ganador | 1 caballo | llega 1º |
+| Placé | 1 caballo | llega 1º o 2º |
+| Podio | 1 caballo | llega entre los 3 primeros |
+| Quiniela | 2 caballos | son 1º y 2º, en cualquier orden |
+| Exacta | 1º y 2º | llegan en ese orden exacto |
+| Trifecta | 1º, 2º y 3º | llegan en ese orden exacto |
+
+Cada tipo tiene **su propio pozo mutuo**, que se reparte entre los boletos que acertaron ese tipo en
+proporción a lo apostado: entre más difícil la apuesta, menos gente acierta y más paga. El celular muestra
+el **pago estimado** de tu jugada (cuánto pagaría si nadie más apostara lo mismo) y tus boletos de la carrera.
+El pozo de Ganador también recibe lo gastado en poderes. Los pozos que nadie acierta pasan al **jackpot**,
+que se suma al pozo de Ganador de la siguiente carrera.
 
 **Repeticiones y clips:** al terminar cada carrera la pantalla repite la llegada en cámara lenta. El botón
 "Guardar clip" la graba como video (`.webm`) para mandarla al grupo.

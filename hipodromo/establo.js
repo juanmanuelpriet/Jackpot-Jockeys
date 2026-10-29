@@ -3,7 +3,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { FPS } = require('./sim');
+const { FPS, SIM_SPEED } = require('./sim');
+// Segundos reales que dura un efecto (la simulación del juego va más lenta que el reloj)
+const secs = ticks => `${+(ticks / (FPS * SIM_SPEED)).toFixed(1)} s`.replace('.', ',');
 
 // Corredores: rápidos y limpios. Bravos: entrenados para embestir a los demás,
 // cada uno con distinta agresividad (premio por embestida durante el entrenamiento).
@@ -17,13 +19,13 @@ const HORSES = [
 ];
 
 const POWERS = {
-  zanahoria: { name: 'Zanahoria', icon: '🥕', cost: 70, desc: 'El jinete toma las riendas 4 s: +35% vel., salta todo y no se sale', fx: 'carrot', ticks: FPS * 4, debuff: false },
-  escudo: { name: 'Escudo', icon: '🛡️', cost: 60, desc: 'Inmune a ataques 6 s', fx: 'shield', ticks: FPS * 6, debuff: false },
-  vendas: { name: 'Vendas', icon: '🙈', cost: 100, desc: 'Ciega sus sensores 2.5 s', fx: 'blind', ticks: Math.round(FPS * 2.5), debuff: true },
-  lazo: { name: 'Lazo', icon: '🪢', cost: 120, desc: 'Lo frena en seco 1.5 s', fx: 'freeze', ticks: Math.round(FPS * 1.5), debuff: true },
-  furia: { name: 'Furia', icon: '😤', cost: 90, desc: '+15% vel., sus choques aturden el doble 5 s', fx: 'rage', ticks: FPS * 5, debuff: false },
+  zanahoria: { name: 'Zanahoria', icon: '🥕', cost: 70, desc: `El jinete toma las riendas ${secs(FPS * 4)}: +35% vel., salta todo y no se sale`, fx: 'carrot', ticks: FPS * 4, debuff: false },
+  escudo: { name: 'Escudo', icon: '🛡️', cost: 60, desc: `Inmune a ataques ${secs(FPS * 6)}`, fx: 'shield', ticks: FPS * 6, debuff: false },
+  vendas: { name: 'Vendas', icon: '🙈', cost: 100, desc: `Ciega sus sensores ${secs(FPS * 2.5)}`, fx: 'blind', ticks: Math.round(FPS * 2.5), debuff: true },
+  lazo: { name: 'Lazo', icon: '🪢', cost: 120, desc: `Lo frena en seco ${secs(FPS * 1.5)}`, fx: 'freeze', ticks: Math.round(FPS * 1.5), debuff: true },
+  furia: { name: 'Furia', icon: '😤', cost: 90, desc: `+15% vel., sus choques aturden el doble ${secs(FPS * 5)}`, fx: 'rage', ticks: FPS * 5, debuff: false },
   charco: { name: 'Charco', icon: '💩', cost: 45, desc: 'Tira barro justo delante de él', debuff: true },
-  rayo: { name: 'Rayo', icon: '⚡', cost: 250, desc: 'Aturde 1 s a TODOS menos a él', debuff: false },
+  rayo: { name: 'Rayo', icon: '⚡', cost: 250, desc: `Aturde ${secs(FPS)} a TODOS menos a él`, debuff: false },
 };
 
 // Hándicap por caballo (lo calcula calibrar.js); 1 = sin hándicap

@@ -8,7 +8,10 @@ const SENSOR_ANGLES = [-Math.PI / 2.5, -Math.PI / 5, 0, Math.PI / 5, Math.PI / 2
 const GRID = 2;          // resolución (px) de la máscara de pista
 const RIVAL_RANGE = 120; // alcance del "olfato" para detectar al rival más cercano
 const HIT_DIST = 18;     // distancia a la que dos caballos chocan
-const FPS = 30;          // ticks de simulación por segundo
+const FPS = 30;          // ticks de simulación por segundo de juego
+// En el juego la simulación corre más lenta que el tiempo real para dar tiempo a pensar
+// (la física por tick no cambia, así que las redes se comportan igual)
+const SIM_SPEED = 0.6;
 
 // Tamaños de pista: mundo más grande y cuadrícula con más celdas = vuelta más larga
 const SIZES = {
@@ -619,6 +622,6 @@ function stepRace(horses) {
 if (typeof module !== 'undefined') {
   module.exports = {
     Track, Horse, predict, INPUT_NAMES, cloneBrain, upgradeBrain, mutateBrain, mulberry32,
-    resolveCollisions, stepRace, drawGates, laneOffset, FPS, SIZES,
+    resolveCollisions, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, SIZES,
   };
 }

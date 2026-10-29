@@ -2,16 +2,16 @@
 // apuestas, poderes, la mafia, las peñas (alianzas) y los caballos de los jugadores.
 
 const crypto = require('crypto');
-const { Track, Horse, stepRace, drawGates, laneOffset, FPS } = require('./sim');
+const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED } = require('./sim');
 const { HORSES, POWERS, loadBrains, loadHandicap, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
 
 const CFG = {
   races: 8,               // carreras por partida
-  betSeconds: 30,
-  resultSeconds: 14,
-  finalSeconds: 30,
-  maxRaceSeconds: 120,
+  readyCountdown: 5,      // la carrera arranca 5 s después de que todos digan "listo"
+  resultSeconds: 25,
+  finalSeconds: 40,
+  maxRaceSeconds: 200,
   startCoins: 1000,
   powerCooldownMs: 4000,
   grandPrixBonus: 0.5,    // la casa suma 50 % al pozo del Gran Premio
@@ -150,7 +150,7 @@ class Room {
     this.recentPowers = [];
     for (const p of this.players.values()) { p.tickets = []; p.ready = false; p.gifted = 0; p.favorUsed = false; }
     this.phase = 'apuestas';
-    this.phaseEnds = this.players.size > 0 ? Date.now() + CFG.betSeconds * 1000 : null;
+    this.phaseEnds = null; // las apuestas no tienen reloj: arranca cuando todos dicen "listo"
     if (this.grandPrix) this.narrate('gran_premio');
     else this.narrate('apuestas', { n: `${this.match.race} de ${this.match.total}`, s: size });
   }
@@ -310,12 +310,15 @@ class Room {
   step() {
     const now = Date.now();
     if (this.phase === 'apuestas') {
-      if (this.phaseEnds === null && this.players.size > 0) this.phaseEnds = now + CFG.betSeconds * 1000;
-      // Si todos los conectados dicen "listo", arranca en 3 s
+      // Arranca solo cuando todos los conectados dicen "listo"; si alguien se arrepiente, se cancela
       const online = [...this.connectedIds()].filter(id => this.players.has(id));
-      if (online.length && online.every(id => this.players.get(id).ready) && this.phaseEnds - now > 3500) {
-        this.phaseEnds = now + 3000;
+      const allReady = online.length > 0 && online.every(id => this.players.get(id).ready);
+      if (allReady && this.phaseEnds === null) {
+        this.phaseEnds = now + CFG.readyCountdown * 1000;
         this.narrate('listos');
+      } else if (!allReady && this.phaseEnds !== null) {
+        this.phaseEnds = null;
+        this.addLog('Alguien todavía lo está pensando. Esperamos.');
       }
       if (this.phaseEnds !== null && now >= this.phaseEnds) this.startRace();
     } else if (this.phase === 'carrera') {
@@ -368,7 +371,9 @@ class Room {
     return {
       type: 'state', sala: this.code, phase: this.phase,
       timeLeft: this.phaseEnds ? Math.max(0, Math.ceil((this.phaseEnds - Date.now()) / 1000)) : null,
-      match: this.match, grandPrix: this.grandPrix,
+      match: this.match, grandPrix: this.grandPrix, simHz: FPS * SIM_SPEED,
+      readyCount: [...online].filter(id => this.players.get(id)?.ready).length,
+      onlineCount: [...online].filter(id => this.players.has(id)).length,
       laps: this.track.laps, trackSize: this.track.size,
       pot: this.results ? this.results.prize : total, carry: this.carry, pools,
       horses: this.lineup.map((h, i) => ({

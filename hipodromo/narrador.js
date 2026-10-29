@@ -67,7 +67,7 @@ const LINES = {
   entreno: ['{p} manda a {h} a entrenar {n}. Volverá distinto.', '{h} se va al gimnasio neuronal ({n}). Pagó {p}.'],
   entreno_fin: ['{h} terminó de entrenar y ya está en nivel {n}.', 'Volvió {h} del entrenamiento, ahora nivel {n}. Se le ve el brillo en los pesos.'],
   propietario: ['Premio de propietario para {p}: su caballo {h} ganó.', '{p} cobra como dueño de {h}. Inversión que paga.'],
-  listos: ['Todos listos. ¡Arrancan en 3!', 'Apuestas cerradas por aclamación popular.'],
+  listos: ['Todos listos. ¡Arrancan en 5 segundos!', 'Apuestas cerradas por aclamación popular. Cinco segundos.'],
 };
 
 // Frase final para la tarjeta de resultados

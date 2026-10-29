@@ -34,7 +34,9 @@
   #brand .name span { color: var(--gold-hi); }
   #brand .card { font-size: 14px; letter-spacing: 2px; color: var(--cream-dim); text-transform: uppercase; }
 
-  #clock { padding: 8px 26px 6px; text-align: center; min-width: 280px; }
+  #clock { padding: 8px 18px 6px 26px; text-align: center; min-width: 280px; display: flex; align-items: center; gap: 18px; justify-content: center; }
+  #clock .ready { font-size: 13px; letter-spacing: 2px; color: var(--cream-dim); text-transform: uppercase; margin-top: 2px; }
+  #clock .ready b { color: #7fc48a; }
   #potBox { padding: 8px 18px 6px; display: flex; justify-content: flex-end; align-items: baseline; gap: 14px; }
   #potBox .pot { font-size: 34px; font-weight: 700; color: var(--amber); text-shadow: 0 0 18px rgba(255, 180, 58, 0.35); font-variant-numeric: tabular-nums; }
   #clock .big { font-size: 34px; font-weight: 700; letter-spacing: 1px; line-height: 1.1; }
@@ -63,7 +65,7 @@
   #qr { background: var(--cream); padding: 6px; line-height: 0; border-radius: 2px; }
   #joinUrl { font-size: 13px; color: var(--cream-dim); overflow-wrap: anywhere; letter-spacing: .5px; }
   #joinUrl b { display: block; color: var(--cream); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-  #startBtn { margin-top: 12px; width: 100%; background: var(--gold); color: var(--green-900); border: 0; padding: 10px; font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; }
+  #startBtn { background: var(--gold); color: var(--green-900); border: 0; padding: 10px; font-family: var(--display); font-size: 18px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; padding: 12px 18px; white-space: nowrap; box-shadow: 0 0 0 3px rgba(201,162,74,0.25); }
   #startBtn:hover { background: var(--gold-hi); }
 
   #players { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
@@ -143,7 +145,8 @@
 <div id="stage">
   <div id="top">
     <div class="plate" id="brand"><div class="name">Jackpot <span>Jockeys</span></div><div class="card" id="raceCard"></div></div>
-    <div class="plate" id="clock"><div class="big" id="clockBig">—</div><div class="small" id="clockSmall"></div></div>
+    <div class="plate" id="clock"><div><div class="big" id="clockBig">—</div><div class="small" id="clockSmall"></div><div class="ready" id="clockReady"></div></div>
+      <button id="startBtn" title="Arranca la carrera sin esperar a que todos digan listo">¡Iniciar ya!</button></div>
     <div class="plate" id="potBox"><div class="label">Pozo</div><div class="pot" id="pot">0</div></div>
   </div>
   <div class="plate" id="tower"><div class="label">Posiciones</div><div id="towerRows"></div>
@@ -163,7 +166,6 @@
     <div class="odds" id="poolRows"></div>
     <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
     <div id="sala"></div>
-    <button id="startBtn">Arrancar carrera</button>
     <div id="players"><div class="label">Apostadores · neto</div><div id="playerRows"></div>
       <div class="label" style="margin-top:12px">Peñas</div><div id="allianceRows"></div></div>
   </div>
@@ -748,7 +750,7 @@ function frame(t) {
   requestAnimationFrame(frame);
   if (!track) return;
   if (replay) {
-    const k = Math.floor((performance.now() - replay.start) / 1000 * 30 * replay.speed);
+    const k = Math.floor((performance.now() - replay.start) / 1000 * simHz() * replay.speed);
     if (k >= replay.frames.length) endReplay();
     else pos = replay.frames[k];
   }
@@ -814,9 +816,11 @@ function endReplay() {
   if (recorder && recorder.state === 'recording') recorder.stop();
   renderUI();
 }
+const simHz = () => (state && state.simHz) || 30;
 function buildReplay() {
-  const end = finishIdx >= 0 ? Math.min(frames.length, finishIdx + 45) : frames.length;
-  return frames.slice(Math.max(0, end - 30 * 6), end);
+  const hz = simHz();
+  const end = finishIdx >= 0 ? Math.min(frames.length, finishIdx + Math.round(hz * 1.5)) : frames.length;
+  return frames.slice(Math.max(0, end - Math.round(hz * 6)), end);
 }
 function drawReplayBadge() {
   const w = state && state.results ? state.horses[state.results.winner] : null;
@@ -878,9 +882,17 @@ function renderUI() {
   document.getElementById('sala').innerHTML = `Sala<b>${esc(s.sala)}</b>`;
 
   const big = document.getElementById('clockBig'), small = document.getElementById('clockSmall');
+  const readyBox = document.getElementById('clockReady');
+  readyBox.innerHTML = '';
   if (s.phase === 'apuestas') {
-    big.textContent = s.timeLeft == null ? 'Esperando apostadores' : `0:${String(s.timeLeft).padStart(2, '0')}`;
-    small.textContent = s.timeLeft == null ? 'Escanea el código para jugar' : 'Cierre de apuestas';
+    const waiting = s.players.filter(p => p.online && !p.ready).map(p => p.name);
+    if (s.timeLeft != null) { big.textContent = `0:${String(s.timeLeft).padStart(2, '0')}`; small.textContent = '¡Todos listos! Arrancan'; }
+    else if (!s.onlineCount) { big.textContent = 'Esperando apostadores'; small.textContent = 'Escanea el código para jugar'; }
+    else {
+      big.textContent = 'Apuestas abiertas';
+      small.textContent = 'Arranca cuando todos digan "Estoy listo"';
+      readyBox.innerHTML = `<b>${s.readyCount}</b> de ${s.onlineCount} listos${waiting.length ? ` · falta${waiting.length > 1 ? 'n' : ''}: ${esc(waiting.slice(0, 4).join(', '))}${waiting.length > 4 ? '…' : ''}` : ''}`;
+    }
   } else if (s.phase === 'carrera') {
     const lead = s.horses.find(h => h.pos === 1);
     big.textContent = `Vuelta ${lead ? lead.lap : 1} / ${s.laps}`;
@@ -977,7 +989,7 @@ function showReaction(m) {
 
 // ─── Cómo se juega (en las apuestas de la primera carrera de cada partida) ───
 const HOWTO = [
-  ['Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Empiezas con 1000 fichas.'],
+  ['Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Empiezas con 1000 fichas. La carrera arranca cuando todos tocan "Estoy listo".'],
   ['Apuesta como en el hipódromo', 'Ganador, Placé (1º o 2º), Podio (top 3), Quiniela, Exacta o Trifecta. Cada tipo tiene su pozo y se reparte entre quienes acertaron: entre más difícil, más paga.'],
   ['Ayuda o sabotea', 'En carrera, usa poderes desde el celular: zanahoria, escudo, lazo, vendas, rayo… Los caballos son redes neuronales y reaccionan solos.'],
   ['Mafia, peñas y caballos', '¿Sin fichas? La mafia presta, con intereses. Alíate con amigos en una peña (o traiciónalos). Compra y entrena tu propio potro.'],

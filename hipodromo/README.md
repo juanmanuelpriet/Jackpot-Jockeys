@@ -68,11 +68,13 @@ vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **neta
 
 | Fase | Duración | Qué pasa |
 |------|----------|----------|
-| Apuestas | 30 s, o 3 s cuando todos tocan "Estoy listo" | Ves la pista nueva, el cajón y la forma de cada caballo, y apuestas |
-| Carrera | 15–45 s según la pista | Usas poderes, pides favores a la mafia, haces combos con tu peña |
-| Resultados | 14 s | Repetición de la llegada en cámara lenta y reparto del pozo |
+| Apuestas | Sin reloj: arranca 5 s después de que **todos** tocan "Estoy listo" (si alguien se arrepiente, se cancela) | Ves la pista nueva, el cajón y la forma de cada caballo, y apuestas |
+| Carrera | 25–75 s según la pista | Usas poderes, pides favores a la mafia, haces combos con tu peña |
+| Resultados | 25 s | Repetición de la llegada en cámara lenta y reparto de los pozos |
 
-Solo la pantalla que creó la sala puede usar el botón "Arrancar carrera"; los celulares arrancan con "Estoy listo".
+La pantalla muestra cuántos están listos y quién falta. Si alguien se distrae, la pantalla que creó la sala tiene el botón **¡Iniciar ya!** para arrancar sin esperar.
+
+**Ritmo:** en el juego la simulación corre al 60 % de su velocidad (`SIM_SPEED` en `sim.js`) para dar tiempo a pensar. La física por paso no cambia, así que las redes se comportan igual; los tiempos de los poderes que muestra el celular ya están en segundos reales.
 
 **Tipos de apuesta**, como en un hipódromo:
 

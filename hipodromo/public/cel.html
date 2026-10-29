@@ -132,7 +132,7 @@
       <button class="main" id="betBtn">Apostar</button>
       <div id="myTickets"></div>
       <button class="main alt" id="readyBtn">Estoy listo</button>
-      <p class="hint" style="margin-top:8px">Si todos dicen "listo", la carrera arranca de inmediato.</p>
+      <p class="hint" style="margin-top:8px" id="readyHint">La carrera arranca cuando todos digan "Estoy listo". Tómate tu tiempo.</p>
     </div>
     <div id="powerBox" class="hidden">
       <h3>Poderes sobre el caballo elegido</h3>
@@ -239,7 +239,9 @@ function render() {
   };
   document.getElementById('phaseBox').classList.toggle('gp', !!s.grandPrix);
   document.getElementById('phaseTxt').textContent = phaseNames[s.phase];
-  document.getElementById('timeTxt').textContent = s.phase === 'carrera' ? '' : s.timeLeft != null ? s.timeLeft + 's' : 'esperando';
+  document.getElementById('timeTxt').textContent = s.phase === 'carrera' ? ''
+    : s.timeLeft != null ? s.timeLeft + 's'
+    : s.phase === 'apuestas' ? `${s.readyCount}/${s.onlineCount} listos` : '';
 
   // Avisos en las pestañas
   const dots = { pena: me.invites.length > 0, mafia: me.debt > 0, caballo: !!(me.horse && me.horse.training) };
@@ -257,7 +259,13 @@ function renderCarrera() {
   document.getElementById('betBox').classList.toggle('hidden', !betting);
   document.getElementById('powerBox').classList.toggle('hidden', !racing);
   const rb = document.getElementById('readyBtn');
-  rb.textContent = me.ready ? 'Listo (toca para esperar)' : 'Estoy listo';
+  rb.textContent = me.ready ? 'Listo · toca si quieres esperar' : 'Estoy listo';
+  const waiting = s.players.filter(p => p.online && !p.ready && p.id !== me.id).map(p => p.name);
+  document.getElementById('readyHint').textContent = s.timeLeft != null
+    ? `¡Todos listos! Arranca en ${s.timeLeft} s. Si te arrepientes, toca de nuevo.`
+    : me.ready
+      ? (waiting.length ? `Esperando a ${waiting.slice(0, 3).join(', ')}${waiting.length > 3 ? '…' : ''}.` : 'Esperando a los demás.')
+      : 'La carrera arranca cuando todos digan "Estoy listo". Tómate tu tiempo.';
   rb.classList.toggle('on', !!me.ready);
   const T = s.pools[betType];
   document.getElementById('horsesTitle').textContent = betting
@@ -304,7 +312,7 @@ function renderCarrera() {
     `<button class="power ${p.debuff ? 'bad' : ''}" data-k="${k}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}>
       <b>${esc(p.name)}</b><small>${esc(p.desc)}</small><span class="cost">${p.cost} fichas</span></button>`).join('')
     + `<button class="power mafia" data-k="mafia" ${me.favorUsed || me.debt + s.cfg.mafiaFavorCost > s.cfg.maxDebt ? 'disabled' : ''}>
-      <b>Favor de Don Caballone</b><small>La mafia "arregla" al caballo elegido: lazo 2 s y vendas 3 s. Ignora escudos. Uno por carrera.</small>
+      <b>Favor de Don Caballone</b><small>La mafia "arregla" al caballo elegido: lo frena y lo ciega un buen rato. Ignora escudos. Uno por carrera.</small>
       <span class="cost">+${s.cfg.mafiaFavorCost} de deuda</span></button>`);
 
   const res = document.getElementById('results');
@@ -468,7 +476,7 @@ document.getElementById('reactBar').onclick = e => {
 
 // ─── Cómo se juega ───
 const TUTO = [
-  ['Apuesta', 'Como en un hipódromo: <b>Ganador</b> (1º), <b>Placé</b> (1º o 2º), <b>Podio</b> (entre los 3 primeros), <b>Quiniela</b> (los 2 primeros en cualquier orden), <b>Exacta</b> (1º y 2º en orden) y <b>Trifecta</b> (1º, 2º y 3º en orden). Cada tipo tiene su propio pozo: entre más difícil, más paga. Si nadie acierta, el pozo va al <b>jackpot</b>.'],
+  ['Apuesta', 'No hay prisa: la carrera arranca cuando <b>todos</b> tocan "Estoy listo". Como en un hipódromo: <b>Ganador</b> (1º), <b>Placé</b> (1º o 2º), <b>Podio</b> (entre los 3 primeros), <b>Quiniela</b> (los 2 primeros en cualquier orden), <b>Exacta</b> (1º y 2º en orden) y <b>Trifecta</b> (1º, 2º y 3º en orden). Cada tipo tiene su propio pozo: entre más difícil, más paga. Si nadie acierta, el pozo va al <b>jackpot</b>.'],
   ['Ayuda o sabotea', 'Durante la carrera toca un caballo y lánzale un poder: <b>zanahoria</b> para ayudarlo, <b>lazo</b> o <b>vendas</b> para frenarlo, <b>rayo</b> para congelar a todos los demás. Los caballos son redes neuronales: reaccionan solos.'],
   ['La mafia', '¿Sin fichas? <b>Don Caballone</b> te presta… al 12 % por carrera, y su cobrador se queda con la mitad de lo que ganes hasta que pagues. También "arregla" carreras, si no te importa deber más.'],
   ['Tu peña', 'Alíate con hasta dos amigos: se pasan fichas, cobran comisión cuando uno gana y, si sabotean juntos al mismo caballo, el efecto es doble. O traiciónalos y llévate el 20 % de sus fichas.'],

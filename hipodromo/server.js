@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { Worker } = require('worker_threads');
-const { FPS } = require('./sim');
+const { FPS, SIM_SPEED } = require('./sim');
 const { HORSES, loadHandicap } = require('./establo');
 const { Room, roomCode, setHandicap } = require('./sala');
 const ws = require('./websocket');
@@ -212,7 +212,7 @@ setInterval(() => {
   for (const room of rooms.values()) {
     if (room.step()) broadcastScreens(room, { type: 'pos', h: room.positions() });
   }
-}, 1000 / FPS);
+}, 1000 / (FPS * SIM_SPEED));
 
 let tick = 0;
 setInterval(() => {

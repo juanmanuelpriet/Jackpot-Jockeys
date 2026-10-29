@@ -11,6 +11,7 @@ const { Worker } = require('worker_threads');
 const { FPS } = require('./sim');
 const { HORSES, loadHandicap } = require('./establo');
 const { Room, roomCode, setHandicap } = require('./sala');
+const ws = require('./websocket');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 // Dentro de la app de escritorio las cuentas se guardan en la carpeta de datos del usuario
@@ -81,8 +82,22 @@ function publicBase(req) {
 
 // ─── Server-Sent Events ───
 
-function send(res, obj) { res.write(`data: ${JSON.stringify(obj)}\n\n`); }
-function broadcastScreens(room, obj) { for (const r of room.screens) send(r, obj); }
+// Cada conexión (WebSocket o, de respaldo, Server-Sent Events) es un objeto con send(texto)
+function send(conn, obj) { conn.send(JSON.stringify(obj)); }
+function broadcastScreens(room, obj) { const text = JSON.stringify(obj); for (const c of room.screens) c.send(text); }
+
+// Registra una conexión de pantalla o de celular en su sala
+function attach(room, conn, params) {
+  if (params.get('role') === 'screen') {
+    room.screens.add(conn);
+    conn.onClose(() => room.screens.delete(conn));
+  } else {
+    room.phones.set(conn, params.get('id'));
+    conn.onClose(() => room.phones.delete(conn));
+  }
+  room.lastActive = Date.now();
+  broadcastState(room);
+}
 function broadcastState(room) {
   const st = room.publicState();
   st.raceKey = `${room.match.num}-${room.match.race}`;
@@ -139,6 +154,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   const roomParam = () => rooms.get(String(url.searchParams.get('sala') || '').toUpperCase());
 
+  // Respaldo con Server-Sent Events (el juego usa WebSocket en /ws)
   if (url.pathname === '/events') {
     const room = roomParam();
     if (!room) { res.writeHead(404); res.end(); return; }
@@ -149,15 +165,9 @@ const server = http.createServer((req, res) => {
     });
     res.flushHeaders();
     res.write(`:${' '.repeat(2048)}\nretry: 1000\n\n`); // relleno inicial para que el primer mensaje no espere
-    if (url.searchParams.get('role') === 'screen') {
-      room.screens.add(res);
-      req.on('close', () => room.screens.delete(res));
-    } else {
-      room.phones.set(res, url.searchParams.get('id'));
-      req.on('close', () => room.phones.delete(res));
-    }
-    room.lastActive = Date.now();
-    broadcastState(room);
+    const closers = [];
+    req.on('close', () => closers.forEach(f => f()));
+    attach(room, { send: t => res.write(`data: ${t}\n\n`), onClose: f => closers.push(f) }, url.searchParams);
     return;
   }
 
@@ -214,6 +224,15 @@ setInterval(() => {
   // El hándicap se puede recalibrar sin reiniciar el servidor
   if (tick % 150 === 0) setHandicap(loadHandicap());
 }, 400);
+
+// WebSocket: la vía principal para empujar el estado y las posiciones de la carrera
+server.on('upgrade', (req, socket) => {
+  const url = new URL(req.url, 'http://x');
+  const room = url.pathname === '/ws' && rooms.get(String(url.searchParams.get('sala') || '').toUpperCase());
+  if (!room) { socket.end('HTTP/1.1 404 Not Found\r\n\r\n'); return; }
+  const conn = ws.accept(req, socket);
+  if (conn) attach(room, conn, url.searchParams);
+});
 
 server.on('error', err => {
   if (err.code === 'EADDRINUSE') console.error(`\n⚠️  El puerto ${PORT} ya está en uso (¿quedó otro Jackpot Jockeys abierto?). Ciérralo o usa otro: PORT=${PORT + 1} node server.js\n`);

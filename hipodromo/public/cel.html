@@ -354,16 +354,25 @@ document.getElementById('game').addEventListener('click', async e => {
   else if (d.betray) { if (confirm('¿Seguro? Toda la sala se va a enterar.')) api('betray'); }
 });
 
+// Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola
+function openStream(query, onMessage, onClosed) {
+  let sock = null, stopped = false;
+  const open = () => {
+    sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?${query}`);
+    sock.onmessage = e => onMessage(JSON.parse(e.data));
+    sock.onclose = () => { if (stopped) return; if (onClosed) onClosed(); setTimeout(() => !stopped && open(), 1000); };
+  };
+  open();
+  return { close() { stopped = true; sock && sock.close(); } };
+}
+
 let es;
 function connect() {
   document.getElementById('login').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
   document.getElementById('nav').classList.remove('hidden');
   if (es) es.close();
-  es = new EventSource(`/events?sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`);
-  es.onerror = () => { if (es.readyState === EventSource.CLOSED) backToLogin('La sala ya no existe. Pide el código nuevo.'); };
-  es.onmessage = ev => {
-    const m = JSON.parse(ev.data);
+  es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;
     if (lastRaceKey && lastRaceKey !== m.raceKey) selHorse = null;
     lastRaceKey = m.raceKey;
@@ -371,7 +380,11 @@ function connect() {
     if (m.me) { me = m.me; render(); return; }
     // Cuenta conocida pero todavía no está en esta sala: entrar con el mismo nombre
     if (!joining) { joining = true; api('join', {}).then(j => { joining = false; if (!j) backToLogin(); }); }
-  };
+  }, async () => {
+    // Si la sala ya no existe (el anfitrión cerró el juego), volver a la entrada
+    const r = await fetch(`/api/track?sala=${encodeURIComponent(sala)}`).catch(() => ({ ok: true }));
+    if (!r.ok) backToLogin('La sala ya no existe. Pide el código nuevo.');
+  });
 }
 function backToLogin(text) {
   if (es) es.close();

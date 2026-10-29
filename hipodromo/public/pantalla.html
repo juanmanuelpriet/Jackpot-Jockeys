@@ -929,17 +929,28 @@ function renderUI() {
 }
 
 // ─── Conexión ───────────────────────────────────────
+// Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola
+function openStream(query, onMessage, onClosed) {
+  let sock = null, stopped = false;
+  const open = () => {
+    sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?${query}`);
+    sock.onmessage = e => onMessage(JSON.parse(e.data));
+    sock.onclose = () => { if (stopped) return; if (onClosed) onClosed(); setTimeout(() => !stopped && open(), 1000); };
+  };
+  open();
+  return { close() { stopped = true; sock && sock.close(); } };
+}
 let es, lastPhase = null;
 async function connect() {
   await ensureRoom();
   if (es) es.close();
-  es = new EventSource('/events?role=screen&sala=' + SALA);
-  es.onerror = async () => {
+  es = openStream('role=screen&sala=' + SALA, onServerMessage, async () => {
     // Si el servidor se reinició, la sala ya no existe: se crea una nueva
-    if (!(await fetch('/api/track?sala=' + SALA).catch(() => ({ ok: true }))).ok) { SALA = ''; connect(); }
-  };
-  es.onmessage = ev => {
-    const m = JSON.parse(ev.data);
+    if (!(await fetch('/api/track?sala=' + SALA).catch(() => ({ ok: true }))).ok) { es.close(); SALA = ''; connect(); }
+  });
+}
+function onServerMessage(m) {
+  {
     if (m.type === 'pos') { if (!replay) pos = m.h; recordFrame(m.h); }
     else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
     else if (m.type === 'state') {
@@ -950,7 +961,7 @@ async function connect() {
       lastPhase = m.phase;
       renderUI();
     }
-  };
+  }
 }
 connect();
 </script>

@@ -4,6 +4,7 @@
 
 const http = require('http');
 const fs = require('fs');
+const zlib = require('zlib');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
@@ -114,12 +115,28 @@ function attach(room, conn, params) {
   room.lastActive = Date.now();
   broadcastState(room);
 }
-function broadcastState(room) {
+// Datos que casi nunca cambian (precios, poderes, disfraces, reacciones): van solo la primera vez o
+// cuando cambian, no en cada actualización. Así cada mensaje pesa bastante menos por datos móviles.
+const STATIC_KEYS = ['cfg', 'powers', 'reactions'];
+
+// Envía el estado a una conexión, sin la parte fija si ya la tiene y sin repetir un mensaje idéntico
+function sendState(conn, st, staticText) {
+  const msg = { ...st };
+  if (conn.staticText === staticText) for (const k of STATIC_KEYS) delete msg[k];
+  const text = JSON.stringify(msg);
+  if (text === conn.lastText) return;
+  conn.staticText = staticText; conn.lastText = text;
+  conn.send(text);
+}
+
+// Pantallas 4 veces por segundo; celulares la mitad (y siempre justo después de una acción)
+function broadcastState(room, phones = true) {
   const st = room.publicState();
   st.raceKey = room.raceKey;
   st.build = BUILD;
-  for (const r of room.screens) send(r, st);
-  for (const [r, id] of room.phones) send(r, { ...st, me: room.meState(id) });
+  const staticText = JSON.stringify(STATIC_KEYS.map(k => st[k]));
+  for (const r of room.screens) sendState(r, st, staticText);
+  if (phones) for (const [r, id] of room.phones) sendState(r, { ...st, me: room.meState(id) }, staticText);
 }
 
 // ─── Acciones ───
@@ -173,6 +190,8 @@ const STATIC = { '/': 'pantalla.html', '/pantalla': 'pantalla.html', '/cel': 'ce
 const BUILD = String(Date.now());
 const PAGES = Object.fromEntries(Object.entries(STATIC).map(([route, file]) =>
   [route, fs.readFileSync(path.join(__dirname, 'public', file), 'utf8').replace('__BUILD__', BUILD)]));
+// Comprimidas una sola vez: la página del celular baja de ~56 KB a ~17 KB
+const PAGES_GZ = Object.fromEntries(Object.entries(PAGES).map(([route, html]) => [route, zlib.gzipSync(html, { level: 9 })]));
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -222,8 +241,10 @@ const server = http.createServer((req, res) => {
 
   const page = PAGES[url.pathname];
   if (page) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(page);
+    const gz = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding',
+      ...(gz ? { 'Content-Encoding': 'gzip' } : {}) });
+    res.end(gz ? PAGES_GZ[url.pathname] : page);
     return;
   }
   res.writeHead(404); res.end('No encontrado');
@@ -243,7 +264,7 @@ setInterval(() => {
   for (const [code, room] of rooms) {
     const empty = !room.screens.size && !room.phones.size;
     if (empty && Date.now() - room.lastActive > ROOM_IDLE_MS) { rooms.delete(code); continue; }
-    if (!empty) broadcastState(room);
+    if (!empty) broadcastState(room, tick % 2 === 0);
   }
   // El hándicap se puede recalibrar sin reiniciar el servidor
   if (tick % 150 === 0) setHandicap(loadHandicap());

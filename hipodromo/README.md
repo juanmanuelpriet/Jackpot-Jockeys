@@ -135,6 +135,14 @@ una tarjeta con el ganador y tu resultado neto. Las reacciones están en el bot�
 **Al terminar cada carrera** el celular muestra tu balance: lo que apostaste, lo que gastaste en poderes, lo que
 cobraste, lo que se llevó la mafia (y comisión de peña o premio de dueño si los hubo) y el **resultado** neto.
 
+**Datos móviles:** los celulares que no están en la WiFi de la pantalla no pueden abrir la dirección local del QR
+(`192.168…`); para ellos hay que activar **Compartir por internet** (la pantalla lo recuerda debajo del QR). Para
+que vaya fluido por el túnel y gaste pocos datos: las páginas van comprimidas (la del celular pesa ~17 KB), las
+fuentes cargan sin bloquear, el WebSocket comprime cada mensaje (permessage-deflate), la parte fija del estado
+(precios, poderes, disfraces) se manda solo una vez, no se repiten mensajes idénticos y los celulares reciben 2
+actualizaciones por segundo (más una inmediata tras cada acción). En carrera un celular recibe ~2.5 KB/s en vez
+de ~28 KB/s.
+
 **Versiones:** el servidor lee las páginas al arrancar, así que la pantalla y los celulares siempre usan el mismo
 código que él aunque se actualicen los archivos con el juego abierto. Si el juego se reinicia con una versión nueva,
 la pantalla y los celulares se recargan solos.

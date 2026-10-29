@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Jackpot Jockeys</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,700;1,900&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Las fuentes cargan sin bloquear: con datos móviles el juego aparece de inmediato con letras del sistema -->
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,700;1,900&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root {
@@ -64,6 +66,7 @@
   #join { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
   #qr { background: var(--cream); padding: 6px; line-height: 0; border-radius: 2px; }
   #joinUrl { font-size: 13px; color: var(--cream-dim); overflow-wrap: anywhere; letter-spacing: .5px; }
+  #joinUrl .wifi { display: block; margin-top: 6px; color: var(--gold); font-size: 12px; letter-spacing: .3px; }
   #joinUrl b { display: block; color: var(--cream); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
   #startBtn { background: var(--gold); color: var(--green-900); border: 0; padding: 10px; font-family: var(--display); font-size: 18px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; padding: 12px 18px; white-space: nowrap; box-shadow: 0 0 0 3px rgba(201,162,74,0.25); }
   #startBtn:hover { background: var(--gold-hi); }
@@ -303,7 +306,10 @@ async function loadTrack() {
   const qr = document.getElementById('qr');
   if (!qr.dataset.url) {
     qr.dataset.url = r.joinUrl;
-    document.getElementById('joinUrl').innerHTML = `<b>Apuesta desde tu celular</b>${esc(r.joinUrl)}`;
+    // Con una dirección de la red local solo entran celulares en la misma WiFi: se avisa cómo abrirlo a datos móviles
+    const lan = /^http:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(r.joinUrl);
+    document.getElementById('joinUrl').innerHTML = `<b>Apuesta desde tu celular</b>${esc(r.joinUrl)}` +
+      (lan ? `<small class="wifi">📶 Solo en esta WiFi. ¿Alguien con datos móviles? Menú Juego → Compartir por internet (⌘I / Ctrl+I)</small>` : '');
     if (window.QRCode) new QRCode(qr, { text: r.joinUrl, width: 96, height: 96, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
     else qr.style.display = 'none';
   }
@@ -1364,6 +1370,7 @@ function onServerMessage(m) {
     else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
     else if (m.type === 'state') {
       if (m.build && !PAGE_BUILD.startsWith('__') && m.build !== PAGE_BUILD) { location.reload(); return; } // el servidor se actualizó
+      if (state) for (const k of ['cfg', 'powers', 'reactions']) if (!(k in m)) m[k] = state[k]; // parte fija: llega solo la primera vez
       state = m;
       if (m.raceKey !== raceKey) { startIntro(); raceKey = m.raceKey; frames.length = 0; finishIdx = -1; lastReplay = null; replay = null; loadTrack(); }
       // Al terminar la carrera, repetición de la llegada en cámara lenta

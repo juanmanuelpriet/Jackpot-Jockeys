@@ -3,148 +3,559 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hipódromo Neuronal</title>
+<title>Jackpot Jockeys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,700;1,900&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-  :root { --bg: #0d1410; --panel: #16201a; --line: #2a3a2f; --txt: #e8f0ea; --mute: #8fa597; --gold: #f5c542; }
+  :root {
+    --green-900: #0b1f15; --green-800: #10291c; --green-700: #173826;
+    --cream: #f1e8d3; --cream-dim: #b9b09b; --gold: #c9a24a; --gold-hi: #e7c873;
+    --wine: #7a1f22; --amber: #ffb43a; --line: rgba(201, 162, 74, 0.35);
+    --display: 'Oswald', 'Arial Narrow', sans-serif; --brand: 'Playfair Display', Georgia, serif;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--txt); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; }
-  #app { display: grid; grid-template-columns: 1fr 340px; height: 100vh; }
-  #stage { position: relative; display: flex; align-items: center; justify-content: center; padding: 12px; }
-  canvas { max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: 0 10px 40px #0008; }
-  #banner { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); background: #000a; padding: 10px 26px; border-radius: 40px; font-size: 26px; font-weight: 800; letter-spacing: .5px; backdrop-filter: blur(4px); white-space: nowrap; }
-  #toasts { position: absolute; bottom: 24px; left: 24px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
-  .toast { background: #000b; padding: 8px 14px; border-radius: 10px; font-size: 16px; animation: fade 6s forwards; }
-  @keyframes fade { 0%{opacity:0;transform:translateY(8px)} 6%{opacity:1;transform:none} 85%{opacity:1} 100%{opacity:0} }
-  #results { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
-  #results .card { background: #0d1410ee; border: 2px solid var(--gold); border-radius: 20px; padding: 28px 40px; min-width: 420px; text-align: center; }
-  #results h1 { margin: 0 0 6px; font-size: 40px; color: var(--gold); }
-  #results ol { text-align: left; font-size: 20px; padding-left: 28px; }
-  #results .pay { color: var(--mute); font-size: 17px; }
-  aside { background: var(--panel); border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--mute); margin: 0 0 8px; }
-  #join { display: flex; gap: 12px; align-items: center; }
-  #qr { background: #fff; padding: 6px; border-radius: 8px; line-height: 0; }
-  #joinUrl { font-size: 15px; font-weight: 700; word-break: break-all; }
-  .pot { font-size: 34px; font-weight: 800; color: var(--gold); }
-  .jack { font-size: 14px; color: #ff9f43; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  td { padding: 5px 4px; border-bottom: 1px solid var(--line); }
-  td.n { text-align: right; font-variant-numeric: tabular-nums; }
-  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
-  .stars { color: var(--gold); letter-spacing: -1px; }
-  #log div { font-size: 13px; color: var(--mute); padding: 3px 0; }
-  button { background: var(--gold); color: #111; border: 0; border-radius: 10px; padding: 12px; font-weight: 800; font-size: 16px; cursor: pointer; }
-  .hint { font-size: 12px; color: var(--mute); }
-  @media (max-width: 900px) { #app { grid-template-columns: 1fr; grid-template-rows: 60vh auto; } body { overflow: auto; height: auto; } #banner { font-size: 18px; } }
+  html, body { margin: 0; height: 100%; background: var(--green-900); color: var(--cream); overflow: hidden; font-family: var(--display); }
+  #stage { position: fixed; inset: 0; display: grid; gap: 10px; padding: 10px;
+    grid-template-columns: 270px minmax(0, 1fr) 300px; grid-template-rows: auto minmax(0, 1fr) 46px;
+    grid-template-areas: "top top top" "tower track tote" "ticker ticker ticker";
+    background: radial-gradient(ellipse at center, #163322 0%, #08160f 100%); }
+  #trackBox { grid-area: track; position: relative; min-width: 0; min-height: 0; border: 1px solid var(--line); overflow: hidden; background: #1f4524; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Placas con estilo de transmisión */
+  .plate { position: relative; background: linear-gradient(180deg, rgba(16, 41, 28, 0.94), rgba(11, 31, 21, 0.94));
+    border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); }
+  .plate::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--gold), var(--gold-hi), var(--gold)); }
+  .label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); font-weight: 500; }
+
+  #top { grid-area: top; display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 10px; }
+  #brand { padding: 12px 18px 10px; display: flex; align-items: baseline; gap: 14px; }
+  #brand .name { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 26px; letter-spacing: .5px; color: var(--cream); }
+  #brand .name span { color: var(--gold-hi); }
+  #brand .card { font-size: 14px; letter-spacing: 2px; color: var(--cream-dim); text-transform: uppercase; }
+
+  #clock { padding: 8px 26px 6px; text-align: center; min-width: 280px; }
+  #potBox { padding: 8px 18px 6px; display: flex; justify-content: flex-end; align-items: baseline; gap: 14px; }
+  #potBox .pot { font-size: 34px; font-weight: 700; color: var(--amber); text-shadow: 0 0 18px rgba(255, 180, 58, 0.35); font-variant-numeric: tabular-nums; }
+  #clock .big { font-size: 34px; font-weight: 700; letter-spacing: 1px; line-height: 1.1; }
+  #clock .small { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+
+  #tower { grid-area: tower; padding: 12px 0 6px; overflow: hidden; display: flex; flex-direction: column; }
+  #miniView { position: static; width: calc(100% - 28px); height: auto; margin: 0 14px 6px; }
+  #tower .label { padding: 0 14px 8px; }
+  .row { display: grid; grid-template-columns: 34px 8px 1fr auto; align-items: center; gap: 10px; padding: 6px 14px; border-top: 1px solid rgba(241, 232, 211, 0.06); font-size: 17px; transition: background .3s; }
+  .row .pos { font-weight: 700; font-size: 20px; color: var(--gold-hi); text-align: right; }
+  .row .silk { width: 8px; height: 26px; border-radius: 2px; }
+  .row .nm { font-weight: 500; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+  .row .nm small { display: block; font-size: 11px; letter-spacing: 2px; color: var(--cream-dim); font-weight: 400; }
+  .row .gap { font-size: 14px; color: var(--cream-dim); font-variant-numeric: tabular-nums; text-align: right; }
+  .row.lead { background: linear-gradient(90deg, rgba(201, 162, 74, 0.22), transparent); }
+
+  #tote { grid-area: tote; padding: 12px 16px; overflow-y: auto; }
+  #tote .jack { font-size: 13px; letter-spacing: 2px; color: #ff8a3d; text-transform: uppercase; min-height: 16px; }
+  .odds { margin-top: 10px; border-top: 1px solid var(--line); }
+  .odd { display: grid; grid-template-columns: 22px 1fr auto auto; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(241, 232, 211, 0.06); font-size: 15px; }
+  .odd .num { width: 22px; height: 22px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; border-radius: 3px; }
+  .odd .nm { text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .odd .bet { color: var(--cream-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .odd .x { color: var(--amber); font-weight: 600; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  #join { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+  #qr { background: var(--cream); padding: 6px; line-height: 0; border-radius: 2px; }
+  #joinUrl { font-size: 13px; color: var(--cream-dim); overflow-wrap: anywhere; letter-spacing: .5px; }
+  #joinUrl b { display: block; color: var(--cream); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  #startBtn { margin-top: 12px; width: 100%; background: var(--gold); color: var(--green-900); border: 0; padding: 10px; font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; }
+  #startBtn:hover { background: var(--gold-hi); }
+
+  #players { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .pl { display: flex; justify-content: space-between; font-size: 15px; padding: 3px 0; letter-spacing: .5px; }
+  .pl span:last-child { color: var(--amber); font-variant-numeric: tabular-nums; }
+
+  #ticker { grid-area: ticker; display: flex; align-items: center; overflow: hidden; padding: 0; }
+  #ticker .tag { flex: none; height: 100%; display: grid; place-items: center; padding: 0 18px; background: var(--wine); font-weight: 600; letter-spacing: 3px; font-size: 14px; text-transform: uppercase; }
+  #ticker .msg { flex: 1; padding: 0 20px; font-size: 19px; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ticker .msg.in { animation: slide .45s ease-out; }
+  @keyframes slide { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  #results { position: absolute; inset: 0; z-index: 2; display: none; place-items: center; background: rgba(5, 14, 9, 0.55); }
+  #results .card { position: relative; width: min(620px, 92vw); padding: 26px 34px 24px; }
+  #results .title { font-family: var(--brand); font-style: italic; font-weight: 900; font-size: 46px; color: var(--gold-hi); line-height: 1; margin: 4px 0 4px; }
+  #results .quip { color: var(--cream-dim); font-size: 16px; letter-spacing: .5px; margin-bottom: 14px; }
+  .fin { display: grid; grid-template-columns: 30px 8px 1fr auto; gap: 12px; align-items: center; font-size: 19px; padding: 6px 0; border-bottom: 1px solid rgba(241, 232, 211, 0.08); text-transform: uppercase; }
+  .fin .p { color: var(--gold-hi); font-weight: 700; text-align: right; }
+  .fin .t { color: var(--cream-dim); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .pay { margin-top: 10px; font-size: 16px; color: var(--cream); letter-spacing: .5px; }
+  .pay b { color: var(--amber); }
+  .hint { position: absolute; bottom: 8px; right: 10px; font-size: 11px; letter-spacing: 2px; color: rgba(241, 232, 211, 0.4); text-transform: uppercase; }
+  @media (max-width: 1100px) {
+    #stage { grid-template-columns: 190px minmax(0, 1fr) 220px; }
+    .row { font-size: 13px; gap: 6px; padding: 4px 10px; grid-template-columns: 26px 6px 1fr auto; } .row .nm small { display: none; }
+    #brand .card, #players, .hint { display: none; } #brand .name { font-size: 20px; } #clock { min-width: 200px; } #clock .big { font-size: 24px; }
+    #potBox .pot { font-size: 26px; } .odd { font-size: 13px; gap: 6px; } #qr img, #qr canvas { width: 72px !important; height: 72px !important; }
+  }
+  @media (max-width: 760px) {
+    #stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto 46px; grid-template-areas: "top" "track" "tote" "ticker"; }
+    #tower { display: none; } #tote { max-height: 30vh; }
+    #top { grid-template-columns: 1fr auto; } #brand { display: none; } #clock { min-width: 0; padding: 6px 14px; }
+    #clock .big { font-size: 20px; } #potBox { padding: 6px 12px; } #ticker .tag { padding: 0 10px; font-size: 11px; letter-spacing: 1px; }
+    #ticker .msg { font-size: 14px; padding: 0 10px; }
+  }
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="stage">
-    <canvas id="c" width="1200" height="800"></canvas>
-    <div id="banner">Cargando…</div>
-    <div id="toasts"></div>
-    <div id="results"><div class="card" id="resCard"></div></div>
+<div id="stage">
+  <div id="top">
+    <div class="plate" id="brand"><div class="name">Jackpot <span>Jockeys</span></div><div class="card" id="raceCard"></div></div>
+    <div class="plate" id="clock"><div class="big" id="clockBig">—</div><div class="small" id="clockSmall"></div></div>
+    <div class="plate" id="potBox"><div class="label">Pozo</div><div class="pot" id="pot">0</div></div>
   </div>
-  <aside>
-    <section>
-      <h2>Escanea para jugar</h2>
-      <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
-    </section>
-    <section>
-      <h2>Pozo</h2>
-      <div class="pot" id="pot">0</div>
-      <div class="jack" id="jack"></div>
-    </section>
-    <button id="startBtn">¡Arrancar ya!</button>
-    <section>
-      <h2>Caballos</h2>
-      <table id="horses"></table>
-    </section>
-    <section>
-      <h2>Jugadores</h2>
-      <table id="players"></table>
-    </section>
-    <section>
-      <h2>Narrador</h2>
-      <div id="log"></div>
-    </section>
-    <div class="hint">Tecla S: mostrar/ocultar sensores de la red neuronal</div>
-  </aside>
+  <div class="plate" id="tower"><div class="label">Posiciones</div><div id="towerRows"></div>
+    <div class="label" style="margin-top:14px">Mapa</div><canvas id="miniView"></canvas></div>
+  <div id="trackBox">
+    <canvas id="c"></canvas>
+    <div class="hint">S · sensores de la red &nbsp;&nbsp; C · cámara</div>
+    <div id="results"><div class="plate card" id="resCard"></div></div>
+  </div>
+  <div class="plate" id="tote">
+    <div class="label">Cuotas</div>
+    <div class="jack" id="jack"></div>
+    <div class="odds" id="odds"></div>
+    <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
+    <button id="startBtn">Arrancar carrera</button>
+    <div id="players"><div class="label">Apostadores</div><div id="playerRows"></div></div>
+  </div>
+  <div class="plate" id="ticker"><div class="tag">Narrador</div><div class="msg" id="tickerMsg">Bienvenidos a Jackpot Jockeys.</div></div>
 </div>
 <script>
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let track = null, horsesMeta = [], state = null, raceNum = -1;
+// El lienzo toma el tamaño real de su caja (sin paneles encima de la pista)
+function fitCanvas() {
+  const box = document.getElementById('trackBox').getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.max(1, Math.round(box.width * dpr)); cv.height = Math.max(1, Math.round(box.height * dpr));
+  cam.s = 0;
+}
+window.addEventListener('resize', fitCanvas);
+let track = null, horsesMeta = [], gates = [], state = null, raceNum = -1;
 let pos = [], disp = [];   // posiciones del servidor y posiciones suavizadas
-let showSensors = true;
-let seenLog = 0;
+let showSensors = false;
+let lastLogT = 0;
 const SENSOR_ANGLES = [-Math.PI / 2.5, -Math.PI / 5, 0, Math.PI / 5, Math.PI / 2.5];
+const COATS = ['#5a321a', '#2c1a0e', '#7b4a24', '#9a7a55', '#1d1d1f', '#8a4b2a'];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-document.addEventListener('keydown', e => { if (e.key === 's' || e.key === 'S') showSensors = !showSensors; });
+document.addEventListener('keydown', e => {
+  if (e.key === 's' || e.key === 'S') showSensors = !showSensors;
+  if (e.key === 'c' || e.key === 'C') camOn = !camOn;
+});
 document.getElementById('startBtn').onclick = () => fetch('/api/start', { method: 'POST', body: '{}' });
 
 async function loadTrack() {
   const r = await fetch('/api/track').then(r => r.json());
-  track = r.track; horsesMeta = r.horses; raceNum = r.raceNum;
+  track = r.track; horsesMeta = r.horses; gates = r.gates || horsesMeta.map((_, i) => i); raceNum = r.raceNum;
   bakeTrack();
-  // Caballos en la línea de salida
-  pos = []; disp = [];
+  cam.s = 0; // la cámara arranca mostrando la pista nueva completa
+  particles.length = 0;
+  // Caballos en sus cajones de salida
   const p0 = track.path[0], p1 = track.path[1];
   const a = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
-  horsesMeta.forEach((_, i) => {
-    const lane = (i - (horsesMeta.length - 1) / 2) * 12;
-    pos.push([p0[0] - Math.sin(a) * lane, p0[1] + Math.cos(a) * lane, a, 0, 0, [1, 1, 1, 1, 1]]);
+  pos = horsesMeta.map((_, i) => {
+    const lane = (gates[i] - (horsesMeta.length - 1) / 2) * 12;
+    return [p0[0] - Math.sin(a) * lane, p0[1] + Math.cos(a) * lane, a, 0, 0, [1, 1, 1, 1, 1]];
   });
   disp = pos.map(p => p.slice());
   const qr = document.getElementById('qr');
   if (!qr.dataset.url) {
     qr.dataset.url = r.joinUrl;
-    document.getElementById('joinUrl').textContent = r.joinUrl;
-    if (window.QRCode) new QRCode(qr, { text: r.joinUrl, width: 120, height: 120 });
+    document.getElementById('joinUrl').innerHTML = `<b>Apuesta desde tu celular</b>${esc(r.joinUrl)}`;
+    if (window.QRCode) new QRCode(qr, { text: r.joinUrl, width: 96, height: 96, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
     else qr.style.display = 'none';
   }
 }
 
-// ─── Pista pre-renderizada ──────────────────────────
-const bg = document.createElement('canvas'); bg.width = 1200; bg.height = 800;
-function bakeTrack() {
-  const g = bg.getContext('2d');
-  // Césped a franjas
-  for (let i = 0; i < 24; i++) { g.fillStyle = i % 2 ? '#2f6b34' : '#2a6230'; g.fillRect(i * 50, 0, 50, 800); }
+// ─── Utilidades de geometría ────────────────────────
+function seeded(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
+}
+// Polilínea desplazada `off` px a lo largo de la normal de la pista
+function offsetPath(off) {
+  const P = track.path, n = P.length;
+  return P.map((p, i) => {
+    const a = P[(i - 1 + n) % n], b = P[(i + 1) % n];
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    return [p[0] - dy / len * off, p[1] + dx / len * off];
+  });
+}
+function toPath2D(pts, closed = true) {
   const path = new Path2D();
-  track.path.forEach((p, i) => i ? path.lineTo(p[0], p[1]) : path.moveTo(p[0], p[1]));
-  path.closePath();
+  pts.forEach((p, i) => i ? path.lineTo(p[0], p[1]) : path.moveTo(p[0], p[1]));
+  if (closed) path.closePath();
+  return path;
+}
+function distToTrack(x, y) {
+  let m = Infinity;
+  for (let i = 0; i < track.path.length; i += 2) {
+    const p = track.path[i], d = (x - p[0]) ** 2 + (y - p[1]) ** 2;
+    if (d < m) m = d;
+  }
+  return Math.sqrt(m);
+}
+// Tramos de una línea desplazada que no se meten dentro de la pista
+function cleanMask(pts, off) { return pts.map(p => distToTrack(p[0], p[1]) > Math.abs(off) - 3); }
+function strokeRuns(g, pts, ok, from = 0, to = pts.length) {
+  g.beginPath();
+  for (let i = from; i < to; i++) {
+    const a = i % pts.length, b = (i + 1) % pts.length;
+    if (ok[a] && ok[b]) { g.moveTo(pts[a][0], pts[a][1]); g.lineTo(pts[b][0], pts[b][1]); }
+  }
+  g.stroke();
+}
+// Curvas: tramos donde la pista gira; signo + = gira a la derecha
+function findCurves() {
+  const P = track.path, n = P.length, k = 4, turn = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = P[(i - k + n) % n], b = P[i], c = P[(i + k) % n];
+    const a1 = Math.atan2(b[1] - a[1], b[0] - a[0]), a2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
+    turn[i] = Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1));
+  }
+  const curves = [];
+  let i0 = turn.findIndex(t => Math.abs(t) < 0.02);
+  if (i0 < 0) i0 = 0;
+  for (let s = 0; s < n; s++) {
+    const i = (i0 + s) % n;
+    if (Math.abs(turn[i]) > 0.06) {
+      const last = curves[curves.length - 1];
+      if (last && last.end === s - 1 && Math.sign(last.sign) === Math.sign(turn[i])) last.end = s;
+      else curves.push({ start: s, end: s, sign: Math.sign(turn[i]) });
+    }
+  }
+  return curves.map(c => ({ from: (i0 + c.start) % n, len: c.end - c.start + 1, sign: c.sign, apex: (i0 + Math.floor((c.start + c.end) / 2)) % n }));
+}
+
+// ─── Fondo pre-renderizado ──────────────────────────
+// Se dibuja una vez por carrera, a más resolución que el mundo para que el zoom se vea nítido.
+const bg = document.createElement('canvas');
+const mini = document.createElement('canvas');
+let BG_SCALE = 1;
+const placed = []; // zonas ocupadas por edificios [x, y, radio]
+
+function freeSpot(x, y, r, clearance) {
+  if (x < r || y < r || x > track.W - r || y > track.H - r) return false;
+  for (let k = 0; k < 9; k++) {
+    const a = k / 9 * Math.PI * 2, px = x + Math.cos(a) * r * (k ? 1 : 0), py = y + Math.sin(a) * r * (k ? 1 : 0);
+    if (distToTrack(px, py) < track.width + clearance) return false;
+  }
+  return placed.every(([px, py, pr]) => Math.hypot(px - x, py - y) > pr + r);
+}
+
+function bakeTrack() {
+  const W = track.W, H = track.H, w = track.width, P = track.path, n = P.length;
+  BG_SCALE = Math.min(2.5, 5000 / W);
+  bg.width = Math.round(W * BG_SCALE); bg.height = Math.round(H * BG_SCALE);
+  const g = bg.getContext('2d');
+  g.setTransform(BG_SCALE, 0, 0, BG_SCALE, 0, 0);
   g.lineJoin = 'round'; g.lineCap = 'round';
-  g.strokeStyle = '#f4f1e8'; g.lineWidth = track.width * 2 + 8; g.stroke(path);  // barandas
-  g.strokeStyle = '#a8784c'; g.lineWidth = track.width * 2; g.stroke(path);       // tierra
-  g.strokeStyle = '#b8875a'; g.lineWidth = track.width * 1.2; g.stroke(path);
-  g.setLineDash([2, 14]); g.strokeStyle = '#8e623b'; g.lineWidth = 2; g.stroke(path); g.setLineDash([]);
-  // Meta a cuadros
-  const p0 = track.path[0], p1 = track.path[1];
+  const rnd = seeded(raceNum * 7919 + 13);
+  const center = toPath2D(P);
+  placed.length = 0;
+
+  // Césped: base oscura, manchas suaves, franjas de corte y grano
+  g.fillStyle = '#2b5a2c'; g.fillRect(0, 0, W, H);
+  for (let k = 0; k < W * H / 9000; k++) {
+    const x = rnd() * W, y = rnd() * H, r = 30 + rnd() * 90;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    const light = rnd() < 0.5;
+    grd.addColorStop(0, light ? 'rgba(120,160,70,0.10)' : 'rgba(10,40,15,0.14)');
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  g.save(); g.translate(W / 2, H / 2); g.rotate(-Math.PI / 4);
+  const diag = Math.hypot(W, H);
+  for (let x = -diag; x < diag; x += 64) { g.fillStyle = 'rgba(255,255,240,0.028)'; g.fillRect(x, -diag, 32, diag * 2); }
+  g.restore();
+  for (let k = 0; k < W * H / 120; k++) {
+    g.fillStyle = rnd() < 0.55 ? 'rgba(15,45,15,0.22)' : 'rgba(170,200,120,0.10)';
+    g.fillRect(rnd() * W, rnd() * H, 1, 2.2);
+  }
+
+  // Arena en el exterior de las curvas y setos por dentro
+  const curves = findCurves();
+  for (const c of curves) {
+    const off = -c.sign * (w + 26);
+    const pts = offsetPath(off), ok = cleanMask(pts, off);
+    g.strokeStyle = '#c9b183'; g.lineWidth = 52;
+    strokeRuns(g, pts, ok, c.from - 6, c.from + c.len + 6);
+    g.strokeStyle = 'rgba(150,120,70,0.35)'; g.lineWidth = 2;
+    const edge = offsetPath(-c.sign * (w + 50)), eok = cleanMask(edge, w + 50);
+    strokeRuns(g, edge, eok, c.from - 6, c.from + c.len + 6);
+  }
+
+  // Sombra, barandas y base de la pista
+  g.save(); g.translate(4, 6); g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = w * 2 + 14; g.stroke(center); g.restore();
+  g.strokeStyle = '#ece6d6'; g.lineWidth = w * 2 + 8; g.stroke(center);
+  g.strokeStyle = '#4b321f'; g.lineWidth = w * 2 + 1; g.stroke(center);
+
+  // Tierra: capa con textura recortada con la forma de la pista
+  const tex = document.createElement('canvas'); tex.width = bg.width; tex.height = bg.height;
+  const t = tex.getContext('2d'); t.setTransform(BG_SCALE, 0, 0, BG_SCALE, 0, 0);
+  t.lineJoin = 'round'; t.lineCap = 'round';
+  t.strokeStyle = '#8e5f37'; t.lineWidth = w * 2 - 2; t.stroke(center);
+  t.strokeStyle = 'rgba(176,125,80,0.55)'; t.lineWidth = w * 1.3; t.stroke(center);
+  // Surcos del rastrillo a lo largo de la pista
+  for (let k = 0; k < 16; k++) {
+    const off = -w + 4 + k * ((w * 2 - 8) / 15);
+    t.strokeStyle = k % 2 ? 'rgba(60,35,18,0.22)' : 'rgba(205,160,110,0.14)'; t.lineWidth = 1;
+    strokeRuns(t, offsetPath(off), cleanMask(offsetPath(off), off));
+  }
+  for (let k = 0; k < n * 10; k++) {
+    const p = P[Math.floor(rnd() * n)];
+    const x = p[0] + (rnd() - 0.5) * w * 2, y = p[1] + (rnd() - 0.5) * w * 2, r = rnd();
+    t.fillStyle = r < 0.5 ? 'rgba(60,35,18,0.35)' : 'rgba(215,170,120,0.25)';
+    if (r > 0.94) { t.beginPath(); t.ellipse(x, y, 2.4, 1.8, rnd() * 3, 0, 7); t.fill(); }
+    else t.fillRect(x, y, 1.3, 1.3);
+  }
+  t.globalCompositeOperation = 'destination-in';
+  t.strokeStyle = '#000'; t.lineWidth = w * 2 - 2; t.stroke(center);
+  g.drawImage(tex, 0, 0, W, H);
+
+  // Divisiones del tablero: carriles y líneas transversales cada 56 px
+  g.strokeStyle = 'rgba(241,232,211,0.16)'; g.lineWidth = 1.2;
+  for (const off of [-w / 3, w / 3]) strokeRuns(g, offsetPath(off), cleanMask(offsetPath(off), off));
+  const L = offsetPath(-w + 3), R = offsetPath(w - 3);
+  g.beginPath();
+  for (let i = 0; i < n; i += 7) { g.moveTo(L[i][0], L[i][1]); g.lineTo(R[i][0], R[i][1]); }
+  g.strokeStyle = 'rgba(241,232,211,0.10)'; g.stroke();
+
+  // Postes de baranda
+  for (const side of [-1, 1]) {
+    const rail = offsetPath(side * (w + 4));
+    for (let i = 0; i < n; i += 6) {
+      const [x, y] = rail[i];
+      if (distToTrack(x, y) < w) continue;
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x - 1, y, 3.5, 3.5);
+      g.fillStyle = '#fbf8ef'; g.fillRect(x - 1.8, y - 1.8, 3.6, 3.6);
+    }
+  }
+
+  // Setos en el interior de las curvas
+  for (const c of curves) {
+    const off = c.sign * (w + 16);
+    const pts = offsetPath(off), ok = cleanMask(pts, off);
+    for (let i = c.from; i < c.from + c.len; i += 3) {
+      const q = pts[i % n]; if (!ok[i % n]) continue;
+      const r = 6 + rnd() * 3;
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(q[0] + 2, q[1] + 3, r, 0, 7); g.fill();
+      g.fillStyle = '#1f4a22'; g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill();
+      g.fillStyle = '#2f6a2f'; g.beginPath(); g.arc(q[0] - r * 0.3, q[1] - r * 0.3, r * 0.55, 0, 7); g.fill();
+    }
+  }
+
+  // Numeración de curvas (placas rojas con borde crema)
+  curves.filter(c => c.len >= 6).forEach((c, k) => {
+    const off = c.sign * (w + 44);
+    const [x, y] = offsetPath(off)[c.apex];
+    if (distToTrack(x, y) < w + 20) return;
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.arc(x + 2, y + 3, 15, 0, 7); g.fill();
+    g.fillStyle = '#f1e8d3'; g.beginPath(); g.arc(x, y, 15, 0, 7); g.fill();
+    g.fillStyle = '#8e1d22'; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill();
+    g.fillStyle = '#f1e8d3'; g.font = '600 15px Oswald, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(k + 1, x, y + 1);
+    placed.push([x, y, 22]);
+  });
+
+  // Meta: cuadros, poste del juez y cajones de salida
+  const p0 = P[0], p1 = P[1];
   const a = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
   g.save(); g.translate(p0[0], p0[1]); g.rotate(a);
-  for (let k = -track.width; k < track.width; k += 6) {
-    for (let c = 0; c < 2; c++) { g.fillStyle = ((k / 6 + c) & 1) ? '#fff' : '#111'; g.fillRect(c * 6 - 6, k, 6, 6); }
+  for (let k = -w; k < w; k += 5) for (let c = 0; c < 2; c++) {
+    g.fillStyle = ((Math.round(k / 5) + c) & 1) ? '#f1e8d3' : '#151515'; g.fillRect(c * 5 - 5, k, 5, 5);
+  }
+  g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(-2, w + 6, 12, 12);
+  g.fillStyle = '#f1e8d3'; g.fillRect(-5, w + 3, 12, 12);
+  g.fillStyle = '#8e1d22'; g.fillRect(-2, w + 6, 6, 6);
+  g.restore();
+
+  // Tribuna con público y letrero, del lado exterior de la recta principal
+  const tx = Math.cos(a), ty = Math.sin(a), nx = -Math.sin(a), ny = Math.cos(a);
+  let stand = null;
+  for (const half of [230, 170, 120]) {
+    for (const side of [1, -1]) {
+      const d = w + 62;
+      const cx = p0[0] + nx * side * d - tx * 30, cy = p0[1] + ny * side * d - ty * 30;
+      const pts = [];
+      for (const u of [-half, -half / 2, 0, half / 2, half]) for (const v of [-34, 0, 34]) pts.push([cx + tx * u + nx * side * v, cy + ty * u + ny * side * v]);
+      if (pts.every(([x, y]) => x > 8 && y > 8 && x < W - 8 && y < H - 8 && distToTrack(x, y) > w + 10)) { stand = { cx, cy, side, half }; break; }
+    }
+    if (stand) break;
+  }
+  if (stand) {
+    const { half } = stand;
+    g.save(); g.translate(stand.cx, stand.cy); g.rotate(a + (stand.side < 0 ? Math.PI : 0));
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(-half + 6, -30, half * 2, 72);
+    g.fillStyle = '#5b5f66'; g.fillRect(-half, -36, half * 2, 70);
+    for (let row = 0; row < 5; row++) {
+      g.fillStyle = row % 2 ? '#6d727a' : '#7c818a'; g.fillRect(-half + 4, -32 + row * 11, half * 2 - 8, 10);
+      for (let x = -half + 7; x < half - 6; x += 4.2) {
+        if (rnd() < 0.12) continue;
+        g.fillStyle = `hsl(${Math.floor(rnd() * 360)},${30 + rnd() * 40}%,${35 + rnd() * 35}%)`;
+        g.fillRect(x, -30 + row * 11, 3, 3);
+        g.fillStyle = '#d9b99a'; g.fillRect(x + 0.5, -32 + row * 11, 2, 2);
+      }
+    }
+    // Techo y letrero
+    g.fillStyle = '#7a1f22'; g.fillRect(-half, 22, half * 2, 14);
+    // El letrero siempre se lee al derecho
+    const rot = a + (stand.side < 0 ? Math.PI : 0);
+    g.save(); g.translate(0, 29.5); if (Math.cos(rot) < 0) g.rotate(Math.PI);
+    g.fillStyle = '#f1e8d3'; g.font = 'italic 900 13px "Playfair Display", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('JACKPOT JOCKEYS', 0, 0);
+    g.restore();
+    g.fillStyle = '#c9a24a'; g.fillRect(-half, 20, half * 2, 2);
+    g.restore();
+    placed.push([stand.cx, stand.cy, half]);
+
+    // Estacionamiento detrás de la tribuna
+    const pcx = stand.cx + nx * stand.side * 115, pcy = stand.cy + ny * stand.side * 115;
+    if (freeSpot(pcx, pcy, 80, 40)) {
+      g.save(); g.translate(pcx, pcy); g.rotate(a);
+      g.fillStyle = '#3d4044'; g.fillRect(-150, -42, 300, 84);
+      g.strokeStyle = 'rgba(241,232,211,0.55)'; g.lineWidth = 1;
+      for (let x = -146; x <= 146; x += 18) { g.beginPath(); g.moveTo(x, -42); g.lineTo(x, -14); g.moveTo(x, 14); g.lineTo(x, 42); g.stroke(); }
+      const carColors = ['#8e1d22', '#1d3c6e', '#d8d4ca', '#2b2b2b', '#5a6b4a', '#b48a3a', '#6d7b8a'];
+      for (const yy of [-36, 18]) for (let x = -143; x < 143; x += 18) {
+        if (rnd() < 0.3) continue;
+        g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x + 4, yy + 2, 12, 22);
+        g.fillStyle = carColors[Math.floor(rnd() * carColors.length)]; g.fillRect(x + 3, yy, 12, 22);
+        g.fillStyle = 'rgba(200,220,235,0.55)'; g.fillRect(x + 4, yy + 5, 10, 4);
+      }
+      g.restore();
+      placed.push([pcx, pcy, 155]);
+    }
+  }
+
+  // Edificios del interior: paddock, caballerizas y tablero de apuestas
+  const tryPlace = (r, clearance, draw) => {
+    for (let k = 0; k < 400; k++) {
+      const x = r + rnd() * (W - r * 2), y = r + rnd() * (H - r * 2);
+      if (freeSpot(x, y, r, clearance)) { draw(x, y); placed.push([x, y, r]); return true; }
+    }
+    return false;
+  };
+  tryPlace(85, 25, (x, y) => { // Círculo de exhibición
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(x + 3, y + 4, 80, 52, 0, 0, 7); g.fill();
+    g.fillStyle = '#c9b183'; g.beginPath(); g.ellipse(x, y, 80, 52, 0, 0, 7); g.fill();
+    g.fillStyle = '#3c7a3a'; g.beginPath(); g.ellipse(x, y, 58, 32, 0, 0, 7); g.fill();
+    g.strokeStyle = '#f1e8d3'; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, 80, 52, 0, 0, 7); g.stroke();
+    for (let k = 0; k < 4; k++) {
+      const an = rnd() * 7, hx = x + Math.cos(an) * 69, hy = y + Math.sin(an) * 42;
+      g.save(); g.translate(hx, hy); g.rotate(an + Math.PI / 2);
+      g.fillStyle = COATS[k]; g.beginPath(); g.ellipse(0, 0, 8, 3.5, 0, 0, 7); g.fill();
+      g.restore();
+    }
+  });
+  for (let k = 0; k < 2; k++) tryPlace(75, 25, (x, y) => { // Caballerizas
+    const rot = rnd() < 0.5 ? 0 : Math.PI / 2;
+    g.save(); g.translate(x, y); g.rotate(rot);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-66, -18, 140, 42);
+    g.fillStyle = '#6e3b2a'; g.fillRect(-70, -22, 140, 40);
+    g.fillStyle = '#56291c'; g.fillRect(-70, -22, 140, 20);
+    g.strokeStyle = 'rgba(241,232,211,0.25)'; g.lineWidth = 1;
+    for (let xx = -60; xx < 70; xx += 14) { g.beginPath(); g.moveTo(xx, -22); g.lineTo(xx, 18); g.stroke(); }
+    g.fillStyle = '#c9a24a'; g.fillRect(-70, -3, 140, 2);
+    g.restore();
+  });
+  tryPlace(60, 25, (x, y) => { // Tablero de apuestas
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(x - 52, y - 16, 110, 38);
+    g.fillStyle = '#111814'; g.fillRect(x - 56, y - 20, 110, 36);
+    g.strokeStyle = '#c9a24a'; g.lineWidth = 2; g.strokeRect(x - 56, y - 20, 110, 36);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 14; c++) {
+      g.fillStyle = rnd() < 0.55 ? '#ffb43a' : 'rgba(255,180,58,0.15)';
+      g.fillRect(x - 51 + c * 7.3, y - 15 + r * 7.5, 4, 4);
+    }
+  });
+  tryPlace(70, 30, (x, y) => { // Laguna
+    g.fillStyle = '#c9b183'; g.beginPath(); g.ellipse(x, y, 66, 42, 0.3, 0, 7); g.fill();
+    const grd = g.createRadialGradient(x - 10, y - 8, 4, x, y, 60);
+    grd.addColorStop(0, '#4c7d8a'); grd.addColorStop(1, '#23474f');
+    g.fillStyle = grd; g.beginPath(); g.ellipse(x, y, 60, 37, 0.3, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1.5;
+    for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(x - 12 + k * 12, y - 6 + k * 6, 14, 3, 0.3, 0, 7); g.stroke(); }
+  });
+
+  // Árboles en grupos, lejos de la pista y de los edificios
+  const trees = Math.floor(W * H / 9000);
+  for (let k = 0, tries = 0; k < trees && tries < trees * 25; tries++) {
+    const x = rnd() * W, y = rnd() * H;
+    if (distToTrack(x, y) < w + 34) continue;
+    if (placed.some(([px, py, pr]) => Math.hypot(px - x, py - y) < pr + 18)) continue;
+    k++;
+    const r = 10 + rnd() * 14, hue = 100 + rnd() * 30;
+    g.fillStyle = 'rgba(0,0,0,0.32)'; g.beginPath(); g.ellipse(x + r * 0.5, y + r * 0.6, r * 1.05, r * 0.85, 0, 0, 7); g.fill();
+    for (let c = 0; c < 4; c++) {
+      g.fillStyle = `hsl(${hue},${35 + c * 5}%,${16 + c * 6}%)`;
+      g.beginPath(); g.arc(x - c * r * 0.14, y - c * r * 0.16, r * (1 - c * 0.2), 0, 7); g.fill();
+    }
+  }
+
+  for (const o of track.obstacles) drawObstacle(g, o);
+  bakeMini();
+}
+
+function drawObstacle(g, o) {
+  g.save(); g.translate(o.x, o.y); g.rotate(o.angle);
+  if (o.type === 'barro') {
+    g.fillStyle = 'rgba(30,18,8,0.55)'; g.beginPath(); g.ellipse(1, 2, o.r, o.r * 0.72, 0, 0, 7); g.fill();
+    g.fillStyle = '#3e2914'; g.beginPath(); g.ellipse(0, 0, o.r * 0.95, o.r * 0.68, 0, 0, 7); g.fill();
+    g.fillStyle = '#4f361c'; g.beginPath(); g.ellipse(-3, -2, o.r * 0.6, o.r * 0.38, 0.3, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.ellipse(-6, -5, o.r * 0.25, o.r * 0.08, 0.3, 0, 7); g.fill();
+  } else {
+    // Valla de steeplechase: seto de ramas con alas blancas
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(-o.r + 2, -2, o.r * 2, 10);
+    g.fillStyle = '#4a3a1f'; g.fillRect(-o.r, -5, o.r * 2, 9);
+    for (let k = -o.r; k < o.r; k += 3) { g.fillStyle = k % 2 ? '#3b5a24' : '#557a2e'; g.fillRect(k, -6, 2, 5); }
+    g.fillStyle = '#f1e8d3'; g.fillRect(-o.r - 4, -8, 5, 14); g.fillRect(o.r - 1, -8, 5, 14);
+    g.fillStyle = '#8e1d22'; g.fillRect(-o.r - 4, -8, 5, 3); g.fillRect(o.r - 1, -8, 5, 3);
   }
   g.restore();
-  // Obstáculos
-  for (const o of track.obstacles) {
-    g.save(); g.translate(o.x, o.y); g.rotate(o.angle);
-    if (o.type === 'barro') {
-      g.fillStyle = '#5b3a1e'; g.beginPath(); g.ellipse(0, 0, o.r, o.r * 0.75, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#6e4826'; g.beginPath(); g.ellipse(-4, -3, o.r * 0.5, o.r * 0.35, 0.4, 0, Math.PI * 2); g.fill();
-    } else {
-      g.fillStyle = '#0005'; g.fillRect(-o.r + 3, -2, o.r * 2, 10);
-      g.fillStyle = '#e8e2d0'; g.fillRect(-o.r, -4, o.r * 2, 7);
-      g.fillStyle = '#d22'; for (let k = -o.r; k < o.r; k += 8) g.fillRect(k, -4, 4, 7);
-      g.fillStyle = '#6b4a2b'; g.fillRect(-o.r - 3, -7, 6, 13); g.fillRect(o.r - 3, -7, 6, 13);
-    }
-    g.restore();
+}
+
+// Minimapa de la pista completa para cuando la cámara hace zoom
+function bakeMini() {
+  const ms = 260 / track.W;
+  mini.width = 260; mini.height = Math.round(track.H * ms);
+  const m = mini.getContext('2d');
+  m.fillStyle = 'rgba(11,31,21,0.92)'; m.fillRect(0, 0, mini.width, mini.height);
+  m.strokeStyle = '#c9a24a'; m.lineWidth = 2; m.strokeRect(1, 1, mini.width - 2, mini.height - 2);
+  m.setTransform(ms, 0, 0, ms, 0, 0);
+  m.lineJoin = 'round';
+  m.strokeStyle = '#8e5f37'; m.lineWidth = track.width * 2; m.stroke(toPath2D(track.path));
+}
+
+// ─── Partículas (polvo e impactos) ──────────────────
+const particles = [];
+function dust(x, y, ang, n, spread = 1) {
+  for (let k = 0; k < n; k++) {
+    const a = ang + Math.PI + (Math.random() - 0.5) * spread;
+    particles.push({ x, y, vx: Math.cos(a) * (0.6 + Math.random()), vy: Math.sin(a) * (0.6 + Math.random()), life: 1, r: 2 + Math.random() * 3, c: 'rgba(170,125,80,' });
+  }
+}
+function burst(x, y) {
+  for (let k = 0; k < 14; k++) {
+    const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 3;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, r: 1.5 + Math.random() * 2, c: 'rgba(241,232,211,' });
+  }
+}
+function drawParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vx *= 0.92; p.vy *= 0.92; p.life -= 0.03; p.r += 0.15;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ctx.fillStyle = p.c + (p.life * 0.45).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
   }
 }
 
-// ─── Dibujo de un caballo (vista cenital) ───────────
+// ─── Caballo (vista cenital) ────────────────────────
 function drawHorse(i, p, t) {
   const [x, y, ang, speed, fx, sensors] = p;
   const meta = horsesMeta[i];
@@ -153,62 +564,126 @@ function drawHorse(i, p, t) {
     ctx.lineWidth = 1;
     sensors.forEach((s, k) => {
       const a = ang + SENSOR_ANGLES[k], d = s * 180;
-      ctx.strokeStyle = fx & 2 ? '#0006' : `rgba(255,255,255,${0.12 + (1 - s) * 0.4})`;
+      ctx.strokeStyle = `rgba(255,180,58,${0.15 + (1 - s) * 0.45})`;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d); ctx.stroke();
-      if (s < 1) { ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 2.5, 0, 7); ctx.fill(); }
+      if (s < 1) { ctx.fillStyle = '#ffb43a'; ctx.fillRect(x + Math.cos(a) * d - 2, y + Math.sin(a) * d - 2, 4, 4); }
     });
   }
-  ctx.save(); ctx.translate(x, y);
-  // Turbo: estela de fuego
+  // Turbo: estelas de velocidad
   if (fx & 1) {
-    for (let k = 1; k < 6; k++) {
-      ctx.fillStyle = `rgba(255,${120 + k * 20},0,${0.5 - k * 0.08})`;
-      ctx.beginPath(); ctx.arc(-Math.cos(ang) * k * 7, -Math.sin(ang) * k * 7, 7 - k, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,214,140,0.55)'; ctx.lineWidth = 1.5;
+    for (const o of [-6, 0, 6]) {
+      const bx = x - Math.cos(ang) * 22 - Math.sin(ang) * o, by = y - Math.sin(ang) * 22 + Math.cos(ang) * o;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - Math.cos(ang) * 26, by - Math.sin(ang) * 26); ctx.stroke();
     }
   }
-  const s = (jumping ? 1.35 : 1) * 1.3;
+  // Furia: halo de calor
+  if (fx & 128) {
+    const grd = ctx.createRadialGradient(x, y, 6, x, y, 30);
+    grd.addColorStop(0, 'rgba(200,40,30,0.35)'); grd.addColorStop(1, 'rgba(200,40,30,0)');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x, y, 30, 0, 7); ctx.fill();
+  }
+  const s = (jumping ? 1.35 : 1) * 1.25;
   // Sombra
-  ctx.fillStyle = '#0004'; ctx.beginPath();
-  ctx.ellipse(jumping ? 6 : 2, jumping ? 8 : 3, 15, 8, ang, 0, 7); ctx.fill();
-  ctx.rotate(ang); ctx.scale(s, s);
-  const gallop = Math.sin(t / 60 * (1 + speed / 3) + i) * (speed > 0.5 ? 1 : 0);
-  // Patas
-  ctx.fillStyle = '#3b2414';
-  [[8, -6, 1], [8, 6, -1], [-9, -6, -1], [-9, 6, 1]].forEach(([lx, ly, ph]) => {
-    ctx.fillRect(lx + gallop * 3 * ph - 2, ly - 1.5, 5, 3);
+  ctx.fillStyle = 'rgba(0,0,0,0.38)'; ctx.beginPath();
+  ctx.ellipse(x + (jumping ? 7 : 2.5), y + (jumping ? 9 : 3.5), 17, 7.5, ang, 0, 7); ctx.fill();
+
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
+  const gallop = speed > 0.5 ? Math.sin(t / 55 * (1 + speed / 3) + i * 1.7) : 0;
+  // Patas en zancada
+  ctx.fillStyle = '#1a0f07';
+  [[9, -5.5, 1], [9, 5.5, -1], [-9, -5.5, -1], [-9, 5.5, 1]].forEach(([lx, ly, ph]) => {
+    ctx.beginPath(); ctx.ellipse(lx + gallop * 3.5 * ph, ly, 3.2, 1.6, 0, 0, 7); ctx.fill();
   });
   // Cola
-  ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 3; ctx.beginPath();
-  ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-19, gallop * 4, -23, gallop * 2); ctx.stroke();
-  // Cuerpo, cuello y cabeza
-  ctx.fillStyle = ['#6b3e1f', '#3d2412', '#8a5a2b', '#d9c8a9', '#2b2b2b', '#a0522d'][i % 6];
-  ctx.beginPath(); ctx.ellipse(0, 0, 14, 7, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(13, 0, 6, 4, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(20, 0, 5, 3.4, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#1a0e06'; ctx.fillRect(10, -1.2, 8, 2.4); // crin
-  // Jinete con la seda del color del caballo
-  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.ellipse(-1, 0, 6, 7.5, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2, 0, 3.6, 0, 7); ctx.fill();
-  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.arc(2, 0, 2.2, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#1a0f07'; ctx.lineWidth = 2.6; ctx.beginPath();
+  ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-19, gallop * 3, -24, gallop * 1.5); ctx.stroke();
+  // Cuerpo con volumen
+  const coat = COATS[i % COATS.length];
+  const body = ctx.createLinearGradient(0, -7, 0, 7);
+  body.addColorStop(0, shade(coat, 0.75)); body.addColorStop(0.5, coat); body.addColorStop(1, shade(coat, 0.6));
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0, 0, 14.5, 6.6, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(13, 0, 6, 3.6, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(20.5, 0, 5, 2.9, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#120a04'; ctx.fillRect(9, -1, 9, 2); // crin
+  // Mantilla con número
+  ctx.fillStyle = meta.color; ctx.fillRect(-7, -6.2, 9, 12.4);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '600 6px Oswald, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.save(); ctx.translate(-2.5, 3.6); ctx.rotate(-Math.PI / 2); ctx.fillText(i + 1, 0, 0); ctx.restore();
+  // Jinete: chaquetilla con los colores y casco
+  ctx.fillStyle = shade(meta.color, 0.85); ctx.beginPath(); ctx.ellipse(1, 0, 4.6, 5.6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f1e8d3'; ctx.fillRect(-0.5, -5.6, 1.2, 11.2);
+  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.arc(4, 0, 2.9, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(3.3, -0.9, 1, 0, 7); ctx.fill();
+  // Vendas: tela oscura sobre la cabeza
+  if (fx & 2) { ctx.fillStyle = '#151515'; ctx.fillRect(18, -3.4, 4, 6.8); }
   ctx.restore();
 
-  // Efectos
-  if (fx & 8) { ctx.strokeStyle = '#5ee7ff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
-  if (fx & 4) { ctx.strokeStyle = '#d8b26e'; ctx.lineWidth = 3; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(x, y, 18, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
-  if (fx & 2) ctx.fillText('🙈', x, y - 20);
-  if (fx & 16) { for (let k = 0; k < 3; k++) { const a = t / 200 + k * 2.1; ctx.fillText('⭐', x + Math.cos(a) * 14, y - 16 + Math.sin(a) * 5); } }
-  if (fx & 4) ctx.fillText('🪢', x, y - 20);
-  // Número
-  ctx.fillStyle = meta.color; ctx.beginPath(); ctx.arc(x, y + 22, 9, 0, 7); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textBaseline = 'middle';
-  ctx.fillText(i + 1, x, y + 22.5); ctx.textBaseline = 'alphabetic';
+  // Escudo: burbuja hexagonal
+  if (fx & 8) {
+    ctx.strokeStyle = 'rgba(140,220,235,0.85)'; ctx.fillStyle = 'rgba(140,220,235,0.10)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let k = 0; k <= 6; k++) { const a = k / 6 * Math.PI * 2 + t / 900; ctx.lineTo(x + Math.cos(a) * 26, y + Math.sin(a) * 26); }
+    ctx.fill(); ctx.stroke();
+  }
+  // Lazo: cuerda enrollada
+  if (fx & 4) {
+    ctx.strokeStyle = '#c8a46a'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.ellipse(x, y, 22, 14, ang, 0, 7); ctx.stroke();
+    ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.ellipse(x, y, 19, 11, ang, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // Aturdido: órbita de puntos
+  if (fx & 16) {
+    for (let k = 0; k < 3; k++) {
+      const a = t / 160 + k * 2.1;
+      ctx.fillStyle = '#f1e8d3'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 13, y - 15 + Math.sin(a) * 4, 2, 0, 7); ctx.fill();
+    }
+  }
+  // Número del caballo (los nombres van en la torre de posiciones)
+  if (!finished) {
+    ctx.fillStyle = 'rgba(11,31,21,0.85)'; ctx.fillRect(x - 8, y - 33, 16, 15);
+    ctx.fillStyle = meta.color; ctx.fillRect(x - 8, y - 33, 16, 3);
+    ctx.fillStyle = '#f1e8d3'; ctx.font = '600 11px Oswald, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i + 1, x, y - 24.5);
+  }
+}
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
+  return `rgb(${r},${g},${b})`;
 }
 
+// ─── Cámara de TV ───────────────────────────────────
+// En apuestas y resultados se ve la pista completa; en carrera sigue al puntero mirando hacia adelante.
+let camOn = true;
+const cam = { x: 0, y: 0, s: 0 };
+fitCanvas();
+function cameraTarget() {
+  const fit = Math.min(cv.width / track.W, cv.height / track.H);
+  const whole = { x: track.W / 2, y: track.H / 2, s: fit, k: 0.05 };
+  if (!camOn || !state || state.phase !== 'carrera' || !disp.length) return whole;
+  const running = state.horses.map((h, i) => [h.pos, i]).filter(([, i]) => !(disp[i][4] & 64));
+  if (!running.length) return whole;
+  running.sort((a, b) => a[0] - b[0]);
+  const lead = disp[running[0][1]];
+  let fx = lead[0] + Math.cos(lead[2]) * 90, fy = lead[1] + Math.sin(lead[2]) * 90, span = 0;
+  if (running.length > 1) {
+    const second = disp[running[1][1]];
+    const gap = Math.hypot(second[0] - lead[0], second[1] - lead[1]);
+    if (gap < 420) { fx = fx * 0.65 + second[0] * 0.35; fy = fy * 0.65 + second[1] * 0.35; span = gap; }
+  }
+  const viewW = Math.max(820, Math.min(1250, span * 1.6 + 760));
+  const s = Math.max(fit, cv.width / viewW);
+  const hw = cv.width / s / 2, hh = cv.height / s / 2;
+  const clamp = (v, h, max) => h * 2 >= max ? max / 2 : Math.max(h, Math.min(max - h, v));
+  return { x: clamp(fx, hw, track.W), y: clamp(fy, hh, track.H), s, k: 0.09 };
+}
+
+let lastFx = [];
 function frame(t) {
   requestAnimationFrame(frame);
   if (!track) return;
-  ctx.drawImage(bg, 0, 0);
   for (let i = 0; i < pos.length; i++) {
     const d = disp[i], p = pos[i];
     if (!d) { disp[i] = p.slice(); continue; }
@@ -217,64 +692,123 @@ function frame(t) {
     d[1] += (p[1] - d[1]) * (jump ? 1 : 0.45);
     let da = p[2] - d[2]; da = Math.atan2(Math.sin(da), Math.cos(da));
     d[2] += da * 0.45; d[3] = p[3]; d[4] = p[4]; d[5] = p[5];
+    // Polvo al galopar y estallido en las embestidas
+    if (state && state.phase === 'carrera' && d[3] > 4 && Math.random() < 0.35) dust(d[0], d[1], d[2], 1, 0.8);
+    if ((d[4] & 256) && !(lastFx[i] & 256)) burst(d[0], d[1]);
+    lastFx[i] = d[4];
   }
-  // Dibujar primero los de atrás para que el puntero quede encima
+
+  const target = cameraTarget();
+  if (!cam.s) Object.assign(cam, target);
+  cam.x += (target.x - cam.x) * target.k;
+  cam.y += (target.y - cam.y) * target.k;
+  cam.s += (target.s - cam.s) * 0.035;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#1f4524'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(cam.s, 0, 0, cam.s, cv.width / 2 - cam.x * cam.s, cv.height / 2 - cam.y * cam.s);
+  ctx.drawImage(bg, 0, 0, track.W, track.H);
+  drawParticles();
+  // Primero los de atrás para que el puntero quede encima
   const order = state && state.phase !== 'apuestas'
     ? state.horses.map((h, i) => [h.pos, i]).sort((a, b) => b[0] - a[0]).map(x => x[1])
     : disp.map((_, i) => i);
   for (const i of order) drawHorse(i, disp[i], t);
+
+  // Viñeta y minimapa
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const vg = ctx.createRadialGradient(cv.width / 2, cv.height / 2, cv.height * 0.45, cv.width / 2, cv.height / 2, cv.width * 0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, cv.width, cv.height);
+  drawMini();
+}
+
+// Minimapa en la columna de posiciones: pista completa, caballos y encuadre de la cámara
+const mv = document.getElementById('miniView'), mctx = mv.getContext('2d');
+function drawMini() {
+  if (!mini.width) return;
+  if (mv.width !== mini.width || mv.height !== mini.height) { mv.width = mini.width; mv.height = mini.height; }
+  const ms = mini.width / track.W;
+  mctx.drawImage(mini, 0, 0);
+  const fit = Math.min(cv.width / track.W, cv.height / track.H);
+  if (cam.s > fit * 1.12) {
+    mctx.strokeStyle = 'rgba(241,232,211,0.75)'; mctx.lineWidth = 1.2;
+    mctx.strokeRect((cam.x - cv.width / cam.s / 2) * ms, (cam.y - cv.height / cam.s / 2) * ms, cv.width / cam.s * ms, cv.height / cam.s * ms);
+  }
+  disp.forEach((p, i) => {
+    mctx.fillStyle = horsesMeta[i].color; mctx.beginPath(); mctx.arc(p[0] * ms, p[1] * ms, 4, 0, 7); mctx.fill();
+    mctx.strokeStyle = '#0b1f15'; mctx.lineWidth = 1; mctx.stroke();
+  });
 }
 requestAnimationFrame(frame);
 
-// ─── Panel lateral ──────────────────────────────────
-const stars = f => '★'.repeat(Math.max(1, Math.round((f - 0.93) / 0.14 * 4) + 1)).padEnd(5, '☆');
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-function renderPanel() {
+// ─── Interfaz tipo transmisión ──────────────────────
+function renderUI() {
   const s = state;
-  const banner = document.getElementById('banner');
+  const size = { corta: 'Pista corta', media: 'Pista media', larga: 'Pista larga' }[s.trackSize] || '';
+  document.getElementById('raceCard').textContent = `Carrera ${s.raceNum} · ${size} · ${s.laps} vueltas`;
+
+  const big = document.getElementById('clockBig'), small = document.getElementById('clockSmall');
   if (s.phase === 'apuestas') {
-    banner.textContent = s.timeLeft == null ? `Carrera #${s.raceNum} · Esperando jugadores…` : `Carrera #${s.raceNum} · Apuestas cierran en ${s.timeLeft}s`;
+    big.textContent = s.timeLeft == null ? 'Esperando apostadores' : `0:${String(s.timeLeft).padStart(2, '0')}`;
+    small.textContent = s.timeLeft == null ? 'Escanea el código para jugar' : 'Cierre de apuestas';
   } else if (s.phase === 'carrera') {
     const lead = s.horses.find(h => h.pos === 1);
-    banner.textContent = `🏇 Vuelta ${lead ? lead.lap : 1}/${s.laps} · Punta: ${lead ? lead.name : ''}`;
-  } else banner.textContent = `Próxima carrera en ${s.timeLeft}s`;
+    big.textContent = `Vuelta ${lead ? lead.lap : 1} / ${s.laps}`;
+    small.textContent = lead ? `Punta · ${lead.name}` : '';
+  } else {
+    big.textContent = `0:${String(s.timeLeft).padStart(2, '0')}`;
+    small.textContent = 'Próxima carrera';
+  }
 
-  document.getElementById('startBtn').style.display = s.phase === 'apuestas' ? '' : 'none';
-  document.getElementById('pot').textContent = s.pot.toLocaleString('es') + ' fichas';
-  document.getElementById('jack').textContent = s.carry > 0 ? `🔥 JACKPOT acumulado: ${s.carry.toLocaleString('es')}` : '';
-
+  // Torre de posiciones (en apuestas: orden de cajones)
   const rows = s.horses.map((h, i) => ({ h, i }));
-  if (s.phase !== 'apuestas') rows.sort((a, b) => a.h.pos - b.h.pos);
-  document.getElementById('horses').innerHTML = rows.map(({ h, i }) => `<tr>
-    <td>${s.phase !== 'apuestas' ? h.pos + 'º ' : ''}<span class="dot" style="background:${h.color}"></span>${i + 1}. ${esc(h.name)}</td>
-    <td class="stars" title="Forma">${stars(h.form)}</td>
-    <td class="n">${h.bets}</td>
-    <td class="n">${h.odds ? 'x' + h.odds : '—'}</td></tr>`).join('');
+  if (s.phase === 'apuestas') rows.sort((a, b) => a.h.gate - b.h.gate);
+  else rows.sort((a, b) => a.h.pos - b.h.pos);
+  document.getElementById('towerRows').innerHTML = rows.map(({ h, i }, k) => {
+    const left = s.phase === 'apuestas' ? `C${h.gate}` : h.pos;
+    const right = s.phase === 'apuestas' ? `x${h.odds ?? '—'}` : (h.hits ? `${h.hits} emb.` : `V${h.lap}`);
+    return `<div class="row ${s.phase !== 'apuestas' && k === 0 ? 'lead' : ''}">
+      <div class="pos">${left}</div><div class="silk" style="background:${h.color}"></div>
+      <div class="nm">${i + 1} · ${esc(h.name)}<small>${esc(h.estilo)}</small></div><div class="gap">${right}</div></div>`;
+  }).join('');
 
-  document.getElementById('players').innerHTML = s.players.slice(0, 10).map(p =>
-    `<tr><td>${esc(p.name)}</td><td class="n">${p.coins.toLocaleString('es')}</td><td class="n">${p.bet ? '🎟 ' + p.bet : ''}</td></tr>`).join('')
-    || '<tr><td class="hint">Nadie aún. ¡Escanea el código!</td></tr>';
+  document.getElementById('pot').textContent = s.pot.toLocaleString('es');
+  document.getElementById('jack').textContent = s.carry > 0 ? `Jackpot acumulado · ${s.carry.toLocaleString('es')}` : '';
+  document.getElementById('odds').innerHTML = s.horses.map((h, i) => `<div class="odd">
+    <div class="num" style="background:${h.color}">${i + 1}</div><div class="nm">${esc(h.name)}</div>
+    <div class="bet">${h.bets ? h.bets.toLocaleString('es') : ''}</div><div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
+  const betting = s.phase === 'apuestas';
+  document.getElementById('join').style.display = betting ? 'flex' : 'none';
+  document.getElementById('startBtn').style.display = betting ? '' : 'none';
 
-  document.getElementById('log').innerHTML = s.log.slice().reverse().map(l => `<div>${esc(l.text)}</div>`).join('');
-  // Toasts para eventos nuevos
-  const fresh = s.log.filter(l => l.t > seenLog);
-  if (seenLog) fresh.forEach(l => {
-    const d = document.createElement('div'); d.className = 'toast'; d.textContent = l.text;
-    const box = document.getElementById('toasts'); box.appendChild(d);
-    setTimeout(() => d.remove(), 6000);
-    while (box.children.length > 5) box.firstChild.remove();
-  });
-  if (s.log.length) seenLog = s.log[s.log.length - 1].t;
+  document.getElementById('playerRows').innerHTML = s.players.slice(0, 8).map(p =>
+    `<div class="pl"><span>${esc(p.name)}</span><span>${p.coins.toLocaleString('es')}</span></div>`).join('')
+    || '<div class="pl"><span style="color:var(--cream-dim)">Nadie todavía. El código QR no muerde.</span></div>';
+
+  // Narrador: última línea con animación
+  const last = s.log[s.log.length - 1];
+  if (last && last.t !== lastLogT) {
+    lastLogT = last.t;
+    const msg = document.getElementById('tickerMsg');
+    msg.textContent = last.text; msg.classList.remove('in'); void msg.offsetWidth; msg.classList.add('in');
+  }
 
   const res = document.getElementById('results');
   if (s.phase === 'resultados' && s.results) {
-    const r = s.results;
-    res.style.display = 'flex';
-    document.getElementById('resCard').innerHTML = `<h1>🏆 ${esc(s.horses[r.winner].name)}</h1>
-      <ol>${r.order.map((i, k) => `<li><span class="dot" style="background:${s.horses[i].color}"></span>${esc(s.horses[i].name)} <span class="pay">${r.times[k] ? r.times[k] + 's' : 'no terminó'}</span></li>`).join('')}</ol>
-      ${r.payouts.length ? r.payouts.map(p => `<div class="pay">💰 ${esc(p.name)} gana <b>${p.win}</b> (apostó ${p.stake})</div>`).join('')
-        : r.jackpot ? `<div class="pay">Nadie le apostó: <b>${r.jackpot}</b> fichas pasan al JACKPOT 🔥</div>` : ''}`;
+    const r = s.results, w = s.horses[r.winner];
+    const photo = r.times[1] && r.times[0] && r.times[1] - r.times[0] < 0.2;
+    const maxHits = Math.max(...r.hits);
+    res.style.display = 'grid';
+    document.getElementById('resCard').innerHTML = `
+      <div class="label">${photo ? 'Foto finish' : 'Ganador'}</div>
+      <div class="title">${esc(w.name)}</div>
+      <div class="quip">${esc(r.quip || '')}</div>
+      ${r.order.map((i, k) => `<div class="fin"><div class="p">${k + 1}</div><div class="silk" style="width:8px;height:22px;background:${s.horses[i].color}"></div>
+        <div>${esc(s.horses[i].name)}</div><div class="t">${r.times[k] ? r.times[k].toFixed(2) + ' s' : 'no terminó'}</div></div>`).join('')}
+      ${maxHits > 0 ? `<div class="pay">Más bravo: <b>${esc(s.horses[r.hits.indexOf(maxHits)].name)}</b> con ${maxHits} embestidas</div>` : ''}
+      ${r.payouts.length ? r.payouts.map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b> (apostó ${p.stake})</div>`).join('')
+        : r.jackpot ? `<div class="pay">Nadie le apostó. <b>${r.jackpot.toLocaleString('es')}</b> fichas pasan al jackpot.</div>` : ''}`;
   } else res.style.display = 'none';
 }
 
@@ -283,10 +817,11 @@ const es = new EventSource('/events?role=screen');
 es.onmessage = ev => {
   const m = JSON.parse(ev.data);
   if (m.type === 'pos') pos = m.h;
+  else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
   else if (m.type === 'state') {
     state = m;
     if (m.raceNum !== raceNum) { raceNum = m.raceNum; loadTrack(); }
-    renderPanel();
+    renderUI();
   }
 };
 </script>

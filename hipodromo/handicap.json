@@ -1,0 +1,8 @@
+{
+  "Backprop": 0.8358,
+  "Overfitting": 1.25,
+  "Gradiente": 0.832,
+  "Dropout": 1.1902,
+  "Tanh Tanh": 0.8509,
+  "Bug en Producción": 0.9066
+}

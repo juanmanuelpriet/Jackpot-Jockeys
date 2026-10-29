@@ -1,1 +1,7 @@
 jugadores.json
+# Historial local de entrenamientos anteriores: solo se versionan sus cerebros (.json)
+logs/anteriores/**/*.csv
+logs/anteriores/**/*.txt
+logs/anteriores/*.csv
+logs/anteriores/*.txt
+logs/salida_*.txt

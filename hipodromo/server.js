@@ -1,4 +1,4 @@
-// server.js — Hipódromo neuronal multijugador.
+// server.js — Jackpot Jockeys: carreras de caballos con redes neuronales, multijugador.
 // Una pantalla grande muestra la carrera; cada jugador apuesta y lanza poderes desde su celular.
 // Sin dependencias: node server.js
 
@@ -7,44 +7,26 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { Track, Horse, FPS } = require('./sim');
+const { Track, Horse, stepRace, drawGates, laneOffset, FPS } = require('./sim');
+const { HORSES, POWERS, loadBrains, loadHandicap, applyPower } = require('./establo');
+const { say, quip } = require('./narrador');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const LAPS = 3;
 const BET_SECONDS = 30;
 const RESULT_SECONDS = 12;
-const MAX_RACE_SECONDS = 90;
+const MAX_RACE_SECONDS = 120;
 const START_COINS = 1000;
 const RESCUE_COINS = 200;
 const POWER_COOLDOWN_MS = 4000;
 const PLAYERS_FILE = path.join(__dirname, 'jugadores.json');
 
-const HORSES = [
-  { name: 'Relámpago', color: '#e8102d' },
-  { name: 'Tormenta', color: '#3671c6' },
-  { name: 'Canela', color: '#ff8000' },
-  { name: 'Pegaso', color: '#27c4a8' },
-  { name: 'Centella', color: '#c33bd6' },
-  { name: 'Trueno', color: '#d6c21b' },
-];
+const TRACK_SIZES = ['corta', 'media', 'media', 'larga'];
 
-const POWERS = {
-  zanahoria: { name: 'Zanahoria', cost: 80, desc: 'Turbo +50% por 3 s', fx: 'boost', ticks: FPS * 3, debuff: false },
-  escudo: { name: 'Escudo', cost: 60, desc: 'Inmune a ataques 6 s', fx: 'shield', ticks: FPS * 6, debuff: false },
-  vendas: { name: 'Vendas', cost: 100, desc: 'Ciega sus sensores 2.5 s', fx: 'blind', ticks: Math.round(FPS * 2.5), debuff: true },
-  lazo: { name: 'Lazo', cost: 120, desc: 'Lo frena en seco 1.5 s', fx: 'freeze', ticks: Math.round(FPS * 1.5), debuff: true },
-};
 
 // ─── Cerebros ───────────────────────────────────────
 
-function loadBrains() {
-  const trained = path.join(__dirname, 'caballos.json');
-  if (fs.existsSync(trained)) return JSON.parse(fs.readFileSync(trained, 'utf8'));
-  console.log('⚠️  No existe caballos.json, usando el campeón original (ejecuta: node entrenar.js)');
-  const base = JSON.parse(fs.readFileSync(path.join(__dirname, 'campeon_original.json'), 'utf8'));
-  return HORSES.map(() => base);
-}
 const BRAINS = loadBrains();
+const HANDICAP = loadHandicap();
 
 // ─── Estado del juego ───────────────────────────────
 
@@ -80,23 +62,36 @@ function addLog(text) {
   if (game.log.length > 30) game.log.shift();
 }
 
+// Comentarios del narrador: los de color se espacian para que se alcancen a leer
+let lastColor = 0;
+function narrate(kind, vars, important = true) {
+  const now = Date.now();
+  if (!important && now - lastColor < 2600) return;
+  if (!important) lastColor = now;
+  addLog(say(kind, vars));
+}
+
 function newRace() {
   game.raceNum++;
-  game.track = new Track(Math.floor(Math.random() * 1e6), 7 + Math.floor(Math.random() * 4));
+  const size = TRACK_SIZES[Math.floor(Math.random() * TRACK_SIZES.length)];
+  game.track = new Track(Math.floor(Math.random() * 1e6), null, size);
   game.forms = HORSES.map(() => +(0.93 + Math.random() * 0.14).toFixed(3));
+  // Sorteo de cajones: cada carrera los caballos salen de carriles distintos
+  game.gates = drawGates(HORSES.length);
   game.horses = HORSES.map((_, i) => new Horse(game.track, BRAINS[i % BRAINS.length], {
-    id: i, form: game.forms[i], lane: (i - (HORSES.length - 1) / 2) * 12,
+    id: i, form: game.forms[i] * HANDICAP[i], lane: laneOffset(game.gates[i], HORSES.length),
   }));
   game.powerSpend = 0;
   game.results = null;
   game.tick = 0;
   for (const p of players.values()) {
     p.bets = {};
-    if (p.coins < 50) { p.coins += RESCUE_COINS; addLog(`🎁 ${p.name} recibe ${RESCUE_COINS} fichas de rescate`); }
+    if (p.coins < 50) { p.coins += RESCUE_COINS; addLog(`${p.name} recibe ${RESCUE_COINS} fichas de rescate. La casa es generosa (a veces).`); }
   }
   game.phase = 'apuestas';
   game.phaseEnds = players.size > 0 ? Date.now() + BET_SECONDS * 1000 : null;
-  addLog(`🏇 Carrera #${game.raceNum}: ¡abiertas las apuestas!`);
+  game.leader = null;
+  narrate('apuestas', { n: game.raceNum, s: size });
 }
 
 function betTotals() {
@@ -112,7 +107,7 @@ function pot() {
 function startRace() {
   game.phase = 'carrera';
   game.phaseEnds = Date.now() + MAX_RACE_SECONDS * 1000;
-  addLog('🔔 ¡Arrancan!');
+  narrate('salida');
 }
 
 function standings() {
@@ -142,18 +137,20 @@ function finishRace() {
       payouts.push({ name: p.name, id: p.id, stake, win });
     }
     game.carry = 0;
-    addLog(`🏆 Ganó ${HORSES[winner].name}. Se repartieron ${prize} fichas`);
+    narrate('reparto', { h: HORSES[winner].name });
   } else {
     game.carry = prize;
-    if (prize > 0) addLog(`🏆 Ganó ${HORSES[winner].name}. Nadie le apostó: ¡${prize} fichas al JACKPOT!`);
-    else addLog(`🏆 Ganó ${HORSES[winner].name}`);
+    if (prize > 0) narrate('jackpot', { h: HORSES[winner].name });
   }
   payouts.sort((a, b) => b.win - a.win);
   game.results = {
     order,
     times: order.map(i => game.horses[i].finished ? +(game.horses[i].finishTick / FPS).toFixed(2) : null),
     winner, prize, payouts, jackpot: totals[winner] > 0 ? 0 : prize,
+    hits: game.horses.map(h => h.hitsGiven),
   };
+  const t = game.results.times;
+  game.results.quip = quip(t[1] != null && t[0] != null ? t[1] - t[0] : null, t[1] != null && t[0] != null ? t[1] - t[0] : 99);
   game.history.unshift(winner);
   game.history.length = Math.min(game.history.length, 10);
   game.phase = 'resultados';
@@ -170,14 +167,27 @@ function step() {
     if (game.phaseEnds !== null && now >= game.phaseEnds) startRace();
   } else if (game.phase === 'carrera') {
     game.tick++;
+    const before = game.horses.map(h => [h.falls, h.stumbles, h.jumps]);
+    for (const ev of stepRace(game.horses)) {
+      narrate('embestida', { a: HORSES[ev.attacker].name, v: HORSES[ev.victim].name }, false);
+    }
+    game.horses.forEach((h, i) => {
+      const name = HORSES[i].name;
+      if (h.falls > before[i][0]) narrate('salida_pista', { h: name }, false);
+      else if (h.stumbles > before[i][1]) narrate('tropiezo', { h: name }, false);
+      else if (h.jumps > before[i][2] && Math.random() < 0.3) narrate('salto', { h: name }, false);
+    });
+    // Cambio de líder (después de los primeros segundos)
+    const leader = standings()[0];
+    if (game.tick > FPS * 4 && leader !== game.leader && game.leader != null) narrate('punta', { h: HORSES[leader].name }, false);
+    game.leader = leader;
     for (const h of game.horses) {
       if (h.finished) continue;
-      h.update();
-      if (h.laps >= LAPS) {
+      if (h.laps >= game.track.laps) {
         h.finished = true;
         h.finishTick = h.ticks;
         const place = game.horses.filter(x => x.finished).length;
-        if (place === 1) addLog(`🏁 ¡${HORSES[h.id].name} cruza primero la meta!`);
+        if (place === 1) narrate('meta', { h: HORSES[h.id].name });
       }
     }
     if (game.horses.every(h => h.finished) || now >= game.phaseEnds) finishRace();
@@ -192,7 +202,8 @@ function horsePositions() {
     Math.round(h.x * 10) / 10, Math.round(h.y * 10) / 10, Math.round(h.angle * 100) / 100,
     Math.round(h.speed * 10) / 10,
     (h.fx.boost > 0 ? 1 : 0) | (h.fx.blind > 0 ? 2 : 0) | (h.fx.freeze > 0 ? 4 : 0) |
-    (h.fx.shield > 0 ? 8 : 0) | (h.fx.stun > 0 ? 16 : 0) | (h.fx.jump > 0 ? 32 : 0) | (h.finished ? 64 : 0),
+    (h.fx.shield > 0 ? 8 : 0) | (h.fx.stun > 0 ? 16 : 0) | (h.fx.jump > 0 ? 32 : 0) | (h.finished ? 64 : 0) |
+    (h.fx.rage > 0 ? 128 : 0) | (h.fx.hit > 0 ? 256 : 0),
     h.sensors.map(s => Math.round(s * 100) / 100),
   ]);
 }
@@ -208,14 +219,17 @@ function publicState() {
     phase: game.phase,
     timeLeft: game.phaseEnds ? Math.max(0, Math.ceil((game.phaseEnds - Date.now()) / 1000)) : null,
     raceNum: game.raceNum,
-    laps: LAPS,
+    laps: game.track.laps,
+    trackSize: game.track.size,
+    trackLength: Math.round(game.track.length),
     pot: total,
     carry: game.carry,
     horses: HORSES.map((h, i) => ({
-      name: h.name, color: h.color, form: game.forms[i],
+      name: h.name, color: h.color, perfil: h.perfil, estilo: h.estilo, gate: game.gates[i] + 1, form: game.forms[i],
+      hits: game.horses[i].hitsGiven,
       bets: totals[i],
       odds: totals[i] > 0 ? +(total / totals[i]).toFixed(2) : null,
-      lap: Math.min(LAPS, Math.floor(game.horses[i].laps) + 1),
+      lap: Math.min(game.track.laps, Math.floor(game.horses[i].laps) + 1),
       pos: order ? order.indexOf(i) + 1 : null,
       wins: game.history.filter(w => w === i).length,
     })),
@@ -225,7 +239,7 @@ function publicState() {
     players: [...players.values()]
       .map(p => ({ name: p.name, coins: p.coins, bet: Object.values(p.bets).reduce((a, b) => a + b, 0) }))
       .sort((a, b) => b.coins - a.coins),
-    powers: POWERS,
+    powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, cost: p.cost, desc: p.desc, debuff: p.debuff, icon: p.icon }])),
   };
 }
 
@@ -255,7 +269,7 @@ const actions = {
     if (!name) return { error: 'Escribe tu nombre' };
     p = { id: crypto.randomUUID(), name, coins: START_COINS, wins: 0, bets: {}, cooldownUntil: 0 };
     players.set(p.id, p);
-    addLog(`👋 ${name} entró al hipódromo`);
+    addLog(`${name} llegó al hipódromo con 1000 fichas y mucha fe.`);
     savePlayers();
     return { me: p };
   },
@@ -270,7 +284,7 @@ const actions = {
     if (amount > p.coins) return { error: 'No tienes suficientes fichas' };
     p.coins -= amount;
     p.bets[horse] = (p.bets[horse] || 0) + amount;
-    addLog(`💰 ${p.name} apostó ${amount} a ${HORSES[horse].name}`);
+    addLog(`${p.name} apuesta ${amount} a ${HORSES[horse].name}.`);
     return { me: p };
   },
 
@@ -289,19 +303,18 @@ const actions = {
     p.coins -= pw.cost;
     game.powerSpend += pw.cost; // lo gastado en poderes engorda el pozo
     p.cooldownUntil = Date.now() + POWER_COOLDOWN_MS;
-    if (pw.debuff && h.fx.shield > 0) {
-      addLog(`🛡️ El escudo de ${HORSES[horse].name} bloqueó ${pw.name} de ${p.name}`);
-    } else {
-      h.fx[pw.fx] = pw.ticks;
-      const icon = { zanahoria: '🥕', escudo: '🛡️', vendas: '🙈', lazo: '🪢' }[power];
-      addLog(`${icon} ${p.name} usó ${pw.name} en ${HORSES[horse].name}`);
-    }
+    const out = applyPower(game.horses, game.track, horse, power);
+    narrate(out.blocked ? 'bloqueado' : power, { p: p.name, h: HORSES[horse].name });
+    if (out.obstacle) broadcastScreens({ type: 'obst', o: out.obstacle });
     broadcastScreens({ type: 'fx', horse, power });
     return { me: p };
   },
 
-  start() {
-    if (game.phase === 'apuestas') startRace();
+  start(_, req) {
+    if (game.phase === 'apuestas') {
+      console.log(`Arranque manual de la carrera ${game.raceNum} desde ${req.socket.remoteAddress} (${req.headers['user-agent'] || '?'})`);
+      startRace();
+    }
     return {};
   },
 };
@@ -340,7 +353,7 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/api/track') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ raceNum: game.raceNum, track: game.track, horses: HORSES, joinUrl: `http://${lanIP()}:${PORT}/cel` }));
+    res.end(JSON.stringify({ raceNum: game.raceNum, track: game.track, horses: HORSES, gates: game.gates, joinUrl: `http://${lanIP()}:${PORT}/cel` }));
     return;
   }
 
@@ -350,7 +363,7 @@ const server = http.createServer((req, res) => {
     req.on('data', c => { body += c; if (body.length > 1e4) req.destroy(); });
     req.on('end', () => {
       let out;
-      try { out = action ? action(JSON.parse(body || '{}')) : { error: 'Acción desconocida' }; }
+      try { out = action ? action(JSON.parse(body || '{}'), req) : { error: 'Acción desconocida' }; }
       catch { out = { error: 'Petición inválida' }; }
       if (out.me) out.me = { id: out.me.id, name: out.me.name, coins: out.me.coins, bets: out.me.bets };
       res.writeHead(out.error ? 400 : 200, { 'Content-Type': 'application/json' });
@@ -374,7 +387,7 @@ setInterval(step, 1000 / FPS);
 setInterval(broadcastState, 400);
 
 server.listen(PORT, () => {
-  console.log(`\n🏇 Hipódromo neuronal listo`);
+  console.log(`\n🏇 Jackpot Jockeys listo`);
   console.log(`   Pantalla grande: http://localhost:${PORT}`);
   console.log(`   Celulares:       http://${lanIP()}:${PORT}/cel  (misma red WiFi)\n`);
 });

@@ -3,50 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Hipódromo · Apuestas</title>
+<title>Jackpot Jockeys · Apuestas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,900&display=swap">
 <style>
-  :root { --bg: #0d1410; --card: #18241c; --line: #2a3a2f; --txt: #e8f0ea; --mute: #8fa597; --gold: #f5c542; --red: #ff5d5d; --green: #4ade80; }
+  :root { --bg: #0b1f15; --card: #10291c; --card2: #173826; --line: rgba(201,162,74,0.3); --txt: #f1e8d3; --mute: #a9a08b;
+    --gold: #c9a24a; --gold-hi: #e7c873; --amber: #ffb43a; --wine: #8e1d22; --ok: #7fc48a;
+    --display: 'Oswald', 'Arial Narrow', sans-serif; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; background: var(--bg); color: var(--txt); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 16px; padding-bottom: 40px; max-width: 520px; margin: 0 auto; }
-  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .coins { font-size: 26px; font-weight: 800; color: var(--gold); }
-  .name { color: var(--mute); font-size: 14px; }
-  .phase { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-weight: 700; display: flex; justify-content: space-between; }
-  .phase .t { color: var(--gold); }
-  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--mute); margin: 18px 0 8px; }
-  .horses { display: grid; gap: 8px; }
-  .horse { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 10px 12px; cursor: pointer; }
-  .horse.sel { border-color: var(--gold); }
-  .horse .num { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; }
-  .horse .sub { font-size: 12px; color: var(--mute); }
-  .horse .right { text-align: right; font-size: 13px; }
-  .horse .odds { font-weight: 800; font-size: 16px; }
-  .mine { color: var(--green); font-size: 12px; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chip { flex: 1; min-width: 56px; padding: 12px 0; border-radius: 10px; background: var(--card); border: 1px solid var(--line); color: var(--txt); font-weight: 700; font-size: 15px; }
-  .chip.sel { background: var(--gold); color: #111; }
-  button.main { width: 100%; padding: 16px; border: 0; border-radius: 14px; background: var(--gold); color: #111; font-size: 18px; font-weight: 800; margin-top: 12px; }
-  button:disabled { opacity: .4; }
-  .powers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .power { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; color: var(--txt); text-align: left; }
-  .power b { display: block; font-size: 16px; }
-  .power small { color: var(--mute); display: block; margin: 2px 0 6px; }
-  .power .cost { color: var(--gold); font-weight: 800; }
-  .power.bad b { color: var(--red); }
-  input { width: 100%; padding: 16px; font-size: 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--txt); }
-  .msg { position: fixed; left: 16px; right: 16px; bottom: 16px; background: #000d; padding: 14px; border-radius: 12px; text-align: center; font-weight: 700; display: none; }
-  .big { text-align: center; padding: 24px 12px; background: var(--card); border-radius: 16px; }
-  .big .e { font-size: 54px; }
-  .big h2 { margin: 8px 0; }
+  body { margin: 0 auto; background: var(--bg); color: var(--txt); font-family: var(--display); padding: 16px 16px 90px; max-width: 520px; letter-spacing: .3px; }
+  h1 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 34px; margin: 28px 0 6px; line-height: 1; }
+  h1 span { color: var(--gold-hi); }
+  header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .name { color: var(--mute); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+  .coins { font-size: 30px; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .coins small { font-size: 14px; color: var(--mute); font-weight: 400; letter-spacing: 1px; }
+  #potTxt { text-align: right; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+  #potTxt b { display: block; color: var(--txt); font-size: 22px; letter-spacing: 0; }
+  .phase { background: var(--card); border-left: 3px solid var(--gold); padding: 11px 14px; margin-bottom: 14px; font-weight: 500; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: 1.5px; font-size: 14px; }
+  .phase .t { color: var(--amber); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: var(--gold); margin: 20px 0 8px; font-weight: 500; }
+  .horses { display: grid; gap: 6px; }
+  .horse { display: grid; grid-template-columns: 6px 30px 1fr auto; gap: 10px; align-items: center; background: var(--card); border: 1px solid transparent; padding: 10px 12px 10px 0; cursor: pointer; }
+  .horse.sel { border-color: var(--gold); background: var(--card2); }
+  .horse .silk { align-self: stretch; }
+  .horse .num { font-weight: 700; font-size: 22px; color: var(--gold-hi); text-align: center; }
+  .horse b { font-weight: 500; font-size: 17px; text-transform: uppercase; letter-spacing: .8px; }
+  .horse .sub { font-size: 12px; color: var(--mute); letter-spacing: .5px; }
+  .horse .right { text-align: right; }
+  .horse .odds { font-weight: 600; font-size: 19px; color: var(--amber); font-variant-numeric: tabular-nums; }
+  .mine { color: var(--ok); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+  .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .chip { padding: 12px 0; background: var(--card); border: 1px solid var(--line); color: var(--txt); font-family: var(--display); font-weight: 500; font-size: 16px; }
+  .chip.sel { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+  button.main { width: 100%; padding: 16px; border: 0; background: var(--gold); color: var(--bg); font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase; margin-top: 12px; }
+  button:disabled { opacity: .35; }
+  .powers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .power { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--gold); padding: 11px 12px; color: var(--txt); text-align: left; font-family: var(--display); }
+  .power.bad { border-top-color: var(--wine); }
+  .power b { display: block; font-size: 17px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .power small { color: var(--mute); display: block; margin: 3px 0 8px; font-size: 12px; line-height: 1.3; }
+  .power .cost { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+  input { width: 100%; padding: 16px; font-size: 18px; border: 1px solid var(--line); background: var(--card); color: var(--txt); font-family: var(--display); letter-spacing: 1px; }
+  .msg { position: fixed; left: 16px; right: 16px; bottom: 16px; background: var(--card2); border-left: 3px solid var(--amber); padding: 14px; font-weight: 500; letter-spacing: .5px; display: none; box-shadow: 0 10px 30px #0008; }
+  .big { padding: 22px 18px; background: var(--card); border-top: 3px solid var(--gold); }
+  .big .k { font-size: 12px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  .big h2 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 900; font-size: 32px; margin: 6px 0; }
+  .big p { margin: 6px 0 0; font-size: 17px; }
+  .big .win { color: var(--amber); font-size: 26px; font-weight: 700; }
   .hidden { display: none; }
-  .hint { color: var(--mute); font-size: 13px; }
+  .hint { color: var(--mute); font-size: 14px; line-height: 1.4; letter-spacing: .3px; }
 </style>
 </head>
 <body>
 
 <div id="login">
-  <h1>🏇 Hipódromo Neuronal</h1>
-  <p class="hint">Los caballos son redes neuronales entrenadas. Apuesta, ayuda a tu favorito y sabotea a los demás.</p>
+  <h1>Jackpot <span>Jockeys</span></h1>
+  <p class="hint">Seis caballos. Seis redes neuronales. Ninguna sabe que estás apostando por ella. Apuesta, ayuda a tu favorito y sabotea al resto.</p>
   <input id="nameIn" placeholder="Tu nombre" maxlength="16" autocomplete="off">
   <button class="main" id="joinBtn">Entrar</button>
 </div>
@@ -112,28 +125,28 @@ document.getElementById('betBtn').onclick = async () => {
   if (selHorse == null) return toast('Elige un caballo');
   const a = amount === 'Todo' ? me.coins : amount;
   const j = await api('bet', { horse: selHorse, amount: a });
-  if (j) toast(`✅ Apostaste ${a} a ${state.horses[selHorse].name}`);
+  if (j) toast(`Boleto: ${a} fichas a ${state.horses[selHorse].name}. Que la red te acompañe.`);
 };
 
 function usePower(key) {
   if (selHorse == null) return toast('Elige un caballo primero');
-  api('power', { power: key, horse: selHorse }).then(j => j && toast(`${state.powers[key].name} → ${state.horses[selHorse].name}`));
+  api('power', { power: key, horse: selHorse }).then(j => j && toast(`${state.powers[key].name} para ${state.horses[selHorse].name}.`));
 }
 
 function render() {
   if (!state || !me) return;
   const s = state;
   document.getElementById('myName').textContent = me.name;
-  document.getElementById('coins').textContent = me.coins.toLocaleString('es') + ' fichas';
-  document.getElementById('potTxt').innerHTML = `Pozo<br><b style="color:var(--gold)">${s.pot.toLocaleString('es')}</b>` + (s.carry ? '<br>🔥 Jackpot' : '');
-  const phaseNames = { apuestas: `Carrera #${s.raceNum} · Apuestas abiertas`, carrera: '🏇 ¡En carrera!', resultados: 'Resultados' };
+  document.getElementById('coins').innerHTML = `${me.coins.toLocaleString('es')} <small>fichas</small>`;
+  document.getElementById('potTxt').innerHTML = `${s.carry ? 'Pozo + jackpot' : 'Pozo'}<b>${s.pot.toLocaleString('es')}</b>`;
+  const phaseNames = { apuestas: `Carrera ${s.raceNum} · Pista ${s.trackSize}`, carrera: 'En carrera', resultados: 'Resultados' };
   document.getElementById('phaseTxt').textContent = phaseNames[s.phase];
   document.getElementById('timeTxt').textContent = s.phase === 'carrera' ? '' : s.timeLeft != null ? s.timeLeft + 's' : 'esperando';
 
   const betting = s.phase === 'apuestas', racing = s.phase === 'carrera';
   document.getElementById('betBox').classList.toggle('hidden', !betting);
   document.getElementById('powerBox').classList.toggle('hidden', !racing);
-  document.getElementById('horsesTitle').textContent = betting ? 'Elige un caballo' : racing ? 'Posiciones · toca uno para usar un poder' : 'Llegada';
+  document.getElementById('horsesTitle').textContent = betting ? 'Elige tu caballo' : racing ? 'Posiciones · toca uno y usa un poder' : 'Llegada';
 
   const rows = s.horses.map((h, i) => ({ h, i }));
   if (!betting) rows.sort((a, b) => a.h.pos - b.h.pos);
@@ -141,11 +154,12 @@ function render() {
     const mine = me.bets[i];
     const formPct = Math.round((h.form - 1) * 100);
     return `<div class="horse ${selHorse === i ? 'sel' : ''}" data-i="${i}">
-      <div class="num" style="background:${h.color}">${i + 1}</div>
-      <div><b>${!betting ? h.pos + 'º · ' : ''}${esc(h.name)}</b>
-        <div class="sub">${betting ? `Forma ${formPct >= 0 ? '+' : ''}${formPct}% · ${h.wins} victorias` : `Vuelta ${h.lap}/${s.laps}`}</div>
+      <div class="silk" style="background:${h.color}"></div>
+      <div class="num">${betting ? i + 1 : h.pos}</div>
+      <div><b>${esc(h.name)}</b>
+        <div class="sub">${h.estilo[0].toUpperCase() + h.estilo.slice(1)} · ${betting ? `Cajón ${h.gate} · forma ${formPct >= 0 ? '+' : ''}${formPct}%` : `Vuelta ${h.lap}/${s.laps}${h.hits ? ` · ${h.hits} embestidas` : ''}`}</div>
         ${mine ? `<div class="mine">Tu apuesta: ${mine}</div>` : ''}</div>
-      <div class="right"><div class="odds">${h.odds ? 'x' + h.odds : '—'}</div><div class="sub">${h.bets} apostado</div></div>
+      <div class="right"><div class="odds">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div><div class="sub">${h.bets.toLocaleString('es')} en juego</div></div>
     </div>`;
   }).join(''));
 
@@ -156,7 +170,7 @@ function render() {
   const cd = me.cooldown || 0;
   setHTML('powers', Object.entries(s.powers).map(([k, p]) =>
     `<button class="power ${p.debuff ? 'bad' : ''}" data-k="${k}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}>
-      <b>${{ zanahoria: '🥕', escudo: '🛡️', vendas: '🙈', lazo: '🪢' }[k]} ${p.name}</b><small>${p.desc}</small>
+      <b>${p.name}</b><small>${p.desc}</small>
       <span class="cost">${p.cost} fichas</span></button>`).join(''));
 
   const res = document.getElementById('results');
@@ -164,10 +178,11 @@ function render() {
     const r = s.results, win = r.payouts.find(p => p.id === me.id);
     const lost = Object.keys(me.bets).length > 0 && !win;
     res.classList.remove('hidden');
-    res.innerHTML = `<div class="big"><div class="e">${win ? '🤑' : lost ? '😩' : '🏆'}</div>
-      <h2>Ganó ${esc(s.horses[r.winner].name)}</h2>
-      ${win ? `<p>¡Ganaste <b style="color:var(--gold)">${win.win}</b> fichas!</p>` : lost ? '<p>Esta vez no… ¡la próxima!</p>' : ''}
-      ${r.jackpot ? `<p class="hint">Nadie le apostó: ${r.jackpot} fichas pasan al jackpot 🔥</p>` : ''}</div>`;
+    res.innerHTML = `<div class="big"><div class="k">Ganador</div>
+      <h2>${esc(s.horses[r.winner].name)}</h2>
+      <p class="hint">${esc(r.quip || '')}</p>
+      ${win ? `<p>Cobras <span class="win">${win.win.toLocaleString('es')}</span> fichas. Invita algo.</p>` : lost ? '<p>Tu caballo tenía otros planes. Hay revancha en segundos.</p>' : ''}
+      ${r.jackpot ? `<p class="hint">Nadie le apostó: ${r.jackpot.toLocaleString('es')} fichas pasan al jackpot.</p>` : ''}</div>`;
   } else res.classList.add('hidden');
 }
 

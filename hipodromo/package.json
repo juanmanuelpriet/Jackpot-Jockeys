@@ -1,5 +1,5 @@
 {
-  "name": "hipodromo-neuronal",
+  "name": "jackpot-jockeys",
   "version": "1.0.0",
   "description": "Carreras de caballos controlados por redes neuronales, con apuestas desde el celular",
   "main": "server.js",

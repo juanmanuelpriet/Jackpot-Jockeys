@@ -116,6 +116,13 @@ arriba explica de dónde salen las cuotas de esa carrera. Durante la carrera el 
 un caballo y luego el poder), arriba aparece **cuánto cobrarías si terminara ahora** y tus boletos. Al terminar,
 una tarjeta con el ganador y tu resultado neto. Las reacciones están en el botón 😂 de arriba.
 
+**Al terminar cada carrera** el celular muestra tu balance: lo que apostaste, lo que gastaste en poderes, lo que
+cobraste, lo que se llevó la mafia (y comisión de peña o premio de dueño si los hubo) y el **resultado** neto.
+
+**Versiones:** el servidor lee las páginas al arrancar, así que la pantalla y los celulares siempre usan el mismo
+código que él aunque se actualicen los archivos con el juego abierto. Si el juego se reinicia con una versión nueva,
+la pantalla y los celulares se recargan solos.
+
 **Conexión:** la pantalla y los celulares usan WebSocket en los dos sentidos: el estado llega 4 veces por segundo y las
 acciones del celular (apostar, poderes, reacciones…) viajan por esa misma conexión, sin abrir una petición nueva,
 así responden al instante incluso por internet.

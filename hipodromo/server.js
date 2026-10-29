@@ -111,6 +111,7 @@ function attach(room, conn, params) {
 function broadcastState(room) {
   const st = room.publicState();
   st.raceKey = room.raceKey;
+  st.build = BUILD;
   for (const r of room.screens) send(r, st);
   for (const [r, id] of room.phones) send(r, { ...st, me: room.meState(id) });
 }
@@ -160,6 +161,12 @@ function handleAction(name, body) {
 // ─── HTTP ───
 
 const STATIC = { '/': 'pantalla.html', '/pantalla': 'pantalla.html', '/cel': 'cel.html' };
+// Las páginas se leen al arrancar: así siempre van con el código de este servidor, aunque se actualicen
+// los archivos con el juego abierto. BUILD cambia con cada arranque y las pantallas se recargan solas
+// si el servidor se reinició con otra versión.
+const BUILD = String(Date.now());
+const PAGES = Object.fromEntries(Object.entries(STATIC).map(([route, file]) =>
+  [route, fs.readFileSync(path.join(__dirname, 'public', file), 'utf8').replace('__BUILD__', BUILD)]));
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -207,10 +214,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const file = STATIC[url.pathname];
-  if (file) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    fs.createReadStream(path.join(__dirname, 'public', file)).pipe(res);
+  const page = PAGES[url.pathname];
+  if (page) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(page);
     return;
   }
   res.writeHead(404); res.end('No encontrado');

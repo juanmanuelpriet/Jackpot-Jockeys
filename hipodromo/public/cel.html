@@ -254,6 +254,7 @@
 <div id="msg"></div>
 
 <script>
+const PAGE_BUILD = '__BUILD__'; // lo pone el servidor al servir la página
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -411,7 +412,9 @@ function render() {
     if (d && !b.querySelector('.dot')) b.insertAdjacentHTML('beforeend', '<span class="dot"></span>');
     if (!d) b.querySelector('.dot')?.remove();
   });
-  renderCarrera(); renderCaballo(); renderMafia(); renderPena();
+  for (const f of [renderCarrera, renderCaballo, renderMafia, renderPena]) {
+    try { f(); } catch (e) { console.error(e); } // si una parte falla, el resto de la pantalla sigue al día
+  }
   if (!document.getElementById('podSheet').classList.contains('hidden')) setHTML('podBody', podiumsHTML());
   // El panel inferior solo en la pestaña Carrera
   const onCarrera = !document.getElementById('tab-carrera').classList.contains('hidden');
@@ -517,7 +520,17 @@ function renderCarrera() {
         <h2>${skinIcon(s.horses[r.winner])} ${esc(s.horses[r.winner].name)}</h2>
         <div class="mute" style="font-size:14px">${esc(r.quip || '')}</div>
         ${l ? `<div class="hero ${l.net > 0 ? 'pos' : l.net < 0 ? 'neg' : 'mute'}" style="margin-top:10px">${l.net > 0 ? '🎉 ' : l.net < 0 ? '😢 ' : ''}${signed(l.net)}</div>
-          <div class="mute" style="font-size:14px">${won ? `Ganaste ${fmt(won)}` : 'Esta vez no acertaste'} · pusiste ${fmt(l.bets + l.powers)}${l.mafia ? ` · la mafia se llevó ${fmt(l.mafia)}` : ''}</div>` : ''}
+          <div class="mute" style="font-size:14px">${won ? 'Tu resultado en esta carrera' : 'Esta vez no acertaste'}</div>
+          <div style="text-align:left;margin-top:10px">
+            <div class="line"><span>🎟️ Apostaste</span><span class="neg">−${fmt(l.bets)}</span></div>
+            ${l.powers ? `<div class="line"><span>🥕 Poderes</span><span class="neg">−${fmt(l.powers)}</span></div>` : ''}
+            <div class="line"><span>💰 Cobraste</span><span class="${l.won ? 'pos' : 'mute'}">+${fmt(l.won)}</span></div>
+            ${l.mafia ? `<div class="line"><span>🕴️ Se llevó la mafia</span><span class="neg">−${fmt(l.mafia)}</span></div>` : ''}
+            ${l.commission ? `<div class="line"><span>🤝 Comisión de tu peña</span><span class="pos">+${fmt(l.commission)}</span></div>` : ''}
+            ${l.owner ? `<div class="line"><span>🐴 Premio de dueño</span><span class="pos">+${fmt(l.owner)}</span></div>` : ''}
+            ${l.favor ? `<div class="line"><span>🧾 Sabotaje (a tu deuda)</span><span class="mute">${fmt(l.favor)}</span></div>` : ''}
+            <div class="line" style="font-weight:600"><span>Resultado</span><span>${signed(l.net)}</span></div>
+          </div>` : `<div class="mute" style="font-size:14px;margin-top:8px">No apostaste en esta carrera.</div>`}
       </div>
       ${wins.length ? `<div class="group" style="margin-bottom:12px">${wins.map(w => `<div class="item" style="grid-template-columns:44px 1fr auto">
         <div class="avatar" style="background:var(--card2);font-size:22px">${TYPE_UI[w.type].e}</div>
@@ -743,6 +756,7 @@ function connect() {
   if (es) es.close();
   es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;
+    if (m.build && !PAGE_BUILD.startsWith('__') && m.build !== PAGE_BUILD) { location.reload(); return; } // el servidor se actualizó
     if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; tip = TIPS[Math.floor(Math.random() * TIPS.length)]; }
     lastRaceKey = m.raceKey;
     state = m;

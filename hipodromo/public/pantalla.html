@@ -246,6 +246,7 @@
   <div id="splashBar"><button class="ghost" id="splashNext">Siguiente ›</button><button id="splashSkip">Saltar y jugar</button><small>Enter · saltar &nbsp; H · ver de nuevo</small></div>
 </div>
 <script>
+const PAGE_BUILD = '__BUILD__'; // lo pone el servidor al servir la página
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d'); // let: la intro dibuja los mismos caballos en su propio lienzo
 // El lienzo toma el tamaño real de su caja (sin paneles encima de la pista)
@@ -1362,12 +1363,13 @@ function onServerMessage(m) {
     else if (m.type === 'react') showReaction(m);
     else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
     else if (m.type === 'state') {
+      if (m.build && !PAGE_BUILD.startsWith('__') && m.build !== PAGE_BUILD) { location.reload(); return; } // el servidor se actualizó
       state = m;
       if (m.raceKey !== raceKey) { startIntro(); raceKey = m.raceKey; frames.length = 0; finishIdx = -1; lastReplay = null; replay = null; loadTrack(); }
       // Al terminar la carrera, repetición de la llegada en cámara lenta
       if (lastPhase === 'carrera' && m.phase === 'resultados') startReplay(buildReplay());
       lastPhase = m.phase;
-      renderUI();
+      try { renderUI(); } catch (e) { console.error(e); } // un error de dibujo no debe congelar la transmisión
     }
   }
 }

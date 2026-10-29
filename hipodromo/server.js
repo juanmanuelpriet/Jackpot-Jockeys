@@ -216,7 +216,7 @@ setInterval(() => {
 }, 400);
 
 server.on('error', err => {
-  if (err.code === 'EADDRINUSE') console.error(`\n⚠️  El puerto ${PORT} ya está en uso. Prueba con: PORT=3001 node server.js\n`);
+  if (err.code === 'EADDRINUSE') console.error(`\n⚠️  El puerto ${PORT} ya está en uso (¿quedó otro Jackpot Jockeys abierto?). Ciérralo o usa otro: PORT=${PORT + 1} node server.js\n`);
   else console.error(err);
   process.exitCode = 1;
 });

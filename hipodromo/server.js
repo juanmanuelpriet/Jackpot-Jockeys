@@ -142,8 +142,13 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/events') {
     const room = roomParam();
     if (!room) { res.writeHead(404); res.end(); return; }
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-    res.write('retry: 1000\n\n');
+    // no-transform evita que proxies como Cloudflare compriman y retengan el flujo (los caballos irían a saltos)
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive', 'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders();
+    res.write(`:${' '.repeat(2048)}\nretry: 1000\n\n`); // relleno inicial para que el primer mensaje no espere
     if (url.searchParams.get('role') === 'screen') {
       room.screens.add(res);
       req.on('close', () => room.screens.delete(res));

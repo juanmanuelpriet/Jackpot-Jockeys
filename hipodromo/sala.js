@@ -8,10 +8,9 @@ const { say, quip } = require('./narrador');
 const { probsFromRatings, updateRating, payFactors, oddsFor } = require('./cuotas');
 
 const CFG = {
-  races: 8,               // carreras por partida
+  grandPrixEvery: 8,      // la partida no se acaba: cada 8 carreras hay un Gran Premio
   readyCountdown: 5,      // la carrera arranca 5 s después de que todos digan "listo"
   resultSeconds: 25,
-  finalSeconds: 40,
   maxRaceSeconds: 200,
   startCoins: 1000,
   powerCooldownMs: 4000,
@@ -117,10 +116,9 @@ class Room {
   // ─── Partida ──────────────────────────────────────
 
   newMatch() {
-    this.match = { num: (this.match?.num || 0) + 1, race: 0, total: CFG.races };
+    this.match = { num: (this.match?.num || 0) + 1, race: 0, grandPrixEvery: CFG.grandPrixEvery };
     this.ratings = {}; // forma de cada caballo en esta partida (por nombre): empiezan iguales
     this.recent = {};  // últimos puestos de cada caballo, para mostrarlos
-    this.awards = null;
     this.alliances.clear();
     for (const p of this.players.values()) this.resetPlayer(p);
     this.newRace();
@@ -131,13 +129,13 @@ class Room {
       coins: CFG.startCoins, debt: 0, tickets: [], cooldownUntil: 0, ready: false, gifted: 0, favorUsed: false,
       race: { bets: 0, powers: 0, favor: 0 }, lastRace: null,
       invites: [], noAllianceUntil: 0,
-      stats: { bet: 0, wins: 0, best: 0, debuffs: 0, buffs: 0, combos: 0, betrayals: 0, maxDebt: 0, loans: 0, gifts: 0, ownerWins: 0 },
+      stats: { spent: 0, borrowed: 0, bet: 0, wins: 0, best: 0, debuffs: 0, buffs: 0, combos: 0, betrayals: 0, maxDebt: 0, loans: 0, gifts: 0, ownerWins: 0 },
     });
   }
 
   newRace() {
     this.match.race++;
-    this.grandPrix = this.match.race === this.match.total;
+    this.grandPrix = this.match.race % CFG.grandPrixEvery === 0;
     const size = TRACK_SIZES[Math.floor(Math.random() * TRACK_SIZES.length)];
     this.track = new Track(Math.floor(Math.random() * 1e6), null, size);
     this.trackSeed = this.track.seed;
@@ -160,7 +158,7 @@ class Room {
     const disguised = this.lineup.filter(h => !h.owner && h.skin !== 'normal');
     if (disguised.length) this.addLog(`Desfile de disfraces: ${disguised.map(h => `${h.name} de ${SKINS[h.skin].name}`).join(', ')}.`);
     if (this.grandPrix) this.narrate('gran_premio');
-    else this.narrate('apuestas', { n: `${this.match.race} de ${this.match.total}`, s: size });
+    else this.narrate('apuestas', { n: String(this.match.race), s: size });
   }
 
   // Cajones al azar y caballos en la línea de salida (antes de arrancar se puede repetir sin problema)
@@ -333,37 +331,25 @@ class Room {
     };
     this.history.unshift(W.name);
     this.history.length = Math.min(this.history.length, 10);
-    if (this.match.race >= this.match.total) this.finishMatch();
-    else { this.phase = 'resultados'; this.phaseEnds = Date.now() + CFG.resultSeconds * 1000; }
+    this.phase = 'resultados'; this.phaseEnds = Date.now() + CFG.resultSeconds * 1000;
     this.hooks.save();
   }
 
-  // Fin de partida: premios de la noche y trofeos en las cuentas
-  finishMatch() {
+  // Podios en vivo (top 3 de cada categoría): se juega hasta aburrirse, así que se ven todo el tiempo
+  podiums() {
     const ps = [...this.players.values()];
-    const top = (key, f = p => p.stats[key], min = 1) => {
-      const best = ps.filter(p => f(p) >= min).sort((a, b) => f(b) - f(a))[0];
-      return best ? { id: best.id, name: best.name, value: f(best) } : null;
+    const top = (f, min = 1) => ps.map(p => ({ name: p.name, value: f(p) })).filter(x => x.value >= min)
+      .sort((a, b) => b.value - a.value).slice(0, 3);
+    const trainer = p => {
+      const h = this.accounts.get(p.id)?.horse;
+      return h ? p.stats.ownerWins : -1;
     };
-    const awards = [
-      ['Campeón de la noche', 'Más fichas netas al final', top(null, p => this.net(p), -Infinity)],
-      ['Saboteador', 'Más poderes contra caballos', top('debuffs')],
-      ['Ángel de la guarda', 'Más poderes de ayuda', top('buffs')],
-      ['Ojo de halcón', 'Más apuestas ganadas', top('wins')],
-      ['Moroso del año', 'La deuda más alta con la mafia', top('maxDebt')],
-      ['Judas', 'Traicionó a su peña', top('betrayals')],
-      ['Mecenas', 'Más fichas regaladas a su peña', top('gifts')],
-      ['Entrenador estrella', 'Su caballo ganó carreras', top('ownerWins')],
-    ].filter(([, , w]) => w).map(([title, desc, w]) => ({ title, desc, ...w }));
-    this.awards = awards;
-    for (const a of awards) {
-      const acc = this.accounts.get(a.id);
-      if (acc) acc.trophies = [...(acc.trophies || []), a.title].slice(-50);
-    }
-    const champ = awards[0];
-    if (champ) this.narrate('fin_partida', { p: champ.name });
-    this.phase = 'final';
-    this.phaseEnds = Date.now() + CFG.finalSeconds * 1000;
+    return [
+      { key: 'rico', icon: '💰', title: 'Más dinero', desc: 'fichas menos deuda', top: top(p => this.net(p), -Infinity) },
+      { key: 'gasto', icon: '💸', title: 'Más gastador', desc: 'apuestas y poderes', top: top(p => p.stats.spent) },
+      { key: 'mafia', icon: '🕴️', title: 'Amigo de la mafia', desc: 'préstamos y sabotajes', top: top(p => p.stats.borrowed) },
+      { key: 'entrenador', icon: '🏋️', title: 'Mejor entrenador', desc: 'carreras que ganó su caballo', top: top(trainer, 0) },
+    ];
   }
 
   // ─── Bucle ────────────────────────────────────────
@@ -406,8 +392,6 @@ class Room {
       return true; // hubo movimiento
     } else if (this.phase === 'resultados') {
       if (now >= this.phaseEnds) this.newRace();
-    } else if (this.phase === 'final') {
-      if (now >= this.phaseEnds) this.newMatch();
     }
     return false;
   }
@@ -447,7 +431,7 @@ class Room {
         lap: Math.min(this.track.laps, Math.floor(this.horses[i].laps) + 1),
         pos: order ? order.indexOf(i) + 1 : null,
       })),
-      results: this.results, awards: this.awards, history: this.history,
+      results: this.results, podiums: this.podiums(), history: this.history,
       log: this.log.slice(-8),
       players: [...this.players.values()].map(p => ({
         id: p.id, name: p.name, coins: p.coins, debt: p.debt, net: this.net(p),
@@ -529,7 +513,7 @@ class Room {
     if (amount > p.coins) return { error: 'No tienes suficientes fichas. La mafia presta…' };
     if (!this.probs) return { error: 'La casa está calculando las cuotas, un segundo…' };
     p.coins -= amount;
-    p.stats.bet += amount;
+    p.stats.bet += amount; p.stats.spent += amount;
     p.race.bets += amount;
     const odds = this.oddsOf(type, sel), key = ticketKey(type, sel);
     const same = p.tickets.find(tk => tk.type === type && ticketKey(type, tk.sel) === key && tk.odds === odds);
@@ -556,7 +540,7 @@ class Room {
     if (Date.now() < p.cooldownUntil) return { error: 'Espera un momento…' };
     if (p.coins < pw.cost) return { error: 'No tienes suficientes fichas' };
     p.coins -= pw.cost;
-    p.race.powers += pw.cost;
+    p.race.powers += pw.cost; p.stats.spent += pw.cost;
     this.powerSpend += pw.cost; // lo gastado en poderes engorda el pozo
     p.cooldownUntil = Date.now() + CFG.powerCooldownMs;
     p.stats[pw.debuff ? 'debuffs' : 'buffs']++;
@@ -590,7 +574,7 @@ class Room {
     amount = parseInt(amount, 10);
     if (!CFG.loanOptions.includes(amount)) return { error: 'Monto inválido' };
     if (p.debt + amount > CFG.maxDebt) return { error: 'Don Caballone dice que ya debes demasiado' };
-    p.debt += amount; p.coins += amount; p.stats.loans++;
+    p.debt += amount; p.coins += amount; p.stats.loans++; p.stats.borrowed += amount;
     p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
     this.narrate('prestamo', { p: p.name, n: amount });
     return {};
@@ -612,7 +596,7 @@ class Room {
     horse = parseInt(horse, 10);
     const h = this.horses[horse];
     if (!h || h.finished) return { error: 'Caballo inválido' };
-    p.debt += CFG.mafiaFavorCost; p.favorUsed = true; p.stats.debuffs++;
+    p.debt += CFG.mafiaFavorCost; p.favorUsed = true; p.stats.debuffs++; p.stats.borrowed += CFG.mafiaFavorCost;
     p.race.favor += CFG.mafiaFavorCost;
     p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
     h.fx.freeze = Math.max(h.fx.freeze, Math.round(FPS * 2));

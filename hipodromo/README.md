@@ -61,10 +61,17 @@ Cada pantalla crea su propia sala, así que pueden jugarse varias partidas a la 
 
 ## La partida
 
-Una partida son **8 carreras**. La última es el **Gran Premio**: todas las cuotas pagan 50 % más. Al final hay
-**premios de la noche** (Campeón, Saboteador, Ángel de la guarda, Ojo de halcón, Moroso del año, Judas,
-Mecenas, Entrenador estrella), que quedan como trofeos en tu cuenta. Después arranca otra partida y todos
-vuelven a 1000 fichas y sin deudas. Gana la noche quien tenga más fichas **netas** (fichas menos deuda).
+**No hay final: se juega hasta aburrirse.** Las carreras se suceden sin límite y **cada 8 carreras hay un Gran
+Premio** en el que todas las cuotas pagan 50 % más (la pantalla dice cuántas faltan). En vez de premios al final hay
+**cuatro podios en vivo** (top 3), en el panel de la pantalla grande, en el resultado de cada carrera y en el botón 🏆
+del celular:
+
+| Podio | Quién va primero |
+|---|---|
+| 💰 Más dinero | más fichas netas (fichas menos deuda) |
+| 💸 Más gastador | más fichas gastadas en apuestas y poderes |
+| 🕴️ Amigo de la mafia | más fichas pedidas a la mafia (préstamos y sabotajes) |
+| 🏋️ Mejor entrenador | dueño del caballo que más carreras ha ganado |
 
 | Fase | Duración | Qué pasa |
 |------|----------|----------|
@@ -94,7 +101,7 @@ ganar sale de esa forma y las combinadas de la fórmula de Harville, la de los h
 menos la próxima vez y el que pierde paga más**: tras ganar dos veces seguidas un caballo baja a x1.4 y el que llegó
 último dos veces sube a x9–x10. Además, el **factor de pago** sube carrera a carrera: en la carrera 1 la casa es
 tacaña (x2) y desde la carrera 5 devuelve en promedio el 85 % de lo apostado, así que la partida se pone más jugosa
-al final. En el Gran Premio todo paga 50 % más. No hay que esperar a ninguna simulación: las cuotas están listas
+según avanza la partida. En el Gran Premio (cada 8 carreras) todo paga 50 % más. No hay que esperar a ninguna simulación: las cuotas están listas
 apenas empieza la carrera. El celular y la pantalla muestran los últimos puestos de cada caballo (🥇 🥈 🥉 4º…).
 
 **Lo que ves en tu boleto es lo que cobras:** la cuota queda fija al apostar y, si aciertas, cobras monto × cuota,
@@ -274,7 +281,7 @@ vale cada poder. Las gráficas se guardan en `analisis/`.
 ## Archivos
 
 - `sim.js`: generador de pistas, obstáculos, choques, físicas y red neuronal (port de `track.py`, `car.py` y `brain.py`)
-- `sala.js`: una partida: apuestas, poderes, mafia, peñas, caballos de jugadores y premios
+- `sala.js`: una partida sin fin: apuestas, poderes, mafia, peñas, caballos de jugadores y podios
 - `evolucion.js`: núcleo de la neuroevolución (lo usan `entrenar.js` y `entrenador.js`)
 - `entrenador.js`: entrena el caballo de un jugador en un hilo aparte
 - `compartir.js`: servidor + túnel de Cloudflare para jugar por internet

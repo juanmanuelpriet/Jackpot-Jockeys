@@ -5,7 +5,7 @@ const LINES = {
   apuestas: [
     'Carrera {n} en pista {s}. Las redes neuronales calientan. Las billeteras también.',
     'Abiertas las apuestas de la carrera {n}. Recuerden: el caballo no sabe que existe el dinero.',
-    'Carrera {n}. Seis cerebros artificiales, cero sentido común. Apuesten con responsabilidad.',
+    'Carrera {n}. Cerebros artificiales, cero sentido común. Apuesten con responsabilidad.',
     'Carrera {n} en pista {s}. Los caballos repasan sus pesos sinápticos.',
   ],
   salida: [
@@ -52,8 +52,7 @@ const LINES = {
   meta: ['¡{h} cruza primero la meta!', '¡{h} gana! Las redes neuronales también tienen días buenos.'],
   casa: ['Ganó {h} y nadie acertó. La casa se queda con todo y sonríe.', 'Ganó {h}. Boletos al piso: hoy la banca invita… a nada.'],
   reparto: ['Ganó {h}. Hay cobro para los que creyeron.', '{h} paga. Alguien hoy invita la cena.'],
-  gran_premio: ['¡GRAN PREMIO! Última carrera: la casa pone 50 % extra al pozo.', 'Llegó el Gran Premio. Aquí se hacen las fortunas… y las deudas.'],
-  fin_partida: ['¡Se acabó la partida! {p} se lleva la noche.', 'Fin de la partida. {p} es el rey del hipódromo, por ahora.'],
+  gran_premio: ['¡GRAN PREMIO! Todas las cuotas pagan 50 % más en esta carrera.', 'Llegó el Gran Premio. Aquí se hacen las fortunas… y las deudas.'],
   prestamo: ['{p} llamó a Don Caballone. {n} fichas al 12 % por carrera. Qué podría salir mal.', 'La mafia le presta {n} a {p}. Sonríen. Eso nunca es buena señal.'],
   cobrador: ['El cobrador de Don Caballone se queda con {n} fichas de {p}.', '{p} cobra, pero la mafia pasó primero: {n} fichas para Don Caballone.'],
   pago_mafia: ['{p} le paga {n} a la mafia. Don Caballone asiente.', '{p} salda {n} con la mafia. Sus rodillas lo agradecen.'],

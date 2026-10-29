@@ -71,6 +71,15 @@
   #players { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
   .pl { display: flex; justify-content: space-between; font-size: 15px; padding: 3px 0; letter-spacing: .5px; }
   .pl span:last-child { color: var(--amber); font-variant-numeric: tabular-nums; }
+  .podLine { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 15px; color: var(--cream-dim); }
+  .podLine b { color: var(--gold-hi); font-weight: 600; }
+  #podiums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+  .podium { background: rgba(241,232,211,0.05); padding: 6px 8px; min-width: 0; }
+  .podium .h { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .podium .r { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; padding: 1px 0; }
+  .podium .r span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .podium .r span:last-child { color: var(--amber); font-variant-numeric: tabular-nums; }
+  .podium .none { font-size: 12px; color: var(--cream-dim); }
 
   #ticker { grid-area: ticker; display: flex; align-items: center; overflow: hidden; padding: 0; }
   #ticker .tag { flex: none; height: 100%; display: grid; place-items: center; padding: 0 18px; background: var(--wine); font-weight: 600; letter-spacing: 3px; font-size: 14px; text-transform: uppercase; }
@@ -218,12 +227,12 @@
     <div class="label">Cuotas</div>
     <div class="jack" id="jack"></div>
     <div class="odds" id="odds"></div>
-    <div class="label" style="margin-top:12px">Apostado por tipo</div>
-    <div class="odds" id="poolRows"></div>
+    <div id="players"><div class="label">Podios</div><div id="podiums"></div></div>
     <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
     <div id="sala"></div>
-    <div id="players"><div class="label">Apostadores · neto</div><div id="playerRows"></div>
-      <div class="label" style="margin-top:12px">Peñas</div><div id="allianceRows"></div></div>
+    <div class="label" style="margin-top:12px">Apostado por tipo</div>
+    <div class="odds" id="poolRows"></div>
+    <div class="label" style="margin-top:12px">Peñas</div><div id="allianceRows"></div>
   </div>
   <div class="plate" id="ticker"><div class="tag">Narrador</div><div class="msg" id="tickerMsg">Bienvenidos a Jackpot Jockeys.</div></div>
 </div>
@@ -1061,7 +1070,8 @@ function renderUI() {
   const s = state;
   const size = { corta: 'Pista corta', media: 'Pista media', larga: 'Pista larga' }[s.trackSize] || '';
   const gp = s.grandPrix ? 'Gran Premio · ' : '';
-  document.getElementById('raceCard').innerHTML = `<span class="${s.grandPrix ? 'gp' : ''}">${gp}Carrera ${s.match.race}/${s.match.total}</span> · ${size} · ${s.laps} vueltas`;
+  const toGP = s.match.grandPrixEvery - (s.match.race % s.match.grandPrixEvery);
+  document.getElementById('raceCard').innerHTML = `<span class="${s.grandPrix ? 'gp' : ''}">${gp}Carrera ${s.match.race}</span> · ${size} · ${s.laps} vueltas${s.grandPrix ? '' : ` · Gran Premio en ${toGP}`}`;
   document.getElementById('sala').innerHTML = `Sala<b>${esc(s.sala)}</b>`;
 
   const big = document.getElementById('clockBig'), small = document.getElementById('clockSmall');
@@ -1080,12 +1090,9 @@ function renderUI() {
     const lead = s.horses.find(h => h.pos === 1);
     big.textContent = `Vuelta ${lead ? lead.lap : 1} / ${s.laps}`;
     small.textContent = lead ? `Punta · ${lead.name}` : '';
-  } else if (s.phase === 'final') {
-    big.textContent = 'Fin de la partida';
-    small.textContent = `Nueva partida en ${s.timeLeft}s`;
   } else {
     big.textContent = `0:${String(s.timeLeft).padStart(2, '0')}`;
-    small.textContent = s.match.race + 1 === s.match.total ? 'Se viene el Gran Premio' : 'Próxima carrera';
+    small.textContent = (s.match.race + 1) % s.match.grandPrixEvery === 0 ? 'Se viene el Gran Premio' : 'Próxima carrera';
   }
 
   // Torre de posiciones (en apuestas: orden de cajones)
@@ -1114,10 +1121,11 @@ function renderUI() {
   document.getElementById('sala').style.display = betting ? '' : 'none';
 
   const fmt = n => Number(n).toLocaleString('es');
-  document.getElementById('playerRows').innerHTML = s.players.slice(0, 10).map(p =>
-    `<div class="pl" style="${p.online ? '' : 'opacity:.45'}"><span>${esc(p.name)}${betting && p.ready ? '<b class="ok">✓</b>' : ''}${p.alliance ? `<i class="al">${esc(p.alliance)}</i>` : ''}</span>
-      <span>${fmt(p.net)}${p.debt ? `<em class="debt">debe ${fmt(p.debt)}</em>` : ''}</span></div>`).join('')
-    || '<div class="pl"><span style="color:var(--cream-dim)">Nadie todavía. El código QR no muerde.</span></div>';
+  const MEDAL = ['🥇', '🥈', '🥉'];
+  const val = (k, v) => k === 'entrenador' ? `${v} ${v === 1 ? 'victoria' : 'victorias'}` : fmt(v);
+  document.getElementById('podiums').innerHTML = s.podiums.map(pd => `<div class="podium"><div class="h">${pd.icon} ${esc(pd.title)}</div>
+    ${pd.top.length ? pd.top.map((x, k) => `<div class="r"><span>${MEDAL[k]} ${esc(x.name)}</span><span>${val(pd.key, x.value)}</span></div>`).join('')
+      : `<div class="none">${pd.key === 'entrenador' ? 'Nadie tiene caballo' : 'Todavía nadie'}</div>`}</div>`).join('');
   document.getElementById('allianceRows').innerHTML = s.alliances.map(a =>
     `<div class="pl"><span>«${esc(a.name)}» <i class="al">${a.members.length}</i></span><span>${fmt(a.net)}</span></div>`).join('')
     || '<div class="pl"><span style="color:var(--cream-dim)">Ninguna. Todos contra todos.</span></div>';
@@ -1131,19 +1139,11 @@ function renderUI() {
   }
 
   const res = document.getElementById('results');
-  const showCard = (s.phase === 'resultados' || s.phase === 'final') && s.results && !replay;
+  const showCard = s.phase === 'resultados' && s.results && !replay;
   res.style.display = showCard ? 'grid' : 'none';
   if (!showCard) return;
   const r = s.results, w = s.horses[r.winner];
   const buttons = lastReplay ? `<div class="resBtns"><button id="replayBtn">Ver repetición</button><button id="clipBtn">Guardar clip</button></div>` : '';
-  if (s.phase === 'final' && s.awards) {
-    document.getElementById('resCard').innerHTML = `
-      <div class="label">Fin de la partida · ganó ${esc(w.name)} el Gran Premio</div>
-      <div class="title">Premios de la noche</div>
-      ${s.awards.map(a => `<div class="award"><span><b>${esc(a.title)}</b><small>${esc(a.desc)}</small></span><span>${esc(a.name)}</span></div>`).join('')}
-      <div class="quip" style="margin-top:12px">Nueva partida en ${s.timeLeft}s: todos vuelven a 1000 fichas y la mafia olvida (por ahora).</div>${buttons}`;
-    return;
-  }
   const photo = r.times[1] && r.times[0] && r.times[1] - r.times[0] < 0.2;
   const maxHits = Math.max(...r.hits);
   document.getElementById('resCard').innerHTML = `
@@ -1156,7 +1156,8 @@ function renderUI() {
     ${r.byType ? `<div class="bytype">${Object.values(r.byType).filter(b => b.combos.length).map(b =>
       `<div>${esc(b.name)}<b>${b.combos.map(c => 'x' + c.odds.toFixed(c.odds >= 100 ? 0 : 2)).join(' · ')}</b>${b.combos.length === 1 && b.combos[0].sel.length > 1 ? `<small>${esc(b.combos[0].sel.map(i => s.horses[i].name).join(' → '))}</small>` : ''}</div>`).join('')}</div>` : ''}
     ${r.payouts.length ? r.payouts.slice(0, 6).map(p => `<div class="pay">${esc(p.name)} cobra <b>${p.win.toLocaleString('es')}</b> (x${p.odds}) en ${esc(p.typeName || 'Ganador')} ${p.sel ? esc(p.sel.map(i => s.horses[i].name).join(p.type === 'quiniela' ? ' y ' : ' → ')) : ''}${p.net < p.win ? ` (la mafia se queda ${(p.win - p.net).toLocaleString('es')})` : ''}</div>`).join('')
-      : ''}${r.staked ? `<div class="pay">Apostado: <b>${r.staked.toLocaleString('es')}</b> · la casa pagó <b>${r.paid.toLocaleString('es')}</b>${r.paid > r.staked ? ' · ¡hoy perdió la banca!' : ''}</div>` : ''}${buttons}`;
+      : ''}${r.staked ? `<div class="pay">Apostado: <b>${r.staked.toLocaleString('es')}</b> · la casa pagó <b>${r.paid.toLocaleString('es')}</b>${r.paid > r.staked ? ' · ¡hoy perdió la banca!' : ''}</div>` : ''}
+    <div class="podLine">${s.podiums.filter(pd => pd.top.length).map(pd => `<span>${pd.icon} ${esc(pd.title)}: <b>${esc(pd.top[0].name)}</b></span>`).join('')}</div>${buttons}`;
 }
 
 // ─── Reacciones del público ─────────────────────────
@@ -1196,7 +1197,7 @@ function updateIntro() {
   box.style.display = show ? 'grid' : 'none';
   if (!show) return;
   const s = state, size = { corta: 'Pista corta', media: 'Pista media', larga: 'Pista larga' }[s.trackSize] || '';
-  document.getElementById('introK').textContent = s.grandPrix ? 'Gran Premio · cuotas +50 %' : `Carrera ${s.match.race} de ${s.match.total}`;
+  document.getElementById('introK').textContent = s.grandPrix ? 'Gran Premio · cuotas +50 %' : `Carrera ${s.match.race}`;
   document.getElementById('introTitle').textContent = s.grandPrix ? 'El Gran Premio' : 'Jackpot Jockeys';
   document.getElementById('introSub').textContent = `${size} · ${s.laps} vueltas · ${s.horses.length} caballos`;
   const fav = s.horses.reduce((a, h, i) => (h.odds < s.horses[a].odds ? i : a), 0);
@@ -1211,7 +1212,7 @@ setInterval(updateIntro, 250);
 // Cada paso: [emoji, título, explicación, ejemplo]
 const SLIDES = [
   ['📱', 'Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Todos empiezan con <b>1.000 fichas</b>.',
-    'Son <b>8 carreras</b>. Gana la noche quien termine con <b>más fichas</b>.'],
+    'No hay final: se juega <b>hasta que se aburran</b>. Los podios muestran quién va ganando.'],
   ['🧠', 'Los caballos piensan solos', 'Cada caballo es una <b>red neuronal</b> que aprendió a correr, esquivar y empujar. Nadie los maneja: tú <b>apuestas</b> y, en carrera, los ayudas o los molestas.',
     'La pista es distinta en cada carrera: hasta el más rápido se puede chocar.'],
   ['🎟️', 'Cómo apostar', 'En el celular: ① elige <b>qué apuestas</b>, ② toca el <b>caballo</b>, ③ elige <b>cuánto</b> y toca <b>Apostar</b>. El botón te dice cuánto ganas.',
@@ -1224,8 +1225,8 @@ const SLIDES = [
     'Tu caballo va 2º → zanahoria para él, o lazo para el que va 1º.'],
   ['🕴️', 'La mafia', '<b>Préstamo:</b> si te quedas sin fichas, la mafia presta, pero la deuda crece cada carrera y se lleva la mitad de tus premios. <b>Sabotaje:</b> congela a un caballo y lo pagas con deuda.',
     'Pides 500 y ganas 400 → el cobrador se queda con 200.'],
-  ['✅', '¡Listos!', 'La carrera arranca cuando <b>todos tocan Listo</b> (o el anfitrión pulsa <b>¡Iniciar ya!</b>). La última carrera es el <b>Gran Premio</b>: todo paga 50 % más.',
-    'Arma una <b>peña</b> con amigos, compra tu potro y disfrázalo de T-Rex 🦖.'],
+  ['✅', '¡Listos!', 'La carrera arranca cuando <b>todos tocan Listo</b> (o el anfitrión pulsa <b>¡Iniciar ya!</b>). Cada 8 carreras hay un <b>Gran Premio</b>: todo paga 50 % más.',
+    'Podios: 💰 Más dinero · 💸 Más gastador · 🕴️ Amigo de la mafia · 🏋️ Mejor entrenador.'],
 ];
 const SLIDE_MS = 12000, INTRO_MS = 4500;
 const splash = document.getElementById('splash'), scv = document.getElementById('splashCv');
@@ -1364,7 +1365,7 @@ function onServerMessage(m) {
       state = m;
       if (m.raceKey !== raceKey) { startIntro(); raceKey = m.raceKey; frames.length = 0; finishIdx = -1; lastReplay = null; replay = null; loadTrack(); }
       // Al terminar la carrera, repetición de la llegada en cámara lenta
-      if (lastPhase === 'carrera' && (m.phase === 'resultados' || m.phase === 'final')) startReplay(buildReplay());
+      if (lastPhase === 'carrera' && m.phase === 'resultados') startReplay(buildReplay());
       lastPhase = m.phase;
       renderUI();
     }

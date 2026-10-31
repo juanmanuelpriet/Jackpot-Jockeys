@@ -559,7 +559,7 @@ function podiumsHTML() {
 function renderCaballo() {
   const h = me.horse, c = state.cfg;
   if (!h) {
-    setHTML('tab-caballo', `<div class="sec">Tu propio caballo</div>
+    setHTML('tab-caballo', `<div class="sec"><span class="helpLink" data-topic="potro">¿Cómo funciona?</span>Tu propio caballo</div>
       <div class="card"><div style="font-size:44px">🐴</div><h2>Compra un potro</h2>
       <p class="mute" style="margin:0 0 12px">Es tuyo para siempre: lo pones a correr, lo entrenas y, si gana, te pagan como dueño. Cuesta 🪙 ${fmt(c.horsePrice)}.</p>
       <input id="horseName" placeholder="Ponle nombre" maxlength="18" style="margin-bottom:10px">
@@ -623,13 +623,13 @@ function mafiaSteps(c) {
 function renderMafia() {
   const c = state.cfg;
   const next = Math.ceil(me.debt * (1 + c.interest));
-  setHTML('tab-mafia', `<div class="sec">Don Caballone 🕴️</div>
+  setHTML('tab-mafia', `<div class="sec"><span class="helpLink" data-topic="mafia">¿Cómo funciona?</span>Don Caballone 🕴️</div>
     <div class="card"><div class="k">${me.debt ? 'Le debes' : 'No le debes nada'}</div>
       <div class="hero ${me.debt ? 'neg' : ''}">${me.debt ? '🪙 ' + fmt(me.debt) : 'Limpio 😇'}</div>
       ${me.debt ? `<div class="mute" style="font-size:14px">Tras la próxima carrera: ${fmt(next)}</div>
       <div class="btnRow three"><button class="soft" data-repay="100">Pagar 100</button><button class="soft" data-repay="300">Pagar 300</button><button class="soft green" data-repay="${me.debt}">Pagar todo</button></div>` : ''}</div>
-    <div class="card">${mafiaSteps(c)}
-      <div class="btnRow" style="margin-top:0">${c.loanOptions.map(a => `<button class="soft" data-loan="${a}">Pedir 🪙 ${fmt(a)}</button>`).join('')}</div></div>`);
+    <div class="card"><div class="mute" style="font-size:14px">Presta ya, pero la deuda sube ${Math.round(c.interest * 100)} % cada carrera y se lleva la mitad de tus premios.</div>
+      <div class="btnRow">${c.loanOptions.map(a => `<button class="soft" data-loan="${a}">Pedir 🪙 ${fmt(a)}</button>`).join('')}</div></div>`);
 }
 
 function renderPena() {
@@ -642,14 +642,14 @@ function renderPena() {
       <div><div class="t" style="font-size:15px">${esc(x.name)}</div><div class="s">${x.members.map(esc).join(', ')}</div></div><div class="r">🪙 ${fmt(x.net)}</div></div>`).join('')}</div>` : '';
   if (!a) {
     setHTML('tab-pena', `${invites ? `<div class="sec">Invitaciones</div><div class="group">${invites}</div>` : ''}
-      <div class="sec">Tu equipo</div>
+      <div class="sec"><span class="helpLink" data-topic="pena">¿Cómo funciona?</span>Tu equipo</div>
       <div class="card"><div style="font-size:44px">🤝</div><h2>Arma una peña</h2>
         <div class="mute" style="font-size:14px">Hasta ${c.maxAllianceSize} amigos: se regalan fichas, ganan un poquito cuando otro gana y, si atacan juntos al mismo caballo, ¡el efecto es doble!</div>
         <button class="big" data-create="1" style="margin-top:12px" ${me.canAlly ? '' : 'disabled'}>Crear peña</button></div>${table}`);
     return;
   }
   const others = state.players.filter(p => p.id !== me.id && !p.alliance && p.online);
-  setHTML('tab-pena', `<div class="sec">Tu peña</div>
+  setHTML('tab-pena', `<div class="sec"><span class="helpLink" data-topic="pena">¿Cómo funciona?</span>Tu peña</div>
     <div class="card"><h2>🤝 ${esc(a.name)}</h2>
       ${a.members.map(m => `<div class="line"><span>${esc(m.name)}${m.id === me.id ? ' (tú)' : ''}</span>${m.id === me.id ? '' : `<span><button class="soft" data-gift="${m.id}" data-amt="50" style="padding:6px 10px">+50</button> <button class="soft" data-gift="${m.id}" data-amt="100" style="padding:6px 10px">+100</button></span>`}</div>`).join('')}
       <div class="mute" style="font-size:13px">Regalado esta carrera: ${me.gifted}/${c.giftPerRace}</div></div>
@@ -668,6 +668,8 @@ document.getElementById('nav').onclick = e => {
   for (const t of ['carrera', 'caballo', 'mafia', 'pena']) document.getElementById('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab);
   window.scrollTo(0, 0);
   render();
+  const guide = { caballo: me.horse ? 'entreno' : 'potro', mafia: 'mafia', pena: 'pena' }[b.dataset.tab];
+  if (guide) firstTime(guide);
 };
 document.getElementById('game').addEventListener('click', async e => {
   const topic = e.target.closest('[data-topic]');
@@ -676,7 +678,7 @@ document.getElementById('game').addEventListener('click', async e => {
   if (d.skin) {
     const owned = (me.skins || []).includes(d.skin), sk = state.cfg.skins[d.skin];
     if (await api(owned ? 'equipSkin' : 'buySkin', { skin: d.skin })) toast(`${sk.icon} ¡Tu potro ahora es ${sk.name}!`);
-  } else if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) toast(`🐴 ¡${n} es tuyo! ${state.phase === 'apuestas' ? 'Ya está en esta carrera.' : 'Corre en la próxima carrera.'}`); }
+  } else if (d.buy) { const n = document.getElementById('horseName').value; if (await api('buyHorse', { name: n, perfil: d.buy })) { toast(`🐴 ¡${n} es tuyo! ${state.phase === 'apuestas' ? 'Ya está en esta carrera.' : 'Corre en la próxima carrera.'}`); firstTime('entreno'); } }
   else if (d.enroll) api('enroll', { enrolled: d.enroll === '1' });
   else if (d.train) { if (await api('train', { focus: d.train })) toast('🏋️ ¡A entrenar!'); }
   else if (d.loan) { if (await api('loan', { amount: +d.loan })) toast('🕴️ Don Caballone sonríe…'); }
@@ -735,28 +737,49 @@ document.getElementById('reactBox').onclick = e => {
   document.getElementById('reactBox').classList.add('hidden');
 };
 
-// ─── Cómo se juega: un paso por idea. Cada uno también se abre solo desde su sección ───
-// Cada paso: [clave, emoji, título, explicación (HTML, recibe la configuración)]
+// ─── Cómo se juega: un paso por idea ───
+// Cada guía: [clave, emoji, título, explicación (HTML)]. TUTO sale al entrar por primera vez;
+// SECTIONS sale la primera vez que se abre cada sección y luego con su enlace "¿Cómo funciona?".
+const steps = rows => `<div class="steps">${rows.map(([e, t]) => `<div><span>${e}</span><span>${t}</span></div>`).join('')}</div>`;
+const persGuide = () => `Siempre se ven junto al nombre.<div class="steps" style="margin-top:8px">${Object.values(state.cfg.personalidades).map(p =>
+  `<div><span>${p.icon}</span><span><b>${esc(p.name)}.</b> ${esc(p.line)}<small>Podio ${p.podio} % · ${String(p.choques).replace('.', ',')} choques por carrera · gana en pista corta ${p.gana.corta} %, larga ${p.gana.larga} %</small></span></div>`).join('')}</div>`;
 const TUTO = [
   ['meta', '🎯', 'Termina con más fichas', () => `Empiezas con <b>1.000</b>. Se juega hasta que se aburran. 🏆 muestra quién va ganando.`],
   ['apostar', '🎟️', 'Toca un caballo y ya apostaste', () => `El número dorado es lo que recibes si aciertas. <b>↩ Deshacer</b> corrige un dedazo. Con todos en <b>Listo</b>, arrancan.`],
   ['tipos', '🥇', 'Más fácil paga menos', () => `<b>🥇 Que gane</b> paga más que <b>🥈 Top 2</b> y <b>🥉 Podio</b>. En <b>➕ Más</b> adivinas varios puestos: casi nunca sale, pero paga muchísimo.`],
   ['poderes', '🥕', 'En carrera mira la pantalla grande', () => `Toca un caballo y luego un poder. Los verdes ayudan, los rojos frenan.`
     + `<div class="steps" style="margin-top:8px">${Object.values(state.powers).map(p => `<div><span>${p.icon}</span><span><b>${esc(p.name)}</b> <small>${esc(p.desc)} · cuesta ${p.cost}</small></span></div>`).join('')}</div>`],
-  ['personalidades', '🧬', 'Cada caballo tiene su forma de correr', () => `Hay 4 personalidades y siempre se ven junto al nombre.<div class="steps" style="margin-top:8px">${Object.values(state.cfg.personalidades).map(p =>
-    `<div><span>${p.icon}</span><span><b>${esc(p.name)}.</b> ${esc(p.line)}<small>Podio ${p.podio} % · ${String(p.choques).replace('.', ',')} choques por carrera · gana en pista corta ${p.gana.corta} %, larga ${p.gana.larga} %</small></span></div>`).join('')}</div>`],
-  ['mafia', '🕴️', 'La mafia es un banco malo', () => mafiaSteps(state.cfg)],
-  ['entreno', '🏋️', 'Tu potro aprende de verdad', () => `<div class="steps">
-    <div><span>1️⃣</span><span><b>Eliges qué mejorar:</b> ⚡ velocidad, 💥 choques o 🎯 control.</span></div>
-    <div><span>2️⃣</span><span><b>Practica ${state.cfg.trainGenerations} generaciones</b> en pistas nuevas. Tarda menos de un minuto.</span></div>
-    <div><span>3️⃣</span><span><b>Presenta un examen.</b> Si mejoró, se queda con lo aprendido y sube de nivel. Si no, sigue igual y te devolvemos las fichas.</span></div>
-    <div><span>😴</span><span><b>Después descansa ${state.cfg.trainCooldownRaces} carreras</b> antes de volver a entrenar.</span></div></div>`],
-  ['pena', '🤝', 'Peña: tu equipo', () => `Hasta ${state.cfg.maxAllianceSize} amigos: se pasan fichas y ganan un poquito cuando otro gana. O traicionas y te llevas el 20 % de sus fichas.`],
+  ['personalidades', '🧬', 'Cada caballo corre a su manera', persGuide],
+  ['mas', '🐴', 'Lo demás, cuando lo necesites', () => `<b>Mi caballo</b>, <b>Mafia</b> y <b>Peña</b> te explican cómo funcionan la primera vez que entras.`],
 ];
+const SECTIONS = [
+  ['potro', '🐴', 'Ten tu propio caballo', () => steps([
+    ['🪙', `<b>Cuesta ${fmt(state.cfg.horsePrice)} fichas</b> y es tuyo para siempre.`],
+    ['🧬', `<b>Elige cómo corre:</b> 💨 Corredor, limpio y constante, o 😤 Bravo, que busca pelea.`],
+    ['🏇', `<b>Corre solo:</b> entra a la carrera y lo ves con la etiqueta TUYO. Corren hasta ${state.cfg.playerHorsesPerRace} potros por carrera.`],
+    ['💰', `<b>Si gana, cobras premio de dueño:</b> ${state.cfg.ownerBonus} × su cuota, mínimo 100. También puedes apostarle.`],
+  ])],
+  ['entreno', '🏋️', 'Así aprende tu potro', () => steps([
+    ['1️⃣', `<b>Eliges qué mejorar:</b> ⚡ velocidad, 💥 choques o 🎯 control. Cuesta ${fmt(state.cfg.trainPrice)} fichas.`],
+    ['2️⃣', `<b>Practica ${state.cfg.trainGenerations} generaciones</b> en pistas nuevas. Tarda menos de un minuto.`],
+    ['3️⃣', `<b>Presenta un examen.</b> Si mejoró, se queda con lo aprendido y sube de nivel. Si no, sigue igual y te devolvemos las fichas.`],
+    ['😴', `<b>Después descansa ${state.cfg.trainCooldownRaces} carreras</b> antes de volver a entrenar.`],
+    ['📉', `<b>Entre mejor sea, menos paga</b> cuando le apuestan: la casa también lo sabe.`],
+  ])],
+  ['mafia', '🕴️', 'La mafia es un banco malo', () => mafiaSteps(state.cfg)],
+  ['pena', '🤝', 'Peña: tu equipo', () => steps([
+    ['👥', `<b>Hasta ${state.cfg.maxAllianceSize} amigos.</b> Creas la peña e invitas a los demás.`],
+    ['🎁', `<b>Se pasan fichas:</b> hasta ${fmt(state.cfg.giftPerRace)} por carrera.`],
+    ['💸', `<b>Si un amigo cobra, tú ganas 10 %</b> de su premio. Lo paga la casa.`],
+    ['💥', `<b>Combo:</b> si dos usan un poder igual sobre el mismo caballo en 5 s, el efecto dura más.`],
+    ['😈', `<b>Traición:</b> te llevas el 20 % de las fichas de cada amigo, la peña se acaba y todos se enteran.`],
+  ])],
+];
+const GUIDES = [...TUTO, ...SECTIONS];
 let tutoStep = 0, tutoTopic = false;
 function closeTuto() { document.getElementById('tuto').classList.add('hidden'); if (!tutoTopic) store.set('jj_tuto4', '1'); }
 function drawTuto(i) {
-  const [, e, title, text] = TUTO[i];
+  const [, e, title, text] = GUIDES[i];
   document.getElementById('tuto').classList.remove('hidden');
   document.getElementById('tutoK').textContent = tutoTopic ? 'Guía rápida' : `Cómo se juega · ${i + 1} de ${TUTO.length}`;
   document.getElementById('tutoE').textContent = e;
@@ -769,7 +792,9 @@ function drawTuto(i) {
   document.querySelector('#tuto .sheet').scrollTop = 0;
 }
 function showTuto(i) { tutoTopic = false; tutoStep = i; drawTuto(i); }
-function openTopic(key) { tutoTopic = true; drawTuto(TUTO.findIndex(t => t[0] === key)); }
+function openTopic(key) { tutoTopic = true; store.set('jj_visto_' + key, '1'); drawTuto(GUIDES.findIndex(t => t[0] === key)); }
+// La primera vez que se entra a una sección sale su guía
+function firstTime(key) { if (!store.get('jj_visto_' + key)) openTopic(key); }
 document.getElementById('tutoNext').onclick = () => {
   if (tutoTopic || tutoStep === TUTO.length - 1) return closeTuto();
   drawTuto(++tutoStep);

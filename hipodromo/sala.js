@@ -246,7 +246,7 @@ class Room {
   oddsBoard() {
     if (!this.probs) return null;
     const one = type => this.lineup.map((_, i) => this.oddsOf(type, [i]));
-    return { win: one('ganador'), place: one('place'), podio: one('podio') };
+    return { win: one('ganador') };
   }
   betOn(p) { return p.tickets.reduce((a, t) => a + t.amount, 0); }
 
@@ -454,7 +454,7 @@ class Room {
       horses: this.lineup.map((h, i) => ({
         name: h.name, color: h.color, perfil: h.perfil, pers: h.pers, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null, skin: h.skin,
         form: this.forms[i], recent: this.recent[h.name] || [], gate: this.gates[i] + 1, hits: this.horses[i].hitsGiven, bets: win[i],
-        odds: board ? board.win[i] : null, oddsPlace: board ? board.place[i] : null, oddsPodio: board ? board.podio[i] : null,
+        odds: board ? board.win[i] : null,
         lap: Math.min(this.track.laps, Math.floor(this.horses[i].laps) + 1),
         pos: order ? order.indexOf(i) + 1 : null,
       })),
@@ -472,7 +472,7 @@ class Room {
       reactions: REACTIONS,
       powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, icon: p.icon, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
-        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainCooldownRaces: CFG.trainCooldownRaces, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, collectorCut: CFG.collectorCut, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
+        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainCooldownRaces: CFG.trainCooldownRaces, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, collectorCut: CFG.collectorCut, ownerBonus: CFG.ownerBonus, playerHorsesPerRace: CFG.playerHorsesPerRace, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
     };
   }
 

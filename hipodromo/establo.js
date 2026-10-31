@@ -22,10 +22,10 @@ const HORSES = [
 // mismos cerebros: `podio` = % de veces entre los 3 primeros, `choques` = embestidas por carrera,
 // `salidas` = veces que se sale por carrera y `gana` = % de victorias por tamaño de pista.
 const PERSONALIDADES = {
-  corredor: { icon: '💨', name: 'Corredor', line: 'Limpio y constante: el que más llega al podio.', podio: 57, choques: 2.8, salidas: 0.8, gana: { corta: 22, media: 18, larga: 11 } },
-  picaro: { icon: '🦊', name: 'Pícaro', line: 'Empuja a veces y esquiva golpes. Se sale bastante.', podio: 46, choques: 3.7, salidas: 1.6, gana: { corta: 14, media: 14, larga: 19 } },
-  bravo: { icon: '😤', name: 'Bravo', line: 'Busca pelea. Molesta a todos y aguanta.', podio: 45, choques: 4.4, salidas: 1.4, gana: { corta: 11, media: 16, larga: 20 } },
-  muybravo: { icon: '🔥', name: 'Muy bravo', line: 'Todo o nada: el que más choca. Gana o se estrella.', podio: 38, choques: 4.8, salidas: 1.5, gana: { corta: 10, media: 15, larga: 28 } },
+  corredor: { icon: '💨', name: 'Corredor', tag: 'limpio y constante', line: 'Limpio y constante: el que más llega al podio.', podio: 57, choques: 2.8, salidas: 0.8, gana: { corta: 22, media: 18, larga: 11 } },
+  picaro: { icon: '🦊', name: 'Pícaro', tag: 'empuja y esquiva', line: 'Empuja a veces y esquiva golpes. Se sale bastante.', podio: 46, choques: 3.7, salidas: 1.6, gana: { corta: 14, media: 14, larga: 19 } },
+  bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea. Molesta a todos y aguanta.', podio: 45, choques: 4.4, salidas: 1.4, gana: { corta: 11, media: 16, larga: 20 } },
+  muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca. Gana o se estrella.', podio: 38, choques: 4.8, salidas: 1.5, gana: { corta: 10, media: 15, larga: 28 } },
 };
 
 // Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores

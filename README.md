@@ -5,11 +5,23 @@
 | [`hipodromo/`](hipodromo/) | **Jackpot Jockeys**: el juego de carreras de caballos con redes neuronales, apuestas desde el celular, mafia, peñas y app de escritorio. Empieza por su [README](hipodromo/README.md). |
 | [`f1/`](f1/) | El proyecto original: simulador F1 de neuroevolución en Python y JavaScript, su análisis (`data.ipynb`) y la documentación. Su red campeona es el punto de partida de los caballos. |
 
-Para jugar:
+## Descargar y jugar
+
+Solo necesitas [Node 18 o más nuevo](https://nodejs.org).
+
+1. Descarga el juego: [**Jackpot-Jockeys-train3.zip**](https://github.com/juanmanuelpriet/Jackpot-Jockeys/archive/refs/heads/train3.zip) (unos 47 MB) y descomprímelo.
+2. Abre una terminal en la carpeta `hipodromo` y ejecuta:
+
+   ```bash
+   node server.js
+   ```
+
+3. Abre `http://localhost:3000` en la pantalla grande. Los jugadores escanean el QR con el celular, en la misma WiFi.
+
+O con git:
 
 ```bash
-cd hipodromo
+git clone -b train3 --single-branch https://github.com/juanmanuelpriet/Jackpot-Jockeys.git
+cd Jackpot-Jockeys/hipodromo
 node server.js
 ```
-
-O abre la app **Jackpot Jockeys** desde Aplicaciones.

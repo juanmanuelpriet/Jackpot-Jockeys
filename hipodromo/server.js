@@ -40,17 +40,19 @@ function saveAccounts() {
 
 // ─── Entrenamiento de caballos de jugadores en hilos aparte ───
 
-const corredores = JSON.parse(fs.readFileSync(path.join(__dirname, 'caballos_corredor.json'), 'utf8'));
-function startTraining({ accountId, room, focus, brain, form }) {
-  const h = loadHandicap();
-  const vals = HORSES.map((x, i) => [x, h[i]]).filter(([x]) => x.perfil === 'corredor').map(([, v]) => v);
-  const rivalForm = vals.reduce((a, b) => a + b, 0) / vals.length;
-  const worker = new Worker(path.join(__dirname, 'entrenador.js'), { workerData: { brain, focus, form, rivals: corredores, rivalForm } });
-  worker.once('message', ({ brain: trained, summary }) => room.trainingDone(accountId, trained, summary));
+// Practica contra un rival de cada estilo, como en el juego
+const readBrains = f => JSON.parse(fs.readFileSync(path.join(__dirname, f), 'utf8'));
+const corredores = readBrains('caballos_corredor.json');
+const trainingRivals = [corredores[0], readBrains('caballos_bravo_100.json')[0], corredores[1]];
+function startTraining({ accountId, room, focus, brain, body, form }) {
+  const worker = new Worker(path.join(__dirname, 'entrenador.js'), { workerData: { brain, body, focus, form, rivals: trainingRivals } });
+  worker.on('message', m => {
+    if (m.result) room.trainingDone(accountId, m.result);
+    else room.trainingProgress(accountId, m.progress);
+  });
   worker.once('error', err => {
     console.error('Error entrenando:', err);
-    const acc = accounts.get(accountId);
-    if (acc?.horse) acc.horse.training = null;
+    room.trainingDone(accountId, null);
   });
 }
 
@@ -142,7 +144,7 @@ function broadcastState(room, phones = true) {
 
 // ─── Acciones ───
 
-const ROOM_ACTIONS = ['react', 'bet', 'ready', 'power', 'loan', 'repay', 'mafiaFavor', 'createAlliance', 'invite', 'answerInvite',
+const ROOM_ACTIONS = ['react', 'bet', 'unbet', 'ready', 'power', 'loan', 'repay', 'mafiaFavor', 'createAlliance', 'invite', 'answerInvite',
   'leaveAlliance', 'gift', 'betray', 'buyHorse', 'enroll', 'train', 'buySkin', 'equipSkin'];
 
 function handleAction(name, body) {

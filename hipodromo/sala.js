@@ -3,9 +3,13 @@
 
 const crypto = require('crypto');
 const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED } = require('./sim');
-const { HORSES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower } = require('./establo');
+const { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
-const { probsFromRatings, updateRating, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
+const { TRAIN_GENERATIONS, bodyOpts } = require('./evolucion');
+const { probsFromRatings, trainedEdge, updateRating, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
+
+// Qué se puede entrenar y cómo lo cuenta el narrador
+const TRAIN_FOCUS = { velocidad: 'velocidad', agresion: 'agresión', control: 'control' };
 
 const CFG = {
   grandPrixEvery: 8,      // la partida no se acaba: cada 8 carreras hay un Gran Premio
@@ -32,6 +36,7 @@ const CFG = {
   // Caballos propios
   horsePrice: 400,
   trainPrice: 150,
+  trainCooldownRaces: 3,  // carreras que descansa el caballo antes de poder entrenar de nuevo
   ownerBonus: 50,         // el dueño cobra 50 × la cuota de Ganador de su caballo (mín. 100)
 };
 
@@ -73,6 +78,11 @@ const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
 const baseHandicap = perfil => perfil === 'bravo'
   ? HANDICAP[HORSES.findIndex(h => h.estilo === 'bravo')]
   : mean(HORSES.map((h, i) => [h, i]).filter(([h]) => h.perfil === 'corredor').map(([, i]) => HANDICAP[i]));
+// Un potro corre con el hándicap de su perfil y su cuerpo entrenado
+const ownedBody = horse => {
+  const { form, agility, power } = bodyOpts(horse.body, baseHandicap(horse.perfil));
+  return { handicap: form, agility, power };
+};
 
 function roomCode() {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -165,7 +175,7 @@ class Room {
   placeHorses() {
     this.gates = drawGates(this.lineup.length);
     this.horses = this.lineup.map((h, i) => new Horse(this.track, h.brain, {
-      id: i, form: this.forms[i] * h.handicap, lane: laneOffset(this.gates[i], this.lineup.length),
+      id: i, form: this.forms[i] * h.handicap, agility: h.agility, power: h.power, lane: laneOffset(this.gates[i], this.lineup.length),
     }));
   }
   get raceKey() { return `${this.match.num}-${this.match.race}-${this.lineupVer}`; }
@@ -173,8 +183,8 @@ class Room {
   ownedEntry(p, horse) {
     horse.lastRace = Date.now();
     return {
-      name: horse.name, color: horse.color, perfil: horse.perfil, estilo: `de ${p.name}`, owner: p.id, ownerName: p.name,
-      brain: horse.brain, handicap: baseHandicap(horse.perfil), level: horse.level, skin: horse.skin || 'normal',
+      name: horse.name, color: horse.color, perfil: horse.perfil, pers: horse.perfil === 'bravo' ? 'bravo' : 'corredor', estilo: `de ${p.name}`, owner: p.id, ownerName: p.name,
+      brain: horse.brain, ...ownedBody(horse), edge: trainedEdge(horse.body), level: horse.level, skin: horse.skin || 'normal',
     };
   }
 
@@ -227,7 +237,9 @@ class Room {
 
   // Cuotas a partir de la forma de cada caballo en la partida (en la carrera 1 todos iguales)
   requestOdds() {
-    this.probs = probsFromRatings(this.lineup.map(h => this.ratings[h.name] || 0));
+    const weights = probsFromRatings(this.lineup.map(h => this.ratings[h.name] || 0)).map((x, i) => x * (this.lineup[i].edge || 1));
+    const sum = weights.reduce((x, y) => x + y, 0);
+    this.probs = weights.map(x => x / sum);
     this.pay = payFactors(this.match.race, this.grandPrix ? 1 + CFG.grandPrixBonus : 1, this.lineup.length);
   }
   oddsOf(type, sel) { return oddsFor(type, sel, this.probs, this.pay); }
@@ -319,6 +331,8 @@ class Room {
     // Intereses de la mafia
     for (const p of this.players.values()) {
       if (p.debt > 0) p.debt = Math.ceil(p.debt * (1 + CFG.interest));
+      const trained = this.accounts.get(p.id)?.horse;
+      if (trained?.trainWait > 0) trained.trainWait--;
       p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
     }
     const publicPayouts = payouts.sort((a, b) => b.win - a.win)
@@ -438,7 +452,7 @@ class Room {
       pot: this.results ? this.results.staked : total, pools,
       probs: this.probs, oddsReady: !!this.probs, pay: this.pay, oddsCap: ODDS_CAP,
       horses: this.lineup.map((h, i) => ({
-        name: h.name, color: h.color, perfil: h.perfil, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null, skin: h.skin,
+        name: h.name, color: h.color, perfil: h.perfil, pers: h.pers, estilo: h.estilo, ownerName: h.ownerName || null, level: h.level || null, skin: h.skin,
         form: this.forms[i], recent: this.recent[h.name] || [], gate: this.gates[i] + 1, hits: this.horses[i].hitsGiven, bets: win[i],
         odds: board ? board.win[i] : null, oddsPlace: board ? board.place[i] : null, oddsPodio: board ? board.podio[i] : null,
         lap: Math.min(this.track.laps, Math.floor(this.horses[i].laps) + 1),
@@ -458,7 +472,7 @@ class Room {
       reactions: REACTIONS,
       powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, icon: p.icon, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
-        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
+        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainCooldownRaces: CFG.trainCooldownRaces, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, collectorCut: CFG.collectorCut, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
     };
   }
 
@@ -469,7 +483,7 @@ class Room {
     const acc = this.accounts.get(id) || {};
     const horse = acc.horse ? {
       name: acc.horse.name, color: acc.horse.color, perfil: acc.horse.perfil, level: acc.horse.level, enrolled: acc.horse.enrolled,
-      training: acc.horse.training || null, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
+      training: acc.horse.training || null, trainProgress: acc.horse.trainProgress || 0, trainWait: acc.horse.trainWait || 0, body: acc.horse.body || {}, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
       skin: acc.horse.skin || 'normal',
       // Número en la carrera actual (o null si no corre en esta)
       inRace: (() => { const i = this.lineup.findIndex(h => h.owner === id); return i >= 0 ? i : null; })(),
@@ -531,8 +545,22 @@ class Room {
     const odds = this.oddsOf(type, sel), key = ticketKey(type, sel);
     const same = p.tickets.find(tk => tk.type === type && ticketKey(type, tk.sel) === key && tk.odds === odds);
     if (same) same.amount += amount; else p.tickets.push({ type, sel, amount, odds });
+    p.lastBet = { type, key, odds, amount };
     const names = sel.map(i => this.lineup[i].name).join(type === 'quiniela' ? ' y ' : ' → ');
     this.addLog(`${p.name} juega ${amount} a ${t.name}: ${names} (x${odds}).`);
+    return {};
+  }
+
+  // Deshace la última apuesta (en el celular apostar es un solo toque: un dedazo se corrige aquí)
+  unbet(p) {
+    if (this.phase !== 'apuestas') return { error: 'Las apuestas están cerradas' };
+    const b = p.lastBet;
+    const tk = b && p.tickets.find(t => t.type === b.type && ticketKey(t.type, t.sel) === b.key && t.odds === b.odds);
+    if (!tk) return { error: 'No hay nada que deshacer' };
+    tk.amount -= b.amount;
+    if (tk.amount <= 0) p.tickets = p.tickets.filter(t => t !== tk);
+    p.coins += b.amount; p.stats.bet -= b.amount; p.stats.spent -= b.amount; p.race.bets -= b.amount;
+    p.lastBet = null;
     return {};
   }
 
@@ -768,25 +796,42 @@ class Room {
     const acc = this.accounts.get(p.id);
     if (!acc.horse) return { error: 'No tienes caballo' };
     if (acc.horse.training) return { error: 'Ya está entrenando' };
-    if (!['velocidad', 'agresion', 'control'].includes(focus)) return { error: 'Entrenamiento inválido' };
+    if (acc.horse.trainWait > 0) return { error: `Está descansando: faltan ${acc.horse.trainWait} carreras` };
+    if (!TRAIN_FOCUS[focus]) return { error: 'Entrenamiento inválido' };
     if (p.coins < CFG.trainPrice) return { error: `Entrenar cuesta ${CFG.trainPrice} fichas` };
     p.coins -= CFG.trainPrice;
     acc.horse.training = focus;
-    const label = { velocidad: 'velocidad', agresion: 'agresión', control: 'control en curvas' }[focus];
-    this.narrate('entreno', { p: p.name, h: acc.horse.name, n: label });
-    this.hooks.train({ accountId: p.id, room: this, focus, brain: acc.horse.brain, form: baseHandicap(acc.horse.perfil) });
+    acc.horse.trainProgress = 0;
+    this.narrate('entreno', { p: p.name, h: acc.horse.name, n: TRAIN_FOCUS[focus] });
+    this.hooks.train({ accountId: p.id, room: this, focus, brain: acc.horse.brain, body: acc.horse.body, form: baseHandicap(acc.horse.perfil) });
     return {};
   }
 
-  // Llamado cuando termina el entrenamiento en segundo plano
-  trainingDone(accountId, brain, summary) {
+  trainingProgress(accountId, done) {
+    const horse = this.accounts.get(accountId)?.horse;
+    if (horse?.training) horse.trainProgress = done;
+  }
+
+  // Llamado cuando termina el entrenamiento en segundo plano. El cerebro nuevo solo se queda si pasó
+  // el examen (evolucion.js); si no, sigue con el de antes y se devuelven las fichas. `result` es
+  // null si el entrenamiento falló por un error: se devuelven las fichas y no hay descanso.
+  trainingDone(accountId, result) {
     const acc = this.accounts.get(accountId);
     if (!acc?.horse) return;
-    acc.horse.brain = brain;
-    acc.horse.level++;
-    acc.horse.history = [...(acc.horse.history || []), { focus: acc.horse.training, ...summary }].slice(-10);
-    acc.horse.training = null;
-    this.narrate('entreno_fin', { h: acc.horse.name, n: acc.horse.level });
+    const horse = acc.horse, p = this.players.get(accountId), focus = horse.training;
+    horse.training = null;
+    horse.trainProgress = 0;
+    if (!result || !result.improved) { if (p) p.coins += CFG.trainPrice; }
+    if (result) {
+      horse.trainWait = CFG.trainCooldownRaces;
+      horse.history = [...(horse.history || []), { focus, ...result.summary, improved: result.improved }].slice(-10);
+      if (result.improved) {
+        horse.brain = result.brain;
+        horse.body = result.body;
+        horse.level++;
+        this.narrate('entreno_fin', { h: horse.name, n: horse.level });
+      } else this.addLog(`${horse.name} entrenó ${TRAIN_FOCUS[focus]} pero no mejoró. Se devuelven las fichas.`);
+    }
     this.hooks.save();
   }
 }

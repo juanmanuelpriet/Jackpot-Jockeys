@@ -10,13 +10,23 @@ const secs = ticks => `${+(ticks / (FPS * SIM_SPEED)).toFixed(1)} s`.replace('.'
 // Corredores: rápidos y limpios. Bravos: entrenados para embestir a los demás,
 // cada uno con distinta agresividad (premio por embestida durante el entrenamiento).
 const HORSES = [
-  { name: 'Don Galope', color: '#c8102e', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 0] },
-  { name: 'Herradura Loca', color: '#2f5fb3', perfil: 'bravo', estilo: 'muy bravo', cerebro: ['caballos_bravo_150.json', 0] },
-  { name: 'Sir Relincho', color: '#e07a1f', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 1] },
-  { name: 'Patas de Trueno', color: '#1f9e86', perfil: 'bravo', estilo: 'bravo', cerebro: ['caballos_bravo_100.json', 0] },
-  { name: 'Pura Sangre Fría', color: '#8e3fb0', perfil: 'corredor', estilo: 'corredor', cerebro: ['caballos_corredor.json', 2] },
-  { name: 'Pancho Trotes', color: '#c9a227', perfil: 'bravo', estilo: 'pícaro', cerebro: ['caballos_bravo_60.json', 0] },
+  { name: 'Don Galope', color: '#c8102e', perfil: 'corredor', estilo: 'corredor', pers: 'corredor', cerebro: ['caballos_corredor.json', 0] },
+  { name: 'Herradura Loca', color: '#2f5fb3', perfil: 'bravo', estilo: 'muy bravo', pers: 'muybravo', cerebro: ['caballos_bravo_150.json', 0] },
+  { name: 'Sir Relincho', color: '#e07a1f', perfil: 'corredor', estilo: 'corredor', pers: 'corredor', cerebro: ['caballos_corredor.json', 1] },
+  { name: 'Patas de Trueno', color: '#1f9e86', perfil: 'bravo', estilo: 'bravo', pers: 'bravo', cerebro: ['caballos_bravo_100.json', 0] },
+  { name: 'Pura Sangre Fría', color: '#8e3fb0', perfil: 'corredor', estilo: 'corredor', pers: 'corredor', cerebro: ['caballos_corredor.json', 2] },
+  { name: 'Pancho Trotes', color: '#c9a227', perfil: 'bravo', estilo: 'pícaro', pers: 'picaro', cerebro: ['caballos_bravo_60.json', 0] },
 ];
+
+// Las 4 personalidades, en palabras simples. Los números salen de 450 carreras simuladas con estos
+// mismos cerebros: `podio` = % de veces entre los 3 primeros, `choques` = embestidas por carrera,
+// `salidas` = veces que se sale por carrera y `gana` = % de victorias por tamaño de pista.
+const PERSONALIDADES = {
+  corredor: { icon: '💨', name: 'Corredor', line: 'Limpio y constante: el que más llega al podio.', podio: 57, choques: 2.8, salidas: 0.8, gana: { corta: 22, media: 18, larga: 11 } },
+  picaro: { icon: '🦊', name: 'Pícaro', line: 'Empuja a veces y esquiva golpes. Se sale bastante.', podio: 46, choques: 3.7, salidas: 1.6, gana: { corta: 14, media: 14, larga: 19 } },
+  bravo: { icon: '😤', name: 'Bravo', line: 'Busca pelea. Molesta a todos y aguanta.', podio: 45, choques: 4.4, salidas: 1.4, gana: { corta: 11, media: 16, larga: 20 } },
+  muybravo: { icon: '🔥', name: 'Muy bravo', line: 'Todo o nada: el que más choca. Gana o se estrella.', podio: 38, choques: 4.8, salidas: 1.5, gana: { corta: 10, media: 15, larga: 28 } },
+};
 
 // Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores
 // los compran para su potro en la tienda del celular. Solo cambian el dibujo, no la carrera.
@@ -89,4 +99,4 @@ function applyPower(horses, track, idx, key) {
   return {};
 }
 
-module.exports = { HORSES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower };
+module.exports = { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower };

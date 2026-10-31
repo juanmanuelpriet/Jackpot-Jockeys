@@ -32,6 +32,12 @@ function probsFromRatings(ratings) {
   return e.map(x => (1 - FORM_WEIGHT) / n + FORM_WEIGHT * x / sum);
 }
 
+// Ventaja que da un cuerpo entrenado: multiplica su probabilidad antes de normalizar. La casa conoce lo
+// entrenado, porque en simulación un potro al tope gana ~60 % de las carreras y sin esto pagaría de más.
+function trainedEdge(body = {}) {
+  return Math.exp(20 * (body.speed || 0) + 4 * (body.agility || 0));
+}
+
 // Nueva forma de un caballo después de llegar en el puesto `place` (0 = ganó) de `n`
 function updateRating(r, place, n) {
   const k = Math.round(place * (PLACE_DELTA.length - 1) / Math.max(1, n - 1));
@@ -85,4 +91,4 @@ function oddsFor(type, sel, p, pay) {
   return +Math.min(MAX_ODDS, Math.max(MIN_ODDS, Math.min(pay[type] / prob, even * ODDS_CAP))).toFixed(2);
 }
 
-module.exports = { probsFromRatings, updateRating, payFactors, betProb, oddsFor, orderedProb, ODDS_CAP };
+module.exports = { probsFromRatings, trainedEdge, updateRating, payFactors, betProb, oddsFor, orderedProb, ODDS_CAP };

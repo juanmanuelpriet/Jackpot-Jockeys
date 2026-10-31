@@ -213,9 +213,15 @@ Los disfraces comprados quedan en tu cuenta entre partidas. Solo cambian el dibu
   inscribes mientras se apuesta, **entra a esa misma carrera** al final de la fila (hasta 8 caballos; los demás
   conservan su número y los boletos ya hechos no cambian). Si la carrera ya arrancó, corre en la siguiente.
   En el celular tu caballo lleva la etiqueta **TUYO** y la pestaña Mi caballo dice con qué número corre.
-- **Entrénalo** (150 fichas) en velocidad, agresión o control: corre una neuroevolución real de 10
-  generaciones sobre su red, en un hilo aparte, contra los corredores de la casa y en pistas nuevas.
-  El celular muestra cómo cambiaron sus embestidas, salidas y tropiezos.
+- **Entrénalo** (150 fichas) en velocidad, choques o control. Cada entrenamiento (`trainHorse` en `evolucion.js`):
+  1. Sube un poco el **cuerpo**: +1,5 % de velocidad (hasta +6 %), +5 % de giro (hasta +20 %) o +10 % de fuerza
+     (hasta +40 %). Los caballos ya corren casi al tope de la física: el cerebro solo no puede pasar de ahí.
+  2. Reentrena el **cerebro** con ese cuerpo durante 60 generaciones, en un hilo aparte y en pistas nuevas,
+     premiando solo ese rasgo, contra un rival de cada estilo.
+  3. Presenta un **examen** de 36 pistas contra el caballo de antes, con las mismas salidas y la misma suerte.
+     Solo se queda con lo aprendido si el rasgo mejoró más que el ruido de la medida y no corre mucho peor.
+     Si no aprueba, sigue igual, no sube de nivel y se devuelven las fichas.
+  Después **descansa 3 carreras** antes de volver a entrenar. Mientras practica no entra a carreras nuevas.
 - Si gana, cobras un **premio de propietario**: 50 × su cuota de "Que gane" (mínimo 100), así que ganar con un
   potro sin chance paga mucho más.
 

@@ -395,6 +395,8 @@ class Horse {
     this.brain = upgradeBrain(brain);
     this.id = opts.id ?? 0;
     this.form = opts.form ?? 1; // "forma del día": multiplica la velocidad
+    this.agility = opts.agility ?? 1; // cuánto gira: lo sube el entrenamiento de control
+    this.power = opts.power ?? 1;     // fuerza al chocar: la sube el entrenamiento de choques
     const lane = opts.lane ?? 0;
     const p0 = track.path[0], p1 = track.path[1];
     this.angle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
@@ -487,7 +489,7 @@ class Horse {
     const [steer, gas] = predict(this.brain, this.inputs(others.length));
     this.steer = steer; this.gas = gas;
 
-    this.angle += steer * 0.08;
+    this.angle += steer * 0.08 * this.agility;
     this.speed = (3 + (gas + 1) * 3) * this.form;
     if (fx.boost > 0) this.speed *= 1.5;
     if (fx.rage > 0) this.speed *= 1.15;
@@ -577,8 +579,8 @@ function resolveCollisions(horses) {
       if (d >= HIT_DIST || d === 0) continue;
       const ux = dx / d, uy = dy / d;
       // Empuje de cada uno en dirección del otro
-      const pa = a.speed * (Math.cos(a.angle) * ux + Math.sin(a.angle) * uy);
-      const pb = b.speed * -(Math.cos(b.angle) * ux + Math.sin(b.angle) * uy);
+      const pa = a.speed * a.power * (Math.cos(a.angle) * ux + Math.sin(a.angle) * uy);
+      const pb = b.speed * b.power * -(Math.cos(b.angle) * ux + Math.sin(b.angle) * uy);
       // Separarlos para que no se queden encimados
       const push = (HIT_DIST - d) / 2;
       a.x -= ux * push; a.y -= uy * push;
@@ -586,7 +588,7 @@ function resolveCollisions(horses) {
 
       const [att, vic, power, dir] = pa >= pb ? [a, b, pa, 1] : [b, a, pb, -1];
       if (power < 1.5 || att.hitCd > 0 || vic.fx.stun > 0) continue;
-      att.hitCd = Math.round(FPS * 0.8);
+      att.hitCd = Math.round(FPS * 0.8 / att.power);
       if (vic.fx.rage > 0 || vic.fx.shield > 0) continue;
       const stun = Math.round(FPS * (att.fx.rage > 0 ? 1.2 : 0.6));
       vic.fx.stun = Math.max(vic.fx.stun, stun);

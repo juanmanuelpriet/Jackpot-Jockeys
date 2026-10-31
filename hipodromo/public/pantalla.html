@@ -63,6 +63,9 @@
   .odd .nm { text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .odd .bet { color: var(--cream-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
   .odd .x { color: var(--amber); font-weight: 600; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  #persGuide { margin-top: 10px; }
+  .persRow { display: grid; grid-template-columns: 20px 1fr; gap: 6px; font-size: 13px; line-height: 1.25; color: var(--cream-dim); padding: 2px 0; }
+  .persRow b { color: var(--cream); font-weight: 500; }
   #join { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
   #qr { background: var(--cream); padding: 6px; line-height: 0; border-radius: 2px; }
   #joinUrl { font-size: 13px; color: var(--cream-dim); overflow-wrap: anywhere; letter-spacing: .5px; }
@@ -235,6 +238,7 @@
     <div class="label">Cuotas</div>
     <div class="jack" id="jack"></div>
     <div class="odds" id="odds"></div>
+    <div id="persGuide"></div>
     <div id="players"><div class="label">Podios</div><div id="podiums"></div></div>
     <div id="join"><div id="qr"></div><div id="joinUrl"></div></div>
     <div id="sala"></div>
@@ -1122,15 +1126,18 @@ function renderUI() {
     const right = s.phase === 'apuestas' ? `x${h.odds ?? '—'}` : (h.hits ? `${h.hits} emb.` : `V${h.lap}`);
     return `<div class="row ${s.phase !== 'apuestas' && k === 0 ? 'lead' : ''}">
       <div class="pos">${left}</div><div class="silk" style="background:${h.color}"></div>
-      <div class="nm">${i + 1} · ${esc(h.name)}<small>${esc(h.ownerName ? `de ${h.ownerName}${h.level ? ' · nv ' + h.level : ''}` : h.estilo)}${h.skin && h.skin !== 'normal' && s.cfg.skins[h.skin] ? ' · ' + esc(s.cfg.skins[h.skin].name) : ''}</small></div><div class="gap">${right}</div></div>`;
+      <div class="nm">${i + 1} · ${esc(h.name)}<small>${s.cfg.personalidades[h.pers]?.icon || ''} ${esc(s.cfg.personalidades[h.pers]?.name || '')}${h.ownerName ? ` · de ${esc(h.ownerName)}${h.level ? ' · nv ' + h.level : ''}` : ''}${h.skin && h.skin !== 'normal' && s.cfg.skins[h.skin] ? ' · ' + esc(s.cfg.skins[h.skin].name) : ''}</small></div><div class="gap">${right}</div></div>`;
   }).join('');
 
   document.getElementById('pot').textContent = s.pot.toLocaleString('es');
   document.getElementById('jack').textContent = s.grandPrix ? 'Gran Premio: cuotas +50 %'
     : s.match.race === 1 ? 'Carrera 1: todos iguales, manda el azar' : 'Según cómo llegaron · Que gane | Top 2 · Podio';
   document.getElementById('odds').innerHTML = s.horses.map((h, i) => `<div class="odd">
-    <div class="num" style="background:${h.color}">${i + 1}</div><div class="nm">${esc(h.name)}${h.recent && h.recent.length ? `<small class="rc">${h.recent.map(r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r + 'º').join(' ')}</small>` : ''}</div>
+    <div class="num" style="background:${h.color}">${i + 1}</div><div class="nm">${s.cfg.personalidades[h.pers]?.icon || ''} ${esc(h.name)}${h.recent && h.recent.length ? `<small class="rc">${h.recent.map(r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r + 'º').join(' ')}</small>` : ''}</div>
     <div class="px">${h.oddsPlace ? `x${h.oddsPlace.toFixed(2)} · x${h.oddsPodio.toFixed(2)}` : ''}</div><div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
+  const P = Object.values(s.cfg.personalidades), bestHere = P.reduce((a, b) => b.gana[s.trackSize] > a.gana[s.trackSize] ? b : a);
+  document.getElementById('persGuide').innerHTML = `<div class="label">Personalidades · pista ${esc(s.trackSize)}: suele ganar ${bestHere.icon} ${esc(bestHere.name)}</div>`
+    + P.map(p => `<div class="persRow"><span>${p.icon}</span><span><b>${esc(p.name)}</b> ${esc(p.line)}</span></div>`).join('');
   document.getElementById('poolRows').innerHTML = Object.values(s.pools).map(p =>
     `<div class="pool"><span>${esc(p.name)} <small style="color:var(--cream-dim);text-transform:none">· ${esc(p.desc)}</small></span><span>${p.total.toLocaleString('es')}</span></div>`).join('');
   const betting = s.phase === 'apuestas';
@@ -1230,22 +1237,18 @@ setInterval(updateIntro, 250);
 // Sale al abrir el juego (una vez por sesión) mientras la gente entra; se salta con Enter.
 // Cada paso: [emoji, título, explicación, ejemplo]
 const SLIDES = [
-  ['📱', 'Entra desde tu celular', 'Escanea el código QR o abre el enlace y escribe el código de la sala. Todos empiezan con <b>1.000 fichas</b>.',
-    'No hay final: se juega <b>hasta que se aburran</b>. Los podios muestran quién va ganando.'],
-  ['🧠', 'Los caballos piensan solos', 'Cada caballo es una <b>red neuronal</b> que aprendió a correr, esquivar y empujar. Nadie los maneja: tú <b>apuestas</b> y, en carrera, los ayudas o los molestas.',
-    'La pista es distinta en cada carrera: hasta el más rápido se puede chocar.'],
-  ['🎟️', 'Cómo apostar', 'En el celular: ① elige <b>qué apuestas</b>, ② toca el <b>caballo</b>, ③ elige <b>cuánto</b> y toca <b>Apostar</b>. El botón te dice cuánto ganas.',
-    'Apuestas <b>100</b> a que gana Don Galope, que paga <b>x2</b> → si gana recibes <b>200</b>.'],
-  ['🎲', 'Las cuotas cambian', 'En la <b>carrera 1</b> todos son iguales y manda el azar: <b>Que gane paga x2</b>. Después, <b>el que gana paga menos</b> y el que pierde paga más. Y carrera a carrera todo paga más.',
-    'Don Galope ganó 2 veces → ahora paga x2.25. Pancho Trotes llegó último → ahora paga x4.'],
-  ['🏆', 'Lo difícil paga más', '<b>Top 2</b> y <b>Podio</b> se aciertan seguido y pagan poco. <b>Pareja</b>, <b>1º y 2º</b> y <b>1º, 2º y 3º</b> en orden casi nunca salen… pero pagan una fortuna.',
-    'Carrera 1: Podio x1.2 · Que gane x2 · 1º y 2º x8 · 1º, 2º y 3º <b>x30</b>.'],
-  ['🥕', 'Poderes en carrera', 'Desde el celular toca un caballo y lanza un poder: <b>🥕</b> acelera, <b>🛡️</b> protege, <b>🪢 🙈</b> frenan, <b>⚡</b> congela a todos los demás. Cuestan fichas.',
-    'Tu caballo va 2º → zanahoria para él, o lazo para el que va 1º.'],
-  ['🕴️', 'La mafia', '<b>Préstamo:</b> si te quedas sin fichas, la mafia presta, pero la deuda crece cada carrera y se lleva la mitad de tus premios. <b>Sabotaje:</b> congela a un caballo y lo pagas con deuda.',
-    'Pides 500 y ganas 400 → el cobrador se queda con 200.'],
-  ['✅', '¡Listos!', 'La carrera arranca cuando <b>todos tocan Listo</b> (o el anfitrión pulsa <b>¡Iniciar ya!</b>). Cada 8 carreras hay un <b>Gran Premio</b>: todo paga 50 % más.',
-    'Podios: 💰 Más dinero · 💸 Más gastador · 🕴️ Amigo de la mafia · 🏋️ Mejor entrenador.'],
+  ['📱', 'Entra desde tu celular', 'Escanea el QR. Empiezas con <b>1.000 fichas</b> y gana quien termine con más.',
+    'No hay final: se juega hasta que se aburran.'],
+  ['🎟️', 'Toca un caballo y ya apostaste', 'El número dorado de tu celular es lo que recibes si aciertas. <b>El que gana paga menos</b> la próxima vez.',
+    '100 a x2: si gana recibes 200. <b>↩ Deshacer</b> corrige un dedazo.'],
+  ['🧬', '4 personalidades', '<b>💨 Corredor:</b> limpio y constante. <b>🦊 Pícaro:</b> empuja y esquiva. <b>😤 Bravo:</b> busca pelea. <b>🔥 Muy bravo:</b> todo o nada.',
+    'Siempre se ven junto al nombre. En pista larga suelen ganar los bravos; en pista corta, los corredores.'],
+  ['🥕', 'En carrera, mira esta pantalla', 'En el celular toca un caballo y un poder: <b>🥕</b> acelera, <b>🛡️</b> protege, <b>🪢 🙈</b> frenan, <b>⚡</b> aturde a los demás.',
+    'Tu caballo va 2º: zanahoria para él o lazo para el que va 1º.'],
+  ['🕴️', 'La mafia es un banco malo', 'Te <b>presta</b> fichas, pero la deuda <b>sube 12 % cada carrera</b> y se lleva <b>la mitad de tus premios</b> hasta cobrarse. <b>Sabotaje:</b> frena a un caballo 2 s y suma 300 a tu deuda.',
+    'Pides 500: debes 560, luego 628. Ganas 400: recibes 200 y debes 200 menos.'],
+  ['🏋️', 'Tu potro aprende de verdad', 'Eliges qué mejorar y practica <b>60 generaciones</b>. Presenta un examen: si mejora se queda con lo aprendido; si no, <b>te devuelven las fichas</b>.',
+    'Después descansa 3 carreras antes de volver a entrenar.'],
 ];
 const SLIDE_MS = 12000, INTRO_MS = 4500;
 const splash = document.getElementById('splash'), scv = document.getElementById('splashCv');

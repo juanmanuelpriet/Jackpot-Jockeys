@@ -22,10 +22,10 @@ const HORSES = [
 // mismos cerebros: `podio` = % de veces entre los 3 primeros, `choques` = embestidas por carrera,
 // `salidas` = veces que se sale por carrera y `gana` = % de victorias por tamaño de pista.
 const PERSONALIDADES = {
-  corredor: { icon: '💨', name: 'Corredor', tag: 'limpio y constante', line: 'Limpio y constante: el que más llega al podio.', podio: 55, choques: 2.7, salidas: 1.0, gana: { corta: 20, media: 17, larga: 12 } },
-  picaro: { icon: '🦊', name: 'Pícaro', tag: 'empuja a veces', line: 'Empuja a veces y recibe pocos golpes. Rinde igual en cualquier pista.', podio: 51, choques: 3.4, salidas: 1.5, gana: { corta: 13, media: 14, larga: 13 } },
-  bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea. Mejor en pistas largas.', podio: 48, choques: 5.0, salidas: 1.7, gana: { corta: 11, media: 21, larga: 27 } },
-  muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca. Gana o se estrella.', podio: 36, choques: 5.4, salidas: 2.0, gana: { corta: 16, media: 14, larga: 23 } },
+  corredor: { icon: '💨', name: 'Corredor', tag: 'limpio y constante', line: 'Limpio y constante: el que más llega al podio. Flojo en pistas largas.', podio: 57, choques: 3.5, salidas: 0.9, gana: { corta: 22, media: 20, larga: 8 } },
+  picaro: { icon: '🦊', name: 'Pícaro', tag: 'empuja a veces', line: 'Empuja a veces y es el que menos golpes recibe.', podio: 52, choques: 3.0, salidas: 1.5, gana: { corta: 14, media: 18, larga: 19 } },
+  bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea. Mejor en pistas largas.', podio: 44, choques: 5.1, salidas: 2.1, gana: { corta: 14, media: 16, larga: 21 } },
+  muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca. Casi no gana en pistas cortas y arrasa en las largas.', podio: 32, choques: 6.7, salidas: 2.9, gana: { corta: 5, media: 8, larga: 37 } },
 };
 
 // Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores
@@ -66,6 +66,12 @@ function loadHandicap() {
   return HORSES.map(x => h[x.name] ?? 1);
 }
 
+// Cuánto mejor le va a cada personalidad en cada mundo (lo mide calibrar.js): mueve las cuotas
+function loadWorldEdges() {
+  const p = path.join(__dirname, 'cuotas_mundo.json');
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
+}
+
 // Cada caballo carga su cerebro; si su archivo aún no existe usa los cerebros sin perfil
 function loadBrains(log = console.log) {
   const read = f => {
@@ -99,4 +105,4 @@ function applyPower(horses, track, idx, key) {
   return {};
 }
 
-module.exports = { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower };
+module.exports = { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, loadWorldEdges, applyPower };

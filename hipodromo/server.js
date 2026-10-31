@@ -59,7 +59,7 @@ function startTraining({ accountId, room, focus, brain, body, form }) {
 // ─── Los caballos de la casa aprenden de cada carrera, de uno en uno y en hilos aparte ───
 // Lo aprendido se guarda aparte: los cerebros de fábrica no cambian y borrar el archivo los restaura.
 
-const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'caballos_aprendidos.json');
+const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'caballos_aprendidos_mundos.json');
 let learned = {};
 try { learned = JSON.parse(fs.readFileSync(LEARNED_FILE, 'utf8')); } catch { /* aún no han aprendido */ }
 for (const [name, l] of Object.entries(learned)) {
@@ -314,7 +314,7 @@ const server = http.createServer((req, res) => {
 
 setInterval(() => {
   for (const room of rooms.values()) {
-    if (room.step()) broadcastScreens(room, { type: 'pos', h: room.positions() });
+    if (room.step()) broadcastScreens(room, { type: 'pos', h: room.positions(), t: room.tick });
   }
 }, 1000 / (FPS * SIM_SPEED));
 

@@ -2,6 +2,8 @@
 // Es un port del simulador F1 en Python (track.py / car.py / brain.py) con las
 // mismas físicas, para que los cerebros entrenados se comporten igual.
 
+const { MUNDOS, OBSTACULOS, PELIGRO, PELIGRO_CICLO_APAGADO, CICLO_AVISO } = require('./mundos');
+
 const SENSOR_LENGTH = 180;
 const TRACK_HALF_WIDTH = 50;
 const SENSOR_ANGLES = [-Math.PI / 2.5, -Math.PI / 5, 0, Math.PI / 5, Math.PI / 2.5];
@@ -36,7 +38,7 @@ function mulberry32(seed) {
   };
 }
 
-// ─── Red neuronal (14 → 8 → 3 → 3 → 2, tanh) ────────
+// ─── Red neuronal (18 → 8 → 3 → 3 → 2, tanh) ────────
 // La red no tiene ninguna regla de "embestir": solo decide giro y acelerador
 // a partir de lo que percibe. Entradas:
 //   0-4  sensores de distancia a bordes y vallas (5 rayos en abanico)
@@ -45,10 +47,14 @@ function mulberry32(seed) {
 //   9    ¿tengo furia?                          10  ¿tengo turbo?
 //   11   distancia al barro que tengo adelante  12  mi puesto en la carrera (0 = primero)
 //   13   lado de ese barro (-1 izquierda, +1 derecha, 0 si no hay)
-const NUM_INPUTS = 14;
+//   14   qué tan grave es lo que tiene adelante     15  agarre del suelo
+//   16   viento de lado (-1 izquierda, +1 derecha)  17  gravedad (qué tanta velocidad pide un salto)
+// "Barro" son todos los obstáculos que se pisan: charcos, hielo, cráteres, lava, géiseres…
+const NUM_INPUTS = 18;
 const HIDDEN_1 = 8;
 const INPUT_NAMES = ['sensor_-72', 'sensor_-36', 'sensor_0', 'sensor_+36', 'sensor_+72',
-  'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado'];
+  'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado',
+  'peligro', 'agarre', 'viento_lado', 'gravedad'];
 
 function predict(brain, input) {
   let x = input;
@@ -140,8 +146,10 @@ function trackQuality(path) {
 
 class Track {
   // numObstacles = null → se calcula según el largo de la pista
-  constructor(seed, numObstacles = null, size = 'corta') {
+  constructor(seed, numObstacles = null, size = 'corta', mundo = 'hipodromo') {
     this.seed = seed;
+    this.mundo = MUNDOS[mundo] ? mundo : 'hipodromo';
+    this.world = MUNDOS[this.mundo];
     this.size = SIZES[size] ? size : 'corta';
     const cfg = SIZES[this.size];
     this.W = cfg.W; this.H = cfg.H; this.laps = cfg.laps;
@@ -160,6 +168,15 @@ class Track {
     this._buildMask();
     if (numObstacles == null) numObstacles = Math.round(this.length / 380);
     this._placeObstacles(mulberry32(seed * 7 + 3), numObstacles);
+    // El viento sopla siempre en la misma dirección, con fuerza que sube y baja
+    const wr = mulberry32(seed * 13 + 5);
+    this.windAngle = wr() * Math.PI * 2;
+    this.windPhase = wr() * Math.PI * 2;
+  }
+
+  // Fuerza del viento en un tick (px por tick, con signo)
+  windAt(tick) {
+    return this.world.viento ? this.world.viento * Math.sin(tick / 48 + this.windPhase) : 0;
   }
 
   // Circuito tipo juego de mesa: se hace crecer una figura de celdas en una cuadrícula
@@ -316,11 +333,15 @@ class Track {
     const span = n * 0.85;
     for (let k = 0; k < count; k++) {
       const idx = Math.floor(n * 0.1 + (span / count) * (k + 0.2 + rng() * 0.6)) % n;
-      const type = rng() < 0.65 ? 'valla' : 'barro';
-      // Las vallas ocupan un lado de la pista: hay hueco para esquivarlas o se saltan
-      const side = rng() < 0.5 ? -1 : 1;
-      const off = type === 'valla' ? side * (12 + rng() * 14) : (rng() - 0.5) * 40;
-      this.addObstacle(type, idx, off);
+      let pick = rng(), type = this.world.obstaculos[0][0];
+      for (const [t, p] of this.world.obstaculos) { type = t; if ((pick -= p) < 0) break; }
+      // Lo sólido ocupa un lado de la pista: hay hueco para esquivarlo. Lo que quema o muerde
+      // también, para que el centro de la pista siempre sea seguro al volver
+      const side = rng() < 0.5 ? -1 : 1, kind = OBSTACULOS[type].kind;
+      const off = kind === 'salto' || kind === 'solido' ? side * (12 + rng() * 14)
+        : kind === 'quema' || kind === 'ciclo' ? side * (24 + rng() * 12) : (rng() - 0.5) * 40;
+      const o = this.addObstacle(type, idx, off);
+      if (kind === 'ciclo') o.fase = Math.floor(rng() * OBSTACULOS[type].periodo);
     }
   }
 
@@ -333,7 +354,7 @@ class Track {
     const o = {
       type, idx,
       x: p[0] + nx * off, y: p[1] + ny * off,
-      r: type === 'valla' ? 14 : 22,
+      r: OBSTACULOS[type].r, kind: OBSTACULOS[type].kind,
       angle: Math.atan2(ny, nx),
     };
     this.obstacles.push(o);
@@ -346,11 +367,11 @@ class Track {
     return this.mask[gy * this.gw + gx] === 1;
   }
 
-  // Los sensores ven bordes y vallas (el barro no se ve)
+  // Los sensores ven bordes y lo sólido (lo que se pisa no se ve)
   blocked(x, y) {
     if (!this.onTrack(x, y)) return true;
     for (const o of this.obstacles) {
-      if (o.type !== 'valla') continue;
+      if (o.kind !== 'salto' && o.kind !== 'solido') continue;
       const dx = x - o.x, dy = y - o.y;
       if (dx * dx + dy * dy < o.r * o.r) return true;
     }
@@ -358,11 +379,11 @@ class Track {
   }
 
   castRay(x, y, angle) {
-    const c = Math.cos(angle), s = Math.sin(angle);
-    for (let d = 0; d < SENSOR_LENGTH; d += 5) {
+    const c = Math.cos(angle), s = Math.sin(angle), reach = SENSOR_LENGTH * this.world.vision;
+    for (let d = 0; d < reach; d += 5) {
       if (this.blocked(x + c * d, y + s * d)) return d;
     }
-    return SENSOR_LENGTH;
+    return reach;
   }
 
   progress(x, y, last) {
@@ -382,7 +403,7 @@ class Track {
   toJSON() {
     return {
       path: this.path.map(p => [Math.round(p[0]), Math.round(p[1])]),
-      width: this.width, obstacles: this.obstacles,
+      width: this.width, obstacles: this.obstacles, mundo: this.mundo, windAngle: this.windAngle,
       W: this.W, H: this.H, size: this.size, laps: this.laps, length: Math.round(this.length),
     };
   }
@@ -410,8 +431,11 @@ class Horse {
     this.place = 0;      // 0 = va primero (lo actualiza stepRace)
     this.mud = 1;
     this.mudSide = 0;    // de qué lado está el barro que tiene adelante
-    this.mudHits = 0;    // charcos pisados
+    this.danger = 0;     // qué tan grave es
+    this.mudHits = 0;    // obstáculos pisados
     this.inMud = null;
+    this.heading = this.angle; // hacia dónde avanza de verdad: en suelo resbaloso va detrás de la cabeza
+    this.lastBite = null; // último géiser o caimán que lo atrapó
     this.lastProgress = track.progress(this.x, this.y);
     this.maxProgress = this.lastProgress;
     this.total = 0;
@@ -446,12 +470,19 @@ class Horse {
     this.rival = [bestD / RIVAL_RANGE, rel / Math.PI, (best.speed - this.speed) / 9, protectedRival];
   }
 
-  // Distancia y lado del barro más cercano dentro de un cono de ±30° hacia adelante
+  // Si un obstáculo con ciclo está activo o a punto de activarse
+  _cycleOn(o, margin = 0) {
+    const c = OBSTACULOS[o.type], t = (this.ticks + (o.fase || 0)) % c.periodo;
+    return t < c.activo || t >= c.periodo - margin;
+  }
+
+  // Distancia y lado del obstáculo pisable más cercano dentro de un cono de ±30° hacia adelante
   _senseMud() {
     let best = SENSOR_LENGTH;
     this.mudSide = 0;
+    this.danger = 0;
     for (const o of this.track.obstacles) {
-      if (o.type !== 'barro') continue;
+      if (o.kind === 'salto' || o.kind === 'solido') continue;
       const dx = o.x - this.x, dy = o.y - this.y;
       const d = Math.hypot(dx, dy) - o.r;
       if (d >= best) continue;
@@ -460,15 +491,35 @@ class Horse {
       if (Math.abs(rel) < Math.PI / 6 || d < 0) {
         best = Math.max(0, d);
         this.mudSide = Math.max(-1, Math.min(1, rel / (Math.PI / 6)));
+        this.danger = o.kind === 'ciclo' && !this._cycleOn(o, CICLO_AVISO) ? PELIGRO_CICLO_APAGADO : PELIGRO[o.kind];
       }
     }
     return best / SENSOR_LENGTH;
   }
 
+  // Viento respecto a la cabeza del caballo: positivo si lo empuja a su derecha
+  _windSide() {
+    const w = this.track.windAt(this.ticks);
+    return w ? Math.max(-1, Math.min(1, w * Math.sin(this.track.windAngle - this.angle) / this.track.world.viento)) : 0;
+  }
+
+  // El obstáculo pisable que tiene debajo (los que se pisan no afectan en el aire, salvo el barro de siempre)
+  _patchAt() {
+    for (const o of this.track.obstacles) {
+      if (o.kind === 'salto' || o.kind === 'solido') continue;
+      if ((this.x - o.x) ** 2 + (this.y - o.y) ** 2 >= o.r * o.r) continue;
+      if (o.kind !== 'lento' && this.fx.jump > 0) continue;
+      if (o.kind === 'ciclo' && !this._cycleOn(o)) continue;
+      return o;
+    }
+    return null;
+  }
+
   inputs(numHorses) {
     return [...this.sensors, ...this.rival,
       this.fx.rage > 0 ? 1 : 0, this.fx.boost > 0 ? 1 : 0,
-      this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0, this.mudSide];
+      this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0, this.mudSide,
+      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5];
   }
 
   update(others = []) {
@@ -490,6 +541,7 @@ class Horse {
       this.rival = [Math.random(), Math.random() * 2 - 1, Math.random() - 0.5, Math.round(Math.random())];
       this.mud = Math.random();
       this.mudSide = Math.random() * 2 - 1;
+      this.danger = Math.random();
     } else {
       this._senseRival(others);
       this.mud = this._senseMud();
@@ -498,35 +550,53 @@ class Horse {
     const [steer, gas] = predict(this.brain, this.inputs(others.length));
     this.steer = steer; this.gas = gas;
 
-    this.angle += steer * 0.08 * this.agility;
-    this.speed = (3 + (gas + 1) * 3) * this.form;
-    if (fx.boost > 0) this.speed *= 1.5;
-    if (fx.rage > 0) this.speed *= 1.15;
-    if (fx.carrot > 0) this.speed *= 1.35;
-
-    // Barro: frena mientras se pisa
-    let puddle = null;
-    for (const o of this.track.obstacles) {
-      if (o.type === 'barro' && (this.x - o.x) ** 2 + (this.y - o.y) ** 2 < o.r * o.r) {
-        this.speed *= 0.55;
-        puddle = o;
-        break;
-      }
-    }
-    if (puddle && puddle !== this.inMud) this.mudHits++;
+    const world = this.track.world, puddle = this._patchAt(), info = puddle && OBSTACULOS[puddle.type];
+    const entered = puddle && puddle !== this.inMud;
+    if (entered) this.mudHits++;
     this.inMud = puddle;
+    if (puddle && puddle.kind === 'quema' && entered) {
+      // Lava: el jinete lo saca y vuelve al centro, sin que lo queme otra vez al aterrizar
+      this._resetToPath(Math.round(FPS * 1.2));
+      fx.jump = Math.round(FPS * 2);
+      this.falls++;
+      return;
+    }
+    if (puddle && puddle.kind === 'hoyo' && entered) { fx.stun = Math.round(FPS * info.aturde); this.stumbles++; this.speed = 0; return; }
+    if (puddle && puddle.kind === 'ciclo' && puddle !== this.lastBite) {
+      this.lastBite = puddle;
+      fx.stun = Math.round(FPS * info.aturde); fx.hit = 12; this.stumbles++; this.speed = 0;
+      return;
+    }
+    if (this.lastBite && (this.x - this.lastBite.x) ** 2 + (this.y - this.lastBite.y) ** 2 > 60 * 60) this.lastBite = null;
 
-    const nx = this.x + Math.cos(this.angle) * this.speed;
-    const ny = this.y + Math.sin(this.angle) * this.speed;
+    this.angle += steer * 0.08 * this.agility * (puddle && puddle.kind === 'resbalon' ? info.giro : 1);
+    if (puddle && puddle.kind === 'desvio') this.angle += info.giro * (puddle.x > this.x ? 1 : -1);
+    let target = (3 + (gas + 1) * 3) * this.form * world.vel;
+    if (fx.boost > 0) target *= 1.5;
+    if (fx.rage > 0) target *= 1.15;
+    if (fx.carrot > 0) target *= 1.35;
+    this.speed = world.inercia === 1 ? target : this.speed + (target - this.speed) * world.inercia;
+    if (puddle && info.freno) {
+      if (world.inercia === 1) this.speed *= info.freno; else this.speed *= 1 - (1 - info.freno) * 0.15;
+    }
+
+    // Suelo resbaloso: avanza hacia donde venía y poco a poco hacia donde mira
+    let da = this.angle - this.heading;
+    da = Math.atan2(Math.sin(da), Math.cos(da));
+    this.heading = world.agarre === 1 ? this.angle : this.heading + da * world.agarre;
+    const wind = this.track.windAt(this.ticks);
+    const nx = this.x + Math.cos(this.heading) * this.speed + Math.cos(this.track.windAngle) * wind;
+    const ny = this.y + Math.sin(this.heading) * this.speed + Math.sin(this.track.windAngle) * wind;
 
     // Vallas: con buena velocidad se saltan, si no, el caballo tropieza
     if (fx.jump === 0) {
       for (const o of this.track.obstacles) {
-        if (o.type !== 'valla' || o === this.lastHit) continue;
+        if ((o.kind !== 'salto' && o.kind !== 'solido') || o === this.lastHit) continue;
         if ((nx - o.x) ** 2 + (ny - o.y) ** 2 < (o.r + 6) ** 2) {
           this.lastHit = o;
           // Con zanahoria el jinete lleva las riendas: siempre salta
-          if (this.speed >= 6.5 || fx.carrot > 0) { fx.jump = 10; this.jumps++; }
+          const need = OBSTACULOS[o.type].salto || world.salto;
+          if ((o.kind === 'salto' && this.speed >= need) || fx.carrot > 0) { fx.jump = world.aire; this.jumps++; }
           else { fx.stun = Math.round(FPS * 0.8); this.stumbles++; return; }
           break;
         }
@@ -569,6 +639,7 @@ class Horse {
     const p = this.track.path[i], q = this.track.path[(i + 2) % n];
     this.x = p[0]; this.y = p[1];
     this.angle = Math.atan2(q[1] - p[1], q[0] - p[0]);
+    this.heading = this.angle;
     this.lastProgress = i;
     this.stuck = 0;
     this.fx.stun = stunTicks;
@@ -637,6 +708,6 @@ function stepRace(horses) {
 if (typeof module !== 'undefined') {
   module.exports = {
     Track, Horse, predict, INPUT_NAMES, cloneBrain, upgradeBrain, mutateBrain, mulberry32,
-    resolveCollisions, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, SIZES,
+    resolveCollisions, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, SIZES, MUNDOS, OBSTACULOS,
   };
 }

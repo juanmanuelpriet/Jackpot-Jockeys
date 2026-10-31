@@ -397,7 +397,7 @@ document.getElementById('slipTxt').onclick = () => {
   showTickets = !showTickets; render();
   if (showTickets) document.getElementById('tickets').scrollIntoView({ block: 'nearest' });
 };
-document.getElementById('trackTip').onclick = () => openTopic('personalidades');
+document.getElementById('trackTip').onclick = () => openTopic('mundos');
 document.getElementById('readyBtn').onclick = () => { tap(); api('ready', { ready: !me.ready }); };
 const pickType = e => {
   const b = e.target.closest('.type'); if (!b) return;
@@ -492,9 +492,10 @@ function renderCarrera() {
   const more = moreTypes || !MAIN_TYPES.includes(betType);
   setHTML('moreTypes', more ? `<div id="types2" style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px">${Object.keys(TYPE_UI).filter(k => !MAIN_TYPES.includes(k)).map(typeBtn).join('')}</div>` : '');
 
-  // Qué suele ganar en esta pista, en una línea: abre la guía de personalidades
-  const P = s.cfg.personalidades, size = s.trackSize, best = Object.values(P).reduce((a, b) => b.gana[size] > a.gana[size] ? b : a);
-  setHTML('trackTip', `<span>Pista ${esc(size)}: suele ganar <b>${best.icon} ${esc(best.name)}</b></span><u>Personalidades ?</u>`);
+  // En qué mundo se corre y qué suele ganar ahí, en una línea: abre la guía de mundos
+  const P = s.cfg.personalidades, size = s.trackSize, world = s.cfg.mundos[s.mundo] || {};
+  const best = P[world.mejor] || Object.values(P).reduce((a, b) => b.gana[size] > a.gana[size] ? b : a);
+  setHTML('trackTip', `<span>${world.icon || ''} <b>${esc(world.name || '')}</b>: suele ganar <b>${best.icon} ${esc(best.name)}</b></span><u>Mundos ?</u>`);
 
   // Los caballos no cambian de lugar en la lista: durante la carrera no se mueven bajo el dedo
   const targets = racing ? powerTargets() : {};
@@ -839,6 +840,7 @@ const TUTO = [
   ['poderes', '🥕', 'En carrera mira la pantalla grande', () => `<b>🟢 Arriba ayudas a tu caballo. 🔴 Abajo frenas a su rival.</b> Un toque y listo. Si quieres otro caballo, tócalo primero.`
     + `<div class="steps" style="margin-top:8px">${Object.values(state.powers).map(p => `<div><span>${p.icon}</span><span><b>${esc(p.name)}</b> <small>${esc(p.desc)} · cuesta ${p.cost}</small></span></div>`).join('')}</div>`],
   ['personalidades', '🧬', 'Cada caballo corre a su manera', persGuide],
+  ['mundos', '🌍', 'Cada carrera es un mundo', () => `Cambia cómo corren y qué obstáculos hay. Mira cuál toca antes de apostar.${steps(Object.values(state.cfg.mundos).map(w => [w.icon, `<b>${esc(w.name)}.</b> ${esc(w.desc)}${state.cfg.personalidades[w.mejor] ? `<small>Suele ganar ${state.cfg.personalidades[w.mejor].icon} ${esc(state.cfg.personalidades[w.mejor].name)}</small>` : ''}`]))}`],
   ['mas', '🐴', 'Lo demás, cuando lo necesites', () => `<b>Mi caballo</b>, <b>Mafia</b> y <b>Peña</b> te explican cómo funcionan la primera vez que entras.`],
 ];
 const SECTIONS = [

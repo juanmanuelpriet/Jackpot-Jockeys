@@ -1,0 +1,409 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage[hidelinks]{hyperref}
+\geometry{letterpaper, margin=1in}
+\decimalpoint
+
+\title{\textbf{Jackpot Jockeys: cómo funciona}\\[4pt]\large Mundos, obstáculos, física, redes neuronales, evolución y cuotas}
+\author{Documentación técnica del juego}
+\date{31 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+En Jackpot Jockeys los caballos son redes neuronales que nadie programa a mano: aprenden a correr por neuroevolución, sin gradientes. Cada carrera se corre en uno de seis mundos, que cambian la física y traen obstáculos propios. Este documento da las ecuaciones exactas del código (\texttt{sim.js}, \texttt{mundos.js}, \texttt{evolucion.js}, \texttt{calibrar.js}, \texttt{cuotas.js} y \texttt{sala.js}), explica cómo se entrenó a los caballos para esa aleatoriedad y reporta lo medido, incluidas sus limitaciones.
+\end{abstract}
+
+\tableofcontents
+
+\section{La red neuronal}
+Cada caballo es un perceptrón multicapa con arquitectura $18 \to 8 \to 3 \to 3 \to 2$ y activación $\tanh$ en todas las capas:
+\begin{equation}
+h^{(0)} = x \in \mathbb{R}^{18}, \qquad h^{(\ell)} = \tanh\!\left(W_\ell\, h^{(\ell-1)} + b_\ell\right), \quad \ell = 1,\dots,4,
+\end{equation}
+\begin{equation}
+(s,\ g) = h^{(4)} \in (-1,1)^2,
+\end{equation}
+donde $s$ es el giro y $g$ el acelerador. El número de parámetros es
+\begin{equation}
+(18\cdot 8 + 8) + (8\cdot 3 + 3) + (3\cdot 3 + 3) + (3\cdot 2 + 2) = 152 + 27 + 12 + 8 = 199.
+\end{equation}
+La red no contiene ninguna regla (``embestir'', ``esquivar'', ``saltar''): todo comportamiento sale de los pesos. Cuando se agregan entradas nuevas a un cerebro viejo, sus pesos arrancan en cero, de modo que la red vieja sigue calculando lo mismo.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{cl}
+\toprule
+Entrada & Significado \\
+\midrule
+0--4 & Cinco rayos a $0^\circ, \pm 36^\circ, \pm 72^\circ$: distancia a borde o valla, $d/180$ \\
+5 & Distancia al rival más cercano, $d/120$ (1 si no hay ninguno) \\
+6 & Rumbo hacia ese rival, $\alpha/\pi$ \\
+7 & Velocidad relativa del rival, $\Delta v/9$ \\
+8 & ¿El rival está protegido? (escudo o furia) \\
+9, 10 & ¿Tengo furia? ¿Tengo turbo? \\
+11 & Distancia al obstáculo pisable que hay adelante, en un cono de $\pm 30^\circ$, $d/180$ \\
+12 & Mi puesto en la carrera, $\text{puesto}/(n-1)$ (0 = primero) \\
+13 & Lado de ese obstáculo, $\alpha/(\pi/6)$ recortado a $[-1,1]$ \\
+14 & Qué tan grave es ese obstáculo (tabla~\ref{tab:peligro}) \\
+15 & Agarre del suelo del mundo, $A_w$ \\
+16 & Viento de lado respecto a la cabeza, en $[-1,1]$ \\
+17 & Gravedad: $S_w/6.5$, qué tanta velocidad pide un salto \\
+\bottomrule
+\end{tabular}
+\caption{Las 18 entradas. Las entradas 14 a 17 son las que se agregaron para los mundos.}
+\end{table}
+
+Las entradas 15 a 17 le dicen a la red en qué tipo de suelo está, sin decirle el nombre del mundo. Así una misma red puede comportarse distinto en la nieve y en la Luna, y es lo que hace posible que un solo cerebro sirva para todos los mundos.
+
+\section{Los mundos}
+Un mundo $w$ es un conjunto de parámetros físicos más una lista de obstáculos con su probabilidad. En cada carrera se sortea un mundo distinto del anterior.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccccccc}
+\toprule
+Mundo & $V_w$ vel. & $A_w$ agarre & $I_w$ inercia & $C_w$ visión & $U_w$ viento & $S_w$ salto & $T_w$ aire \\
+\midrule
+Hipódromo & 1 & 1 & 1 & 1 & 0 & 6.5 & 10 \\
+Nieve & 0.95 & 0.3 & 1 & 1 & 0 & 6.5 & 10 \\
+Luna & 1.05 & 0.7 & 0.08 & 1 & 0 & 4.5 & 24 \\
+Volcán & 1 & 1 & 1 & 0.55 & 0 & 6.5 & 10 \\
+Desierto & 1 & 1 & 1 & 1 & 1.3 & 6.5 & 10 \\
+Pantano & 0.97 & 0.65 & 0.35 & 1 & 0 & 6.5 & 10 \\
+\bottomrule
+\end{tabular}
+\caption{Parámetros físicos. $V$: multiplica la velocidad. $A$: qué tan rápido la dirección de avance sigue a la cabeza. $I$: qué tan rápido cambia la velocidad. $C$: alcance de los sensores. $U$: empuje lateral máximo (px/tick). $S$: velocidad mínima de salto. $T$: ticks en el aire.}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=.48\linewidth]{img/nieve.jpg}\hfill
+\includegraphics[width=.48\linewidth]{img/luna.jpg}\\[6pt]
+\includegraphics[width=.48\linewidth]{img/volcan.jpg}\hfill
+\includegraphics[width=.48\linewidth]{img/desierto.jpg}\\[6pt]
+\includegraphics[width=.48\linewidth]{img/pantano.jpg}
+\caption{Nieve, Luna, Volcán, Desierto y Pantano en la pantalla del juego.}
+\end{figure}
+
+\subsection{Obstáculos}
+Cada mundo tiene obstáculos propios. Se colocan $\operatorname{round}(L/380)$ por pista, donde $L$ es el largo de la vuelta en píxeles, y el tipo se sortea con las probabilidades del mundo.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llccl}
+\toprule
+Mundo & Obstáculo & Prob. & Radio & Efecto \\
+\midrule
+Hipódromo & Valla & .65 & 14 & Se salta; si no, tropieza \\
+ & Barro & .35 & 22 & Frena: $\times 0.55$ \\
+Nieve & Pino & .35 & 13 & Sólido: siempre tropieza \\
+ & Hielo & .35 & 26 & El giro se multiplica por $0.15$ \\
+ & Nevada & .30 & 24 & Frena: $\times 0.6$ \\
+Luna & Roca & .50 & 13 & Se salta; si no, tropieza \\
+ & Cráter & .50 & 22 & Cae: aturdido $0.8$ s \\
+Volcán & Lava & .40 & 22 & Vuelve al centro: $1.2$ s y cuenta como salida \\
+ & Géiser & .40 & 20 & Ciclo $150$ ticks, activo $45$: aturde $0.9$ s \\
+ & Basalto & .20 & 14 & Sólido \\
+Desierto & Cactus & .35 & 12 & Sólido \\
+ & Arena & .35 & 28 & Frena: $\times 0.65$ \\
+ & Remolino & .30 & 24 & Gira $\pm 0.14$ rad/tick y frena $\times 0.85$ \\
+Pantano & Tronco & .40 & 16 & Se salta con $v \ge 7$ \\
+ & Ciénaga & .30 & 26 & Frena: $\times 0.45$ \\
+ & Caimán & .30 & 18 & Ciclo $120$ ticks, activo $30$: aturde $1.1$ s \\
+\bottomrule
+\end{tabular}
+\caption{Los 16 obstáculos.}
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+Clase & lento & resbalón & desvío & hoyo & quema & ciclo \\
+\midrule
+Peligro percibido & 0.3 & 0.5 & 0.5 & 0.8 & 1 & 1 (0.2 apagado) \\
+\bottomrule
+\end{tabular}
+\caption{Entrada 14 de la red según la clase de obstáculo que tiene adelante.}
+\label{tab:peligro}
+\end{table}
+
+Un obstáculo de ciclo con fase $\varphi_o$ está activo en el tick $t$ si
+\begin{equation}
+(t + \varphi_o) \bmod P < D_a,
+\end{equation}
+con periodo $P$ y duración activa $D_a$. El sensor avisa desde 30 ticks antes de que se active: durante ese margen percibe peligro 1 aunque el obstáculo todavía no haga daño, así que la red puede anticiparlo.
+
+\section{La física de cada tick}
+La simulación corre a 30 ticks por segundo de juego. Sea $(x_t, y_t)$ la posición, $\theta_t$ la cabeza, $\phi_t$ la dirección real de avance y $v_t$ la velocidad. En cada tick, con $f$ la forma (hándicap por forma del día) y $a$ la agilidad:
+
+\paragraph{Giro.} Con $\kappa = 0.15$ en hielo y $\kappa = 1$ en otro caso,
+\begin{equation}
+\theta_{t+1} = \theta_t + 0.08\, s\, a\, \kappa + \delta_{\text{remolino}}.
+\end{equation}
+
+\paragraph{Velocidad.} El objetivo depende del acelerador; $B$ es el producto de los efectos activos (turbo $1.5$, furia $1.15$, zanahoria $1.35$):
+\begin{equation}
+v^{*} = \left(3 + 3(g+1)\right) f\, V_w\, B, \qquad v^{*} \in \left(3,\ 9\right) f\, V_w\, B,
+\end{equation}
+\begin{equation}
+v_{t+1} = v_t + I_w \left(v^{*} - v_t\right).
+\end{equation}
+Con $I_w = 1$ la velocidad cambia al instante, como en el hipódromo; en la Luna, con $I_w = 0.08$, tarda muchos ticks en subir o bajar. Pisar algo que frena con factor $\beta$ da
+\begin{equation}
+v \leftarrow \begin{cases} \beta\, v & \text{si } I_w = 1,\\ \left(1 - 0.15\,(1-\beta)\right) v & \text{si } I_w < 1. \end{cases}
+\end{equation}
+La segunda rama existe porque, con inercia, el frenazo se aplica en cada tick y se acumula.
+
+\paragraph{Derrape.} El caballo no avanza hacia donde mira, sino hacia una dirección que persigue a la cabeza:
+\begin{equation}
+\phi_{t+1} = \phi_t + A_w \operatorname{wrap}\!\left(\theta_{t+1} - \phi_t\right), \qquad \operatorname{wrap}(\alpha) = \operatorname{atan2}(\sin\alpha, \cos\alpha).
+\end{equation}
+Es un filtro de primer orden: $A_w = 1$ no derrapa; con $A_w = 0.3$ (nieve) le toma varios ticks alinearse, y en las curvas se abre.
+
+\paragraph{Viento.} Sopla en una dirección fija $\psi$ de cada pista, con una fuerza que oscila:
+\begin{equation}
+w(t) = U_w \sin\!\left(\frac{t}{48} + \rho\right),
+\end{equation}
+\begin{equation}
+\begin{pmatrix} x_{t+1} \\ y_{t+1} \end{pmatrix} = \begin{pmatrix} x_t \\ y_t \end{pmatrix} + v_{t+1}\begin{pmatrix} \cos\phi_{t+1} \\ \sin\phi_{t+1} \end{pmatrix} + w(t)\begin{pmatrix} \cos\psi \\ \sin\psi \end{pmatrix}.
+\end{equation}
+La red percibe la componente lateral: $\operatorname{clip}\!\left(w(t)\sin(\psi - \theta)/U_w,\ -1,\ 1\right)$.
+
+\paragraph{Sensores.} Cada rayo llega hasta $180\,C_w$ píxeles y se normaliza siempre con 180. Por eso, en el volcán, ningún rayo marca más de $0.55$: la ceniza acorta la vista y la red lo nota.
+
+\paragraph{Saltos.} Al llegar a una valla, roca o tronco salta si $v \ge S_o$, donde $S_o$ es el umbral propio del obstáculo o, si no tiene, $S_w$. Queda $T_w$ ticks en el aire, sin chocar. Si no le alcanza, queda aturdido $0.8$ s con velocidad cero. Los obstáculos sólidos siempre lo aturden.
+
+\paragraph{Salirse.} Fuera de la pista, el jinete lo devuelve al centro en el punto de mayor avance y pierde $1.2$ s.
+
+\paragraph{Choques.} Dos caballos chocan a menos de 18 px. Con $\hat u$ el vector unitario de uno hacia el otro y $P$ su fuerza, el empuje de cada uno es
+\begin{equation}
+p_a = v_a P_a \left(\cos\theta_a\, \hat u_x + \sin\theta_a\, \hat u_y\right).
+\end{equation}
+El de mayor $p$ embiste si $p \ge 1.5$ (con un enfriamiento de $0.8/P$ segundos): la víctima queda aturdida $0.6$ s ($1.2$ s si el atacante tiene furia) y desviada al azar hasta $\pm 0.4$ rad; el atacante gana medio segundo de turbo.
+
+\section{Entrenar para toda la aleatoriedad}
+\subsection{Aptitud}
+Tras correr, un caballo recibe
+\begin{equation}
+F = D + (T_{\max} - t_{\text{fin}}) + 5J - 15E - c_s C + H\min(G, 8) - c_r R + P b - 40M,
+\end{equation}
+donde $D$ es el avance en puntos de trazado, $t_{\text{fin}}$ el tick de llegada (el segundo término vale cero si no termina), $J$ los saltos, $E$ los tropiezos, $C$ las salidas, $G$ las embestidas dadas, $R$ las recibidas, $b$ los rivales que deja atrás y $M$ los obstáculos pisados.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+Cerebros & $H$ & $c_s$ & $c_r$ & $P$ & Velocidad al entrenar & Generaciones \\
+\midrule
+Corredor & 0 & 40 & 10 & 100 & 1.0 & 300 \\
+Pícaro (bravo 60) & 60 & 60 & 20 & 100 & 1.0 & 300 \\
+Bravo (bravo 100) & 100 & 60 & 20 & 150 & 1.2 & 250 \\
+Muy bravo (bravo 150) & 150 & 60 & 20 & 180 & 1.2 & 250 \\
+\bottomrule
+\end{tabular}
+\caption{Lo único que separa a las personalidades es cuánto se les premia embestir. Los valores de generaciones corresponden a la última ronda; cada ronda arranca de la anterior.}
+\end{table}
+
+\subsection{Evolución}
+No hay gradientes ni aprendizaje durante la carrera. Con parámetros $\Theta \in \mathbb{R}^{199}$, en cada generación:
+\begin{enumerate}
+\item Se generan pistas nuevas, una por mundo, y la población de 36 corre en grupos de 6 sorteados.
+\item Se promedia $F$ entre pistas y se ordena la población.
+\item Pasan intactos los 8 mejores (elitismo), y los otros 28 son hijos mutados de un padre al azar entre ellos:
+\begin{equation}
+\Theta' = \Theta + \sigma\,\varepsilon, \qquad \varepsilon \sim \mathcal{N}(0, I), \qquad \sigma \sim \mathcal{U}[0.02,\ 0.15].
+\end{equation}
+\end{enumerate}
+Como cada generación ve seis mundos y pistas distintas, un cerebro especializado en uno solo no sobrevive: lo que se selecciona es generalizar. Al final se eligen los 3 mejores en 18 pistas nuevas ($3$ tamaños $\times\ 6$ mundos). Los bravos entrenan contra corredores ya entrenados. Una ronda adicional de los bravos forzó el volcán en cada generación, porque ahí se seguían quemando.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{img/convergencia.pdf}
+\caption{Aptitud media y salidas de pista por generación, tal como quedaron en \texttt{logs/}.}
+\end{figure}
+
+\subsection{Hándicap}
+Para que nadie gane siempre, cada caballo $i$ tiene un multiplicador $h_i$ de velocidad, ajustado con su tasa de victorias $p_i$ en carreras simuladas en todos los mundos:
+\begin{equation}
+h_i \leftarrow h_i \left(\frac{1/n}{\max(p_i,\ 0.01)}\right)^{0.07},
+\end{equation}
+tras lo cual se normalizan a media 1 y se recortan a $[0.7,\ 1.25]$. En carrera, $f = h_i\, u$, con forma del día $u \sim \mathcal{U}[0.93,\ 1.07]$. Es una iteración de punto fijo: el exponente pequeño evita oscilaciones.
+
+\section{Aprender durante la partida}
+\subsection{Caballos de la casa}
+Después de cada carrera, los caballos de la casa repasan en segundo plano mientras el juego está abierto. Con $n_X$ los errores que cometió en esa carrera, el castigo de cada error crece con $\text{peor}(n) = 1 + \min(n, 2)$:
+\begin{equation}
+\begin{split}
+F_{\text{lección}} = {} & D + (T_{\max} - t_{\text{fin}}) + 5J + H_k \min(G, 8) + 300\,b \\
+& - 15\,\text{peor}(n_E)\,E - 40\,\text{peor}(n_C)\,C - 10\,\text{peor}(n_R)\,R - 40\,\text{peor}(n_M)\,M,
+\end{split}
+\end{equation}
+con $H_k = 0, 60, 100, 150$ según la personalidad. Son 30 generaciones, población 18, élite 5 y $\sigma \in [0.02,\ 0.1]$; el mundo de esa carrera se fuerza en una de las tres pistas de cada generación.
+
+\paragraph{Examen pareado.} Un caballo puede parecer mejor por pura suerte, así que el cambio se conserva solo si pasa un examen en 36 pistas nuevas, recorridas por el caballo viejo y el nuevo con la misma semilla de azar. Con $\Delta_j$ la diferencia de rivales vencidos en la pista $j$:
+\begin{equation}
+\bar\Delta = \frac{1}{36}\sum_{j}\Delta_j, \qquad \mathrm{SE} = \frac{\operatorname{sd}(\Delta)}{\sqrt{36}},
+\end{equation}
+\begin{equation}
+\text{se acepta} \iff \bar\Delta > 0 \ \wedge\ \bar\Delta > \tfrac{1}{2}\mathrm{SE} \ \wedge\ \bar G_{\text{después}} \ge 0.8\, \bar G_{\text{antes}}.
+\end{equation}
+La última condición, para los que embisten, impide que pierdan su personalidad. Es un criterio poco exigente (medio error estándar): deja pasar algunas falsas mejoras a cambio de no desperdiciar las reales.
+
+\subsection{Potros de los jugadores}
+Cada entrenamiento sube un rasgo del cuerpo (velocidad $+0.015$ hasta $0.06$, giro $+0.05$ hasta $0.2$, fuerza $+0.1$ hasta $0.4$), reentrena el cerebro 60 generaciones con ese cuerpo y lo examina igual, contra el caballo de antes. El cerebro nuevo se conserva si $\bar\Delta > \mathrm{SE}/2$ en el rasgo y no pierde más de $0.3$ rivales vencidos por carrera. Cuesta una carrera: mientras entrena, el potro no compite.
+
+\section{Las cuotas}
+\subsection{Probabilidad}
+Cada caballo tiene un rating $r_i$ que empieza en 0. Tras llegar en el puesto $k$:
+\begin{equation}
+r_i \leftarrow \operatorname{clip}\!\left(0.92\, r_i + \delta_k,\ -1.2,\ 1.2\right), \qquad \delta = (0.6,\ 0.3,\ 0.1,\ -0.15,\ -0.35,\ -0.5).
+\end{equation}
+El rating predice poco, porque manda la forma del día, así que se mezcla con ``todos iguales'' con $\alpha = 0.35$:
+\begin{equation}
+q_i = \frac{1-\alpha}{n} + \alpha \frac{e^{r_i}}{\sum_j e^{r_j}}.
+\end{equation}
+Luego se pondera por lo aprendido $\epsilon_i$ y por la ventaja de su personalidad $k$ en el mundo $w$, $e_{w,k}$:
+\begin{equation}
+\pi_i = \frac{q_i\, \epsilon_i\, e_{w,k_i}}{\sum_j q_j\, \epsilon_j\, e_{w,k_j}}.
+\end{equation}
+En la primera carrera de la partida todos los caballos de la casa pagan igual, sin $\epsilon$ ni $e$.
+
+\paragraph{Ventaja por mundo.} Con $W_k$ las victorias de la personalidad $k$ en $R = 2500$ carreras simuladas en ese mundo, $m_k$ los caballos que la tienen y suavizado $\lambda = 15$:
+\begin{equation}
+e_{w,k} = \frac{W_k + \lambda\, m_k}{R + \lambda\, n} \cdot \frac{n}{m_k}.
+\end{equation}
+
+\paragraph{Ventaja aprendida.} Con $w_i$ victorias en $R = 600$ carreras simuladas y suavizado 5:
+\begin{equation}
+\epsilon_i = \frac{w_i + 5}{R + 5n}\, n.
+\end{equation}
+Un potro entrenado multiplica su peso por $\exp(20\,\text{vel} + 4\,\text{giro})$.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccccl}
+\toprule
+Mundo & Corredor & Pícaro & Bravo & Muy bravo & Suele ganar \\
+\midrule
+Hipódromo & 0.956 & 1.089 & 1.334 & 0.709 & Bravo \\
+Nieve & 1.111 & 1.047 & 0.985 & 0.635 & Corredor \\
+Luna & 0.819 & 1.506 & 0.454 & 1.582 & Muy bravo \\
+Volcán & 1.609 & 0.338 & 0.475 & 0.359 & Corredor \\
+Desierto & 0.892 & 0.950 & 1.446 & 0.929 & Bravo \\
+Pantano & 0.808 & 1.005 & 1.325 & 1.244 & Bravo \\
+\bottomrule
+\end{tabular}
+\caption{$e_{w,k}$ medido con 2500 carreras por mundo. 1 es ``gana lo que le toca''. Nadie programó estas diferencias: en el volcán, por ejemplo, los que buscan pelea rinden mucho menos.}
+\end{table}
+
+\subsection{De la probabilidad a la cuota}
+Para las combinadas se usa la fórmula de Harville:
+\begin{equation}
+P(i_1, i_2, \dots, i_m \text{ en ese orden}) = \prod_{\ell=1}^{m} \frac{\pi_{i_\ell}}{1 - \sum_{u<\ell} \pi_{i_u}}.
+\end{equation}
+Por ejemplo, $P(i \text{ queda 1º o 2º}) = \pi_i + \sum_{j\ne i} \pi_j\pi_i/(1-\pi_j)$. La cuota es
+\begin{equation}
+O = \operatorname{clip}\!\left(\min\!\left(\frac{\tau_c}{P},\ 1.2\,\frac{\tau_c}{P_{\text{iguales}}}\right),\ 1.05,\ 5000\right),
+\end{equation}
+donde $\tau_c$ es el factor de pago en la carrera $c$, que sube linealmente desde su valor inicial $\tau^0$ hasta $0.8$:
+\begin{equation}
+\tau_c = \tau^0 + (0.8 - \tau^0)\min\!\left(1,\ \frac{c-1}{4}\right).
+\end{equation}
+El valor esperado de apostar una ficha con cuota $O$ a algo de probabilidad real $P^{*}$ es $O P^{*}$; si la casa estima bien, vale $\tau_c$. Es decir: desde la carrera 5, por cada ficha apostada se devuelven 0.8 en promedio. En la carrera 1 ``Que gane'' paga x2 en todos, y las primeras carreras son deliberadamente generosas.
+
+\subsection{Comisión del dueño}
+Si gana un potro con dueño, además de su premio, el dueño recibe el 20\,\% de lo que ganó la casa con las apuestas de esa carrera:
+\begin{equation}
+\text{comisión} = \left\lfloor 0.2\, \max\!\left(0,\ \textstyle\sum \text{apostado} - \sum \text{pagado}\right) \right\rfloor.
+\end{equation}
+
+\section{Resultados medidos}
+Antes de entrenar por mundo, en el volcán el 76\,\% de los caballos no llegaba a la meta y había 31 salidas por carrera. Después del entrenamiento, ningún caballo deja de llegar en ningún mundo.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+Mundo & Tiempo (s) & No llega & Salidas & Tropiezos & Pisados & Embestidas \\
+\midrule
+Hipódromo & 33.2 & 0\,\% & 1.2 & 0.2 & 5.4 & 4.2 \\
+Nieve & 37.4 & 0\,\% & 1.7 & 2.3 & 11.7 & 4.5 \\
+Luna & 41.6 & 0\,\% & 1.0 & 7.8 & 7.8 & 4.3 \\
+Volcán & 37.1 & 0\,\% & 3.6 & 1.4 & 2.4 & 3.5 \\
+Desierto & 34.3 & 0\,\% & 1.2 & 1.7 & 10.9 & 4.3 \\
+Pantano & 33.7 & 0\,\% & 1.0 & 0.6 & 5.6 & 4.1 \\
+\bottomrule
+\end{tabular}
+\caption{Promedio por caballo y carrera en 200 carreras de cada mundo.}
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Salidas por carrera & Primeras 20 gen. & Últimas 20 gen. \\
+\midrule
+Corredor & 3.15 & 1.74 \\
+Pícaro & 2.38 & 1.97 \\
+Bravo & 8.56 & 4.90 \\
+Muy bravo & 7.77 & 3.07 \\
+\bottomrule
+\end{tabular}
+\caption{Mejora durante el entrenamiento por mundos: primeras y últimas 20 generaciones de los registros.}
+\end{table}
+
+\paragraph{La casa.} En dos pruebas de 3840 carreras simuladas, apostar a ciegas devuelve en promedio entre $0.74$ y $0.76$ por ficha, y la mejor estrategia fija que ignora el mundo entre $0.86$ y $0.88$. La mejor apuesta sabiendo el mundo fue siempre ``Que gane'' al muy bravo en la Luna: devolvió $1.13$ en una prueba y $1.00$ en la otra (unas 650 carreras cada una). Sin las cuotas por mundo devolvía $1.60$.
+
+\paragraph{Aprendizaje por carrera.} Cada caballo tomó 8 lecciones por separado, en mundos al azar y contra los otros cinco sin aprender. Luego se comparó antes y después en 600 carreras de todos los mundos con las mismas semillas.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Caballo & Aceptadas & Gana (\%) & Puesto medio & Salidas \\
+\midrule
+Don Galope & 1/8 & $16.3 \to 18.3$ & $3.15 \to 3.21$ & $1.08 \to 1.14$ \\
+Herradura Loca & 1/8 & $16.3 \to 30.7$ & $4.01 \to 3.40$ & $2.94 \to 3.25$ \\
+Sir Relincho & 0/8 & $17.7 \to 17.7$ & $3.26 \to 3.26$ & $1.00 \to 1.00$ \\
+Patas de Trueno & 4/8 & $17.5 \to 17.5$ & $3.68 \to 3.56$ & $2.03 \to 2.44$ \\
+Pura Sangre Fría & 2/8 & $16.0 \to 15.8$ & $3.35 \to 3.32$ & $1.07 \to 1.12$ \\
+Pancho Trotes & 2/8 & $18.5 \to 18.8$ & $3.35 \to 3.29$ & $1.57 \to 1.55$ \\
+\bottomrule
+\end{tabular}
+\caption{Antes y después de 8 lecciones. Con 600 carreras, el error estándar de cada porcentaje de victorias es de unos 1.5 puntos.}
+\label{tab:lecciones}
+\end{table}
+
+Herradura Loca es la única mejora clara, y es la que más margen tenía, porque era la de peor puesto medio. Una sola lección aceptada le bastó; también se sale un poco más. Cuando un caballo mejora así, $\epsilon_i$ baja sus cuotas para que apostarle no le gane a la casa.
+
+\section{Limitaciones}
+\begin{itemize}
+\item \textbf{Saber el mundo puede dar una ventaja pequeña.} El mejor caso entre muchas combinaciones devolvió entre $1.00$ y $1.13$ por ficha. Parte de eso es el sesgo de escoger el máximo, y las dos pruebas no coinciden, pero no está descartado que exista una ventaja real, aunque pequeña. El juego muestra a propósito quién ``suele ganar'' en cada mundo.
+\item \textbf{Esquivan poco.} Los caballos pisan muchos obstáculos pisables (hasta $11.7$ por carrera en la nieve). Aprendieron a soportar el mundo más que a rodearlo; la explicación probable, no comprobada, es que en una pista angosta esquivar cuesta casi lo mismo que pisar.
+\item \textbf{La Luna tiene muchos tropiezos} ($7.8$), casi todos por cráteres.
+\item \textbf{El volcán no está equilibrado:} el corredor gana muy por encima de los demás ($e = 1.61$), y sigue siendo el mundo con más salidas ($3.6$). Las cuotas lo compensan, pero la carrera es menos pareja.
+\item \textbf{El aprendizaje por carrera es desigual.} De seis caballos con 8 lecciones cada uno, solo Herradura Loca mejoró con claridad; los demás quedaron dentro del ruido (tabla~\ref{tab:lecciones}). El examen pareado reduce el riesgo de empeorar, no lo elimina, y 8 lecciones son pocas para sacar conclusiones sobre partidas largas.
+\item \textbf{Las tablas dependen de los cerebros.} Al reentrenar hay que correr \texttt{calibrar.js} otra vez; un caballo que aprende cambia $\epsilon_i$, pero no $e_{w,k}$.
+\end{itemize}
+
+\section*{Reproducir}
+\begin{verbatim}
+node entrenar.js corredor 300 0 1 100
+node entrenar.js bravo 300 60 1 100
+node entrenar.js bravo 250 100 1.2 150
+node entrenar.js bravo 250 150 1.2 180
+node calibrar.js 6 300
+\end{verbatim}
+
+\end{document}

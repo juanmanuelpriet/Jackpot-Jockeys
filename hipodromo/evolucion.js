@@ -1,9 +1,10 @@
 // evolucion.js — Núcleo de la neuroevolución multi-caballo. Lo usan entrenar.js (consola)
 // y el entrenamiento de los caballos de los jugadores dentro del juego (entrenador.js).
 
-const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, upgradeBrain, cloneBrain, mutateBrain, FPS } = require('./sim');
+const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, upgradeBrain, cloneBrain, mutateBrain, FPS, MUNDOS } = require('./sim');
 
 const SIZES = ['corta', 'media', 'larga'];
+const WORLDS = Object.keys(MUNDOS);
 
 // Aptitud: avanzar, terminar rápido (cada tick ahorrado vale un punto), saltar, no tropezar
 // ni salirse. `hit` premia cada embestida dada (máx. 8), `taken` castiga las recibidas y
@@ -58,14 +59,17 @@ function evaluate(population, tracks, opts) {
 
 // Evoluciona a partir de `seeds`. Llama a onGeneration(g, ranked, tracks) en cada generación.
 function evolve(opts) {
-  const { seeds, generations, rng, pop = 36, elite = 8, tracksPerGen = 3, exploreEnv = false, envNoise = 1.5, mutation = [0.05, 0.25], onGeneration } = opts;
+  const { seeds, generations, rng, pop = 36, elite = 8, tracksPerGen = 3, exploreEnv = false, envNoise = 1.5, mutation = [0.05, 0.25], focusWorld, onGeneration } = opts;
   const base = seeds.map(upgradeBrain);
   let population = base.map(cloneBrain);
   while (population.length < pop) population.push(mutateBrain(base[population.length % base.length], 0.1 + rng() * 0.3, rng));
   let ranked = [];
   for (let g = 1; g <= generations; g++) {
     const seed = Math.floor(rng() * 1e6);
-    const tracks = Array.from({ length: tracksPerGen }, (_, k) => new Track(seed + k, null, SIZES[(g + k) % SIZES.length]));
+    // Cada generación corre en mundos distintos para que aprenda a correr en todos
+    const w0 = Math.floor(rng() * WORLDS.length);
+    const tracks = Array.from({ length: tracksPerGen }, (_, k) => new Track(seed + k, null, SIZES[(g + k) % SIZES.length],
+      focusWorld && k === 0 ? focusWorld : WORLDS[(w0 + k) % WORLDS.length]));
     const stats = evaluate(population, tracks, opts);
     ranked = population.map((b, i) => ({ b, ...stats[i] })).sort((a, b) => b.s - a.s);
     if (onGeneration) onGeneration(g, ranked, tracks, seed);
@@ -83,7 +87,7 @@ function evolve(opts) {
 
 // Elige los `n` mejores cerebros distintos en pistas nuevas
 function pickBest(population, n, opts, testSeed = 900000) {
-  const test = SIZES.flatMap((s, k) => [0, 1, 2].map(i => new Track(testSeed + k * 10 + i, null, s)));
+  const test = SIZES.flatMap((s, k) => WORLDS.map((w, i) => new Track(testSeed + k * 10 + i, null, s, w)));
   const stats = evaluate(population, test, opts);
   const finals = population.map((b, i) => ({ b, s: stats[i].s, stats: stats[i] })).sort((a, b) => b.s - a.s);
   const chosen = [];
@@ -138,7 +142,8 @@ function exam(brains, optsList, focus, tracks) {
 function trainHorse({ brain, body = {}, focus, form = 1, rivals, rivalForm = 1, rng, onProgress }) {
   const f = FOCUS[focus];
   const nextBody = { ...body, [f.trait]: Math.min(f.max, (body[f.trait] || 0) + f.step) };
-  const newTrack = size => new Track(Math.floor(rng() * 1e6), null, size);
+  let made = 0;
+  const newTrack = size => new Track(Math.floor(rng() * 1e6), null, size, WORLDS[made++ % WORLDS.length]);
   const base = { fitness: f.fitness, rivals, rivalForm, rng };
   const before = { ...base, ...bodyOpts(body, form) }, after = { ...base, ...bodyOpts(nextBody, form) };
 
@@ -163,13 +168,14 @@ function trainHorse({ brain, body = {}, focus, form = 1, rivals, rivalForm = 1, 
 const LEARN_GENERATIONS = 30;
 const STYLE_HIT = { corredor: 0, picaro: 60, bravo: 100, muybravo: 150 };
 const MIN_HITS_KEPT = 0.8;
-function learnFromRace({ brain, form = 1, pers, report = {}, rivals, rng }) {
+function learnFromRace({ brain, form = 1, pers, report = {}, rivals, world, rng }) {
   const worse = n => 1 + Math.min(n || 0, 2);
   const fitness = makeFitness({ hit: STYLE_HIT[pers] || 0, place: 300, fall: 40 * worse(report.falls), stumble: 15 * worse(report.stumbles),
     mud: 40 * worse(report.mudHits), taken: 10 * worse(report.hitsTaken) });
   const opts = { fitness, rivals, rng, form };
-  const population = evolve({ ...opts, seeds: [brain], generations: LEARN_GENERATIONS, pop: 18, elite: 5, tracksPerGen: 3, mutation: [0.02, 0.1] });
-  const newTrack = size => new Track(Math.floor(rng() * 1e6), null, size);
+  const population = evolve({ ...opts, seeds: [brain], generations: LEARN_GENERATIONS, pop: 18, elite: 5, tracksPerGen: 3, mutation: [0.02, 0.1], focusWorld: world });
+  let made = 0;
+  const newTrack = size => new Track(Math.floor(rng() * 1e6), null, size, WORLDS[made++ % WORLDS.length]);
   const finalists = [upgradeBrain(brain), ...population.slice(0, 5)];
   const check = SIZES.flatMap(s => Array.from({ length: 6 }, () => newTrack(s)));
   const best = evaluate(finalists, check, opts).map((s, i) => ({ s: s.s, b: finalists[i] })).sort((a, b) => b.s - a.s)[0].b;
@@ -184,11 +190,11 @@ const EDGE_SMOOTHING = 5;
 function houseEdges(brains, forms, races, rng) {
   const wins = brains.map(() => 0);
   for (let r = 0; r < races; r++) {
-    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length]), brains, forms.map(f => f * (0.93 + rng() * 0.14)), rng);
+    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length], WORLDS[r % WORLDS.length]), brains, forms.map(f => f * (0.93 + rng() * 0.14)), rng);
     const rank = h => h.finished ? h.finishTick : maxTicks * 10 - h.total;
     wins[horses.reduce((best, h, i) => rank(h) < rank(horses[best]) ? i : best, 0)]++;
   }
   return wins.map(w => (w + EDGE_SMOOTHING) / (races + EDGE_SMOOTHING * brains.length) * brains.length);
 }
 
-module.exports = { makeFitness, evaluate, evolve, pickBest, trainHorse, bodyOpts, exam, learnFromRace, houseEdges, FOCUS, TRAIN_GENERATIONS, SIZES };
+module.exports = { makeFitness, evaluate, evolve, pickBest, trainHorse, bodyOpts, exam, learnFromRace, houseEdges, FOCUS, TRAIN_GENERATIONS, SIZES, WORLDS };

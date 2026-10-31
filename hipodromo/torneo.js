@@ -5,7 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, FPS, SIZES } = require('./sim');
+const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, FPS, MUNDOS, SIZES } = require('./sim');
 const { HORSES, POWERS, loadBrains, loadHandicap, applyPower } = require('./establo');
 
 const RACES = parseInt(process.argv[2] || '400', 10);
@@ -23,7 +23,8 @@ const rows = [];
 for (let r = 1; r <= RACES; r++) {
   const seed = Math.floor(rng() * 1e6);
   const size = sizes[Math.floor(rng() * sizes.length)];
-  const track = new Track(seed, null, size);
+  const worlds = Object.keys(MUNDOS);
+  const track = new Track(seed, null, size, worlds[r % worlds.length]);
   const forms = HORSES.map(() => +(0.93 + rng() * 0.14).toFixed(3));
   const gates = drawGates(HORSES.length, rng);
   const horses = HORSES.map((_, i) => new Horse(track, brains[i], { id: i, form: forms[i] * handicap[i], lane: laneOffset(gates[i], HORSES.length) }));
@@ -57,7 +58,7 @@ for (let r = 1; r <= RACES; r++) {
     const place = order.indexOf(i) + 1;
     rows.push({
       carrera: r, seed, tamano: size, largo_pista: Math.round(track.length), vueltas: track.laps,
-      obstaculos: track.obstacles.filter(o => o.type === 'valla').length,
+      obstaculos: track.obstacles.filter(o => o.kind === 'salto' || o.kind === 'solido').length,
       caballo: i + 1, nombre: HORSES[i].name, perfil: HORSES[i].perfil, estilo: HORSES[i].estilo, color: HORSES[i].color, forma: forms[i], handicap: handicap[i], carril: gates[i] + 1,
       puesto: place, gano: place === 1, terminado: h.finished,
       tiempo_s: h.finished ? +(h.finishTick / FPS).toFixed(2) : '',

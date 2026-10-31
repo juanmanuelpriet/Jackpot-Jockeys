@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, FPS, SIZES } = require('./sim');
+const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, FPS, SIZES, MUNDOS } = require('./sim');
 const { HORSES, loadBrains, loadHandicap } = require('./establo');
 
 const ITER = parseInt(process.argv[2] || '8', 10);
@@ -14,11 +14,12 @@ const RACES = parseInt(process.argv[3] || '300', 10);
 const brains = loadBrains(() => {});
 const sizes = Object.keys(SIZES);
 const n = HORSES.length;
+const worlds = Object.keys(MUNDOS);
 
-function winRates(handicap, rng) {
+function winRates(handicap, rng, only = null, races = RACES) {
   const wins = new Array(n).fill(0);
-  for (let r = 0; r < RACES; r++) {
-    const track = new Track(Math.floor(rng() * 1e6), null, sizes[r % sizes.length]);
+  for (let r = 0; r < races; r++) {
+    const track = new Track(Math.floor(rng() * 1e6), null, sizes[r % sizes.length], only || worlds[r % worlds.length]);
     const gates = drawGates(n, rng);
     const horses = HORSES.map((_, i) => new Horse(track, brains[i], {
       id: i, form: (0.93 + rng() * 0.14) * handicap[i], lane: laneOffset(gates[i], n),
@@ -33,7 +34,7 @@ function winRates(handicap, rng) {
       || horses.slice().sort((a, b) => b.total - a.total)[0];
     wins[first.id]++;
   }
-  return wins.map(w => w / RACES);
+  return wins.map(w => w / races);
 }
 
 // Arranca desde el hándicap guardado (si existe) para converger más rápido
@@ -51,3 +52,20 @@ for (let it = 1; it <= ITER; it++) {
 const out = Object.fromEntries(HORSES.map((h, i) => [h.name, +handicap[i].toFixed(4)]));
 fs.writeFileSync(path.join(__dirname, 'handicap.json'), JSON.stringify(out, null, 2) + '\n');
 console.log('Guardado handicap.json', out);
+
+// En cada mundo a unas personalidades les va mejor: las cuotas deben saberlo o apostarles siempre
+// le ganaría a la casa. Suavizado para no exagerar con pocas carreras
+const WORLD_RACES = RACES * 5, SMOOTH = 15, pers = [...new Set(HORSES.map(h => h.pers))];
+const table = Object.fromEntries(worlds.map(w => {
+  const p = winRates(handicap, rng, w, WORLD_RACES);
+  const edge = Object.fromEntries(pers.map(k => {
+    const idx = HORSES.flatMap((h, i) => h.pers === k ? [i] : []);
+    const wins = idx.reduce((a, i) => a + p[i], 0) * WORLD_RACES;
+    return [k, +((wins + SMOOTH * idx.length) / (WORLD_RACES + SMOOTH * n) * n / idx.length).toFixed(3)];
+  }));
+  const mejor = pers.reduce((a, b) => edge[b] > edge[a] ? b : a);
+  console.log(w.padEnd(10), JSON.stringify(edge), 'mejor', mejor);
+  return [w, { edge, mejor }];
+}));
+fs.writeFileSync(path.join(__dirname, 'cuotas_mundo.json'), JSON.stringify(table, null, 2) + '\n');
+console.log('Guardado cuotas_mundo.json');

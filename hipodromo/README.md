@@ -89,14 +89,14 @@ carrera 5 ninguna estrategia recupera más de ~0.87 por ficha. El análisis est�
 
 ### Personalidades
 
-En la pantalla grande se ven mientras se apuesta; en el celular, junto al nombre. Datos de 450 carreras simuladas:
+En la pantalla grande se ven mientras se apuesta; en el celular, junto al nombre. Datos de 600 carreras simuladas por personalidad, en todos los mundos:
 
 | | Personalidad | Cómo corre | Podio | Choques por carrera | Gana en pista corta / larga |
 |---|---|---|---|---|---|
-| 💨 | Corredor | Limpio y constante | 55 % | 2.7 | 20 % / 12 % |
-| 🦊 | Pícaro | Empuja a veces y recibe pocos golpes | 51 % | 3.4 | 13 % / 13 % |
-| 😤 | Bravo | Busca pelea | 48 % | 5.0 | 11 % / 27 % |
-| 🔥 | Muy bravo | Todo o nada | 36 % | 5.4 | 16 % / 23 % |
+| 💨 | Corredor | Limpio y constante | 57 % | 3.5 | 22 % / 8 % |
+| 🦊 | Pícaro | Empuja a veces y es el que menos golpes recibe | 52 % | 3.0 | 14 % / 19 % |
+| 😤 | Bravo | Busca pelea | 44 % | 5.1 | 14 % / 21 % |
+| 🔥 | Muy bravo | Todo o nada | 32 % | 6.7 | 5 % / 37 % |
 
 ### Poderes
 
@@ -149,12 +149,13 @@ Se puede entrenar lo que quieras y cuando quieras, pero **cada entrenamiento le 
 
 ## Cómo funcionan los caballos
 
-**Red neuronal:** 14 → 8 → 3 → 3 → 2 (tanh). Decide giro y acelerador y no tiene ninguna regla de embestir. Percibe:
+**Red neuronal:** 18 → 8 → 3 → 3 → 2 (tanh). Decide giro y acelerador y no tiene ninguna regla de embestir. Percibe:
 
 - 5 sensores de distancia a bordes y vallas
 - distancia, rumbo y velocidad del rival más cercano, y si tiene escudo o furia
 - si él mismo tiene furia o turbo
-- distancia al barro y de qué lado está
+- distancia al obstáculo que se pisa adelante, de qué lado está y qué tan grave es
+- agarre del suelo, viento de lado y gravedad
 - su puesto en la carrera
 
 | Caballo | Personalidad | Cerebro |
@@ -170,8 +171,22 @@ casa ganen parecido.
 **Pistas:** cada carrera genera una nueva, corta, media o larga, siempre de 2 vueltas. Los caballos entrenan en pistas
 que nunca vieron.
 
-**Obstáculos:** las vallas se saltan con buena velocidad; si no, el caballo tropieza. El barro frena. Quien se sale
-vuelve al centro, pero pierde tiempo.
+**Mundos:** cada carrera se corre en uno distinto al anterior. Los mismos cerebros corren en todos, y entrenaron en todos:
+
+| | Mundo | Física | Obstáculos |
+|---|---|---|---|
+| 🏇 | Hipódromo | La de siempre | Vallas y barro |
+| ❄️ | Nieve | Derrapa en las curvas | Pinos, hielo y nevadas |
+| 🌙 | Luna | Poca gravedad y mucha inercia | Rocas y cráteres |
+| 🌋 | Volcán | La ceniza acorta la vista | Lava, géiseres y basalto |
+| 🏜️ | Desierto | Viento de lado | Cactus, arena y remolinos |
+| 🐊 | Pantano | Suelo blando | Troncos, ciénaga y caimanes |
+
+A cada personalidad le va distinto en cada mundo, y las cuotas lo saben (`cuotas_mundo.json`). Las ecuaciones completas,
+lo medido y las limitaciones están en [docs/como_funciona.pdf](docs/como_funciona.pdf).
+
+**Obstáculos:** los de salto se pasan con buena velocidad; si no, el caballo tropieza. Los sólidos siempre lo hacen
+tropezar. Los que se pisan frenan, hacen perder el control, aturden o queman. Quien se sale vuelve al centro, pero pierde tiempo.
 
 **Embestidas:** el que va hacia el otro con más ímpetu lo aturde 0.6 s y sale con un impulso de medio segundo.
 
@@ -183,16 +198,18 @@ vuelve al centro, pero pierde tiempo.
 
 Con 42 lecciones por caballo, medidas en 500 carreras contra los originales, los seis llegan en mejor puesto: de 0.03 a 0.44 puestos, y solo unos claramente más que el ruido. Solo uno gana cada carrera, así que no pueden ganar siempre.
 
-Lo aprendido se guarda en `caballos_aprendidos.json`, junto a las cuentas. Los cerebros de fábrica no cambian y borrar ese archivo los restaura.
+Con mundos, tras 8 lecciones por caballo y 600 carreras de comparación, solo Herradura Loca mejoró con claridad (de 16 % a 31 % de victorias); los otros cinco quedaron dentro del ruido.
+
+Lo aprendido se guarda en `caballos_aprendidos_mundos.json`, junto a las cuentas. Los cerebros de fábrica no cambian y borrar ese archivo los restaura.
 
 ## Entrenar los caballos de la casa
 
 ```bash
-node entrenar.js corredor 300            # caballos_corredor.json
-node entrenar.js bravo 300 60            # caballos_bravo_60.json (pícaro)
-node entrenar.js bravo 200 100 1.2 150   # caballos_bravo_100.json (bravo)
-node entrenar.js bravo 200 150 1.2 180   # caballos_bravo_150.json (muy bravo)
-node calibrar.js 8 500                   # handicap.json
+node entrenar.js corredor 300 0 1 100    # caballos_corredor.json
+node entrenar.js bravo 300 60 1 100      # caballos_bravo_60.json (pícaro)
+node entrenar.js bravo 250 100 1.2 150   # caballos_bravo_100.json (bravo)
+node entrenar.js bravo 250 150 1.2 180   # caballos_bravo_150.json (muy bravo)
+node calibrar.js 6 300                   # handicap.json y cuotas_mundo.json
 node torneo.js 600 0.7                   # logs/torneo.csv
 jupyter notebook analisis.ipynb          # gráficas en analisis/
 ```
@@ -208,6 +225,7 @@ el servidor para que use los caballos nuevos.
 | `sala.js` | Reglas de la partida: apuestas, poderes, mafia, peñas, potros y podios |
 | `cuotas.js` | Cuotas de la casa |
 | `sim.js` | Pistas, física, choques y red neuronal |
+| `mundos.js` | Física y obstáculos de cada mundo |
 | `establo.js` | Caballos, personalidades, poderes y disfraces |
 | `evolucion.js`, `entrenador.js` | Neuroevolución y entrenamiento de potros en un hilo aparte |
 | `entrenar.js`, `calibrar.js`, `torneo.js`, `analisis.ipynb` | Entrenamiento de la casa, hándicap y análisis |
@@ -215,4 +233,6 @@ el servidor para que use los caballos nuevos.
 | `compartir.js`, `app/main.js` | Túnel de Cloudflare y app de escritorio |
 | `public/pantalla.html`, `public/cel.html` | Pantalla grande y celular |
 | `aprendiz.js` | Aprendizaje de los caballos de la casa en un hilo aparte |
-| `jugadores.json`, `caballos_aprendidos.json` | Cuentas y lo que aprendió la casa; se crean solos y no se versionan |
+| `cuotas_mundo.json` | Ventaja de cada personalidad en cada mundo |
+| `docs/como_funciona.pdf` | Cómo funciona todo, con ecuaciones y mediciones |
+| `jugadores.json`, `caballos_aprendidos_mundos.json` | Cuentas y lo que aprendió la casa; se crean solos y no se versionan |

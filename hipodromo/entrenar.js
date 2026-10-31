@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { mulberry32 } = require('./sim');
-const { makeFitness, evolve, pickBest } = require('./evolucion');
+const { makeFitness, evolve, pickBest, WORLDS } = require('./evolucion');
 
 const PROFILE = process.argv[2] || 'corredor';
 const GENERATIONS = parseInt(process.argv[3] || '150', 10);
@@ -56,7 +56,8 @@ log.write('perfil,premio_golpe,velocidad,generation,seed,track_size,track_length
 
 const avg = (arr, k) => arr.reduce((a, s) => a + s[k], 0) / arr.length;
 const population = evolve({
-  ...opts, seeds, generations: GENERATIONS, exploreEnv: PROFILE === 'bravo',
+  // Cada generación corre una pista de cada mundo. Mutaciones suaves: ya saben correr y no deben olvidarlo
+  ...opts, seeds, generations: GENERATIONS, tracksPerGen: WORLDS.length, mutation: [0.02, 0.15],
   onGeneration(g, ranked, tracks, seed) {
     const best = ranked[0];
     log.write([PROFILE, PROFILE === 'bravo' ? HIT_REWARD : 0, SPEED, g, seed, tracks[0].size, Math.round(tracks[0].length),

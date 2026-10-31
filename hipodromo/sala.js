@@ -2,8 +2,8 @@
 // apuestas, poderes, la mafia, las peñas (alianzas) y los caballos de los jugadores.
 
 const crypto = require('crypto');
-const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED } = require('./sim');
-const { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, applyPower } = require('./establo');
+const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, MUNDOS } = require('./sim');
+const { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, loadWorldEdges, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
 const { TRAIN_GENERATIONS, bodyOpts } = require('./evolucion');
 const { probsFromRatings, trainedEdge, updateRating, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
@@ -73,6 +73,7 @@ const PLAYER_COLORS = ['#e85d75', '#4fb3d9', '#9bc53d', '#e0e0d8', '#b07cff', '#
 
 const BRAINS = loadBrains();
 let HANDICAP = loadHandicap();
+const WORLD_EDGE = loadWorldEdges();
 const HOUSE_EDGE = {}; // cuánto mejor es cada caballo de la casa tras aprender: baja sus cuotas
 const houseEntry = i => ({ ...HORSES[i], brain: BRAINS[i], handicap: HANDICAP[i], edge: HOUSE_EDGE[HORSES[i].name] || 1, skin: randomHouseSkin() });
 const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
@@ -149,7 +150,10 @@ class Room {
     this.match.race++;
     this.grandPrix = this.match.race % CFG.grandPrixEvery === 0;
     const size = TRACK_SIZES[Math.floor(Math.random() * TRACK_SIZES.length)];
-    this.track = new Track(Math.floor(Math.random() * 1e6), null, size);
+    // Cada carrera es en un mundo al azar, sin repetir el anterior
+    // (JJ_MUNDO fija uno para probarlo)
+    const worlds = process.env.JJ_MUNDO ? [process.env.JJ_MUNDO] : Object.keys(MUNDOS).filter(w => w !== this.track?.mundo);
+    this.track = new Track(Math.floor(Math.random() * 1e6), null, size, worlds[Math.floor(Math.random() * worlds.length)]);
     this.trackSeed = this.track.seed;
     this.lineup = this.buildLineup();
     this.forms = this.lineup.map(() => +(0.93 + Math.random() * 0.14).toFixed(3));
@@ -171,6 +175,7 @@ class Room {
     if (disguised.length) this.addLog(`Desfile de disfraces: ${disguised.map(h => `${h.name} de ${SKINS[h.skin].name}`).join(', ')}.`);
     if (this.grandPrix) this.narrate('gran_premio');
     else this.narrate('apuestas', { n: String(this.match.race), s: size });
+    this.addLog(`${this.track.world.icon} Se corre en ${this.track.world.name}. ${this.track.world.desc}`);
   }
 
   // Cajones al azar y caballos en la línea de salida (antes de arrancar se puede repetir sin problema)
@@ -265,7 +270,12 @@ class Room {
 
   // Cuotas a partir de la forma de cada caballo en la partida (en la carrera 1 todos iguales)
   requestOdds() {
-    const weights = probsFromRatings(this.lineup.map(h => this.ratings[h.name] || 0)).map((x, i) => x * (this.lineup[i].edge || 1));
+    // Lo que aprendió cada caballo y cómo le va en este mundo. La carrera 1 de la casa paga igual a todos
+    const byWorld = WORLD_EDGE[this.track.mundo]?.edge || {}, first = this.match.race <= 1;
+    const weights = probsFromRatings(this.lineup.map(h => this.ratings[h.name] || 0)).map((x, i) => {
+      const h = this.lineup[i];
+      return x * (h.owner || !first ? h.edge || 1 : 1) * (first ? 1 : byWorld[h.pers] || 1);
+    });
     const sum = weights.reduce((x, y) => x + y, 0);
     this.probs = weights.map(x => x / sum);
     this.pay = payFactors(this.match.race, this.grandPrix ? 1 + CFG.grandPrixBonus : 1, this.lineup.length);
@@ -383,11 +393,12 @@ class Room {
   // (los que llegaron justo delante; si ganó, los que llegaron detrás)
   teachHouse(order) {
     if (!this.hooks.learn) return;
+    const world = this.track.mundo;
     this.hooks.learn(this, order.flatMap((i, place) => {
       const { owner, name, brain, handicap, pers } = this.lineup[i], h = this.horses[i];
       if (owner) return [];
       const others = [...order.slice(0, place).reverse(), ...order.slice(place + 1)].slice(0, 3);
-      return [{ name, brain, form: handicap, pers, place, rivals: others.map(k => this.lineup[k].brain),
+      return [{ name, brain, form: handicap, pers, place, world, rivals: others.map(k => this.lineup[k].brain),
         report: { falls: h.falls, stumbles: h.stumbles, mudHits: h.mudHits, hitsTaken: h.hitsTaken } }];
     }));
   }
@@ -491,7 +502,7 @@ class Room {
       match: this.match, grandPrix: this.grandPrix, simHz: FPS * SIM_SPEED,
       readyCount: [...online].filter(id => this.players.get(id)?.ready).length,
       onlineCount: [...online].filter(id => this.players.has(id)).length,
-      laps: this.track.laps, trackSize: this.track.size,
+      laps: this.track.laps, trackSize: this.track.size, mundo: this.track.mundo,
       pot: this.results ? this.results.staked : total, pools,
       probs: this.probs, oddsReady: !!this.probs, pay: this.pay, oddsCap: ODDS_CAP,
       horses: this.lineup.map((h, i) => ({
@@ -515,7 +526,7 @@ class Room {
       reactions: REACTIONS,
       powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, icon: p.icon, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
-        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, collectorCut: CFG.collectorCut, ownerBonus: CFG.ownerBonus, playerHorsesPerRace: CFG.playerHorsesPerRace, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
+        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, mundos: Object.fromEntries(Object.entries(MUNDOS).map(([k, w]) => [k, { name: w.name, icon: w.icon, desc: w.desc, mejor: WORLD_EDGE[k]?.mejor || null }])), collectorCut: CFG.collectorCut, ownerBonus: CFG.ownerBonus, playerHorsesPerRace: CFG.playerHorsesPerRace, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
     };
   }
 

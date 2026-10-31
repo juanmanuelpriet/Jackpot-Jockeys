@@ -591,6 +591,7 @@ function renderCarrera() {
             ${l.mafia ? `<div class="line"><span>🕴️ Se llevó la mafia</span><span class="neg">−${fmt(l.mafia)}</span></div>` : ''}
             ${l.commission ? `<div class="line"><span>🤝 Comisión de tu peña</span><span class="pos">+${fmt(l.commission)}</span></div>` : ''}
             ${l.owner ? `<div class="line"><span>🐴 Premio de dueño</span><span class="pos">+${fmt(l.owner)}</span></div>` : ''}
+            ${l.ownerCut ? `<div class="line"><span>🏦 20 % de lo que ganó la casa</span><span class="pos">+${fmt(l.ownerCut)}</span></div>` : ''}
             ${l.favor ? `<div class="line"><span>🧾 Sabotaje (a tu deuda)</span><span class="mute">${fmt(l.favor)}</span></div>` : ''}
             <div class="line" style="font-weight:600"><span>Resultado</span><span>${signed(l.net)}</span></div>
           </div>` : `<div class="mute" style="font-size:14px;margin-top:8px">No apostaste en esta carrera.</div>`}
@@ -845,7 +846,7 @@ const SECTIONS = [
     ['🪙', `<b>Cuesta ${fmt(state.cfg.horsePrice)} fichas</b> y es tuyo para siempre.`],
     ['🧬', `<b>Elige cómo corre:</b> 💨 Corredor, limpio y constante, o 😤 Bravo, que busca pelea.`],
     ['🏇', `<b>Corre solo:</b> entra a la carrera y lo ves con la etiqueta TUYO. Corren hasta ${state.cfg.playerHorsesPerRace} potros por carrera.`],
-    ['💰', `<b>Si gana, cobras premio de dueño:</b> ${state.cfg.ownerBonus} × su cuota, mínimo 100. También puedes apostarle.`],
+    ['💰', `<b>Si gana, cobras premio de dueño:</b> ${state.cfg.ownerBonus} × su cuota, mínimo 100, más <b>20 % de lo que ganó la casa</b> con las apuestas. También puedes apostarle.`],
   ])],
   ['entreno', '🏋️', 'Así aprende tu potro', () => steps([
     ['1️⃣', `<b>Eliges qué mejorar:</b> ⚡ velocidad, 💥 choques o 🎯 control. Cuesta ${fmt(state.cfg.trainPrice)} fichas.`],

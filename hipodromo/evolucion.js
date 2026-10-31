@@ -109,6 +109,7 @@ const MAX_WORSE_PLACE = 0.3; // rivales que puede dejar de ganarle por carrera a
 const FOCUS = {
   velocidad: { trait: 'speed', step: 0.015, max: 0.06, stat: s => s.time, better: -1, fitness: (h, fb, beaten) => fb * 3 - h.falls * 30 - h.stumbles * 15 - h.hitsTaken * 5 - h.mudHits * 40 + beaten * 40 },
   agresion: { trait: 'power', step: 0.1, max: 0.4, stat: s => s.hits, better: 1, envNoise: 0.5, fitness: (h, fb, beaten) => h.hitsGiven * 150 + fb - h.falls * 40 - h.mudHits * 40 + beaten * 30 },
+  ganar: { stat: s => s.beaten, better: 1 }, // solo para los caballos de la casa (learnFromRace)
   control: { trait: 'agility', step: 0.05, max: 0.2, stat: s => s.falls + s.stumbles, better: -1, fitness: (h, fb, beaten) => -h.falls * 300 - h.stumbles * 150 - h.mudHits * 40 + fb + beaten * 30 },
 };
 
@@ -130,7 +131,7 @@ function exam(brains, optsList, focus, tracks) {
   });
   const mean = deltas.reduce((a, b) => a + b, 0) / deltas.length;
   const sd = Math.sqrt(deltas.reduce((a, d) => a + (d - mean) ** 2, 0) / (deltas.length - 1));
-  return { mean, se: sd / Math.sqrt(deltas.length), antes: average(0, stat), despues: average(1, stat), placeDelta: average(1, s => s.beaten) - average(0, s => s.beaten) };
+  return { mean, se: sd / Math.sqrt(deltas.length), antes: average(0, stat), despues: average(1, stat), hitsAntes: average(0, s => s.hits), hitsDespues: average(1, s => s.hits), placeDelta: average(1, s => s.beaten) - average(0, s => s.beaten) };
 }
 
 // Devuelve { brain, body, improved, summary: { antes, despues } }. rng decide las mutaciones y las pistas.
@@ -154,4 +155,40 @@ function trainHorse({ brain, body = {}, focus, form = 1, rivals, rivalForm = 1, 
   return { brain: best, body: nextBody, improved, summary: { antes: +e.antes.toFixed(2), despues: +e.despues.toFixed(2) } };
 }
 
-module.exports = { makeFitness, evaluate, evolve, pickBest, trainHorse, bodyOpts, exam, FOCUS, TRAIN_GENERATIONS, SIZES };
+// ─── Los caballos de la casa aprenden de cada carrera ───
+//
+// Repasa contra los rivales de esa carrera premiando sobre todo llegar primero, con más castigo en lo
+// que le falló (salidas, vallas, barro, golpes). Mutaciones suaves para no perder lo que ya sabe.
+// Solo se queda con lo aprendido si en pistas nuevas gana a más rivales y conserva su personalidad.
+const LEARN_GENERATIONS = 30;
+const STYLE_HIT = { corredor: 0, picaro: 60, bravo: 100, muybravo: 150 };
+const MIN_HITS_KEPT = 0.8;
+function learnFromRace({ brain, form = 1, pers, report = {}, rivals, rng }) {
+  const worse = n => 1 + Math.min(n || 0, 2);
+  const fitness = makeFitness({ hit: STYLE_HIT[pers] || 0, place: 300, fall: 40 * worse(report.falls), stumble: 15 * worse(report.stumbles),
+    mud: 40 * worse(report.mudHits), taken: 10 * worse(report.hitsTaken) });
+  const opts = { fitness, rivals, rng, form };
+  const population = evolve({ ...opts, seeds: [brain], generations: LEARN_GENERATIONS, pop: 18, elite: 5, tracksPerGen: 3, mutation: [0.02, 0.1] });
+  const newTrack = size => new Track(Math.floor(rng() * 1e6), null, size);
+  const finalists = [upgradeBrain(brain), ...population.slice(0, 5)];
+  const check = SIZES.flatMap(s => Array.from({ length: 6 }, () => newTrack(s)));
+  const best = evaluate(finalists, check, opts).map((s, i) => ({ s: s.s, b: finalists[i] })).sort((a, b) => b.s - a.s)[0].b;
+  const e = exam([brain, best], [opts, opts], 'ganar', Array.from({ length: EXAM_TRACKS }, (_, i) => newTrack(SIZES[i % SIZES.length])));
+  const improved = e.mean > 0 && e.mean > e.se / 2 && (!STYLE_HIT[pers] || e.hitsDespues >= e.hitsAntes * MIN_HITS_KEPT);
+  return { brain: best, improved, summary: { antes: +e.antes.toFixed(2), despues: +e.despues.toFixed(2) } };
+}
+
+// Cuánto más (o menos) gana cada caballo de la casa que uno promedio, para que sus cuotas lo reflejen
+// y la casa no pierda su ventaja cuando uno mejora. El suavizado evita exagerar por pocas carreras.
+const EDGE_SMOOTHING = 5;
+function houseEdges(brains, forms, races, rng) {
+  const wins = brains.map(() => 0);
+  for (let r = 0; r < races; r++) {
+    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length]), brains, forms.map(f => f * (0.93 + rng() * 0.14)), rng);
+    const rank = h => h.finished ? h.finishTick : maxTicks * 10 - h.total;
+    wins[horses.reduce((best, h, i) => rank(h) < rank(horses[best]) ? i : best, 0)]++;
+  }
+  return wins.map(w => (w + EDGE_SMOOTHING) / (races + EDGE_SMOOTHING * brains.length) * brains.length);
+}
+
+module.exports = { makeFitness, evaluate, evolve, pickBest, trainHorse, bodyOpts, exam, learnFromRace, houseEdges, FOCUS, TRAIN_GENERATIONS, SIZES };

@@ -37,6 +37,7 @@ const CFG = {
   horsePrice: 400,
   trainPrice: 150,
   ownerBonus: 50,         // el dueño cobra 50 × la cuota de Ganador de su caballo (mín. 100)
+  ownerCut: 0.2,          // y además 20 % de lo que gana la casa con las apuestas de esa carrera
 };
 
 const TRACK_SIZES = ['corta', 'media', 'media', 'larga'];
@@ -72,6 +73,8 @@ const PLAYER_COLORS = ['#e85d75', '#4fb3d9', '#9bc53d', '#e0e0d8', '#b07cff', '#
 
 const BRAINS = loadBrains();
 let HANDICAP = loadHandicap();
+const HOUSE_EDGE = {}; // cuánto mejor es cada caballo de la casa tras aprender: baja sus cuotas
+const houseEntry = i => ({ ...HORSES[i], brain: BRAINS[i], handicap: HANDICAP[i], edge: HOUSE_EDGE[HORSES[i].name] || 1, skin: randomHouseSkin() });
 const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
 // Hándicap de partida para los potros de los jugadores, según el tipo de cerebro con el que nacen
 const baseHandicap = perfil => perfil === 'bravo'
@@ -212,7 +215,7 @@ class Room {
     this.forms.splice(i, 1);
     if (this.lineup.length < 6) {
       const k = HORSES.findIndex(h => !this.lineup.some(x => x.name === h.name));
-      this.lineup.push({ ...HORSES[k], brain: BRAINS[k], handicap: HANDICAP[k], skin: randomHouseSkin() });
+      this.lineup.push(houseEntry(k));
       this.forms.push(+(0.93 + Math.random() * 0.14).toFixed(3));
     }
     for (const q of this.players.values()) {
@@ -239,7 +242,7 @@ class Room {
       .sort((a, b) => (a.horse.lastRace || 0) - (b.horse.lastRace || 0))
       .slice(0, CFG.playerHorsesPerRace);
     const lineup = owned.map(({ p, horse }) => this.ownedEntry(p, horse));
-    const house = HORSES.map((h, i) => ({ ...h, brain: BRAINS[i], handicap: HANDICAP[i], skin: randomHouseSkin() }))
+    const house = HORSES.map((_, i) => houseEntry(i))
       .sort(() => Math.random() - 0.5)
       .slice(0, 6 - lineup.length);
     return [...house, ...lineup].sort((a, b) => a.name.localeCompare(b.name));
@@ -316,7 +319,7 @@ class Room {
       this.ratings[name] = updateRating(this.ratings[name] || 0, place, order.length);
       this.recent[name] = [place + 1, ...(this.recent[name] || [])].slice(0, 3);
     });
-    const ledger = new Map([...this.players.values()].map(p => [p, { won: 0, mafia: 0, commission: 0, owner: 0 }]));
+    const ledger = new Map([...this.players.values()].map(p => [p, { won: 0, mafia: 0, commission: 0, owner: 0, ownerCut: 0 }]));
     // Pagar: primero pasa el cobrador de la mafia; los aliados cobran comisión (la paga la casa)
     for (const po of payouts) {
       const p = po.p;
@@ -342,7 +345,8 @@ class Room {
     if (W.owner && this.players.has(W.owner)) {
       const o = this.players.get(W.owner);
       const bonus = Math.max(100, Math.floor(CFG.ownerBonus * (this.probs ? this.oddsOf('ganador', [winner]) : 2)));
-      o.coins += bonus; o.stats.ownerWins++; ledger.get(o).owner += bonus;
+      const cut = Math.floor(Math.max(0, staked - paid) * CFG.ownerCut);
+      o.coins += bonus + cut; o.stats.ownerWins++; ledger.get(o).owner += bonus; ledger.get(o).ownerCut += cut;
       const acc = this.accounts.get(W.owner);
       if (acc?.horse) acc.horse.wins = (acc.horse.wins || 0) + 1;
       this.narrate('propietario', { p: o.name, h: W.name });
@@ -350,7 +354,7 @@ class Room {
     // Balance de la carrera de cada jugador: lo que puso contra lo que recibió
     for (const [p, l] of ledger) {
       const spent = p.race.bets + p.race.powers;
-      const got = l.won - l.mafia + l.commission + l.owner;
+      const got = l.won - l.mafia + l.commission + l.owner + l.ownerCut;
       if (spent || got || p.race.favor) p.lastRace = { ...p.race, ...l, net: got - spent };
     }
     // Intereses de la mafia
@@ -372,6 +376,20 @@ class Room {
     this.history.length = Math.min(this.history.length, 10);
     this.phase = 'resultados'; this.phaseEnds = Date.now() + CFG.resultSeconds * 1000;
     this.hooks.save();
+    this.teachHouse(order);
+  }
+
+  // Los caballos de la casa aprenden de la carrera: qué les falló y contra quién repasarla
+  // (los que llegaron justo delante; si ganó, los que llegaron detrás)
+  teachHouse(order) {
+    if (!this.hooks.learn) return;
+    this.hooks.learn(this, order.flatMap((i, place) => {
+      const { owner, name, brain, handicap, pers } = this.lineup[i], h = this.horses[i];
+      if (owner) return [];
+      const others = [...order.slice(0, place).reverse(), ...order.slice(place + 1)].slice(0, 3);
+      return [{ name, brain, form: handicap, pers, place, rivals: others.map(k => this.lineup[k].brain),
+        report: { falls: h.falls, stumbles: h.stumbles, mudHits: h.mudHits, hitsTaken: h.hitsTaken } }];
+    }));
   }
 
   // Podios en vivo (top 3 de cada categoría): se juega hasta aburrirse, así que se ven todo el tiempo
@@ -866,4 +884,7 @@ class Room {
   }
 }
 
-module.exports = { Room, roomCode, CFG, BET_TYPES, setHandicap: h => { HANDICAP = h; } };
+module.exports = { Room, roomCode, CFG, BET_TYPES, setHandicap: h => { HANDICAP = h; },
+  houseBrains: () => BRAINS, houseForms: () => HANDICAP,
+  setHouseBrain: (name, brain) => { BRAINS[HORSES.findIndex(h => h.name === name)] = brain; },
+  setHouseEdge: (name, edge) => { HOUSE_EDGE[name] = edge; } };

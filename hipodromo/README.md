@@ -85,7 +85,7 @@ Después, el que gana paga menos y el que pierde paga más.
 **La casa gana a la larga.** La forma de un caballo pesa poco en las cuotas (`cuotas.js`), ninguna cuota paga más de
 1.2 veces lo que pagaría con todos iguales, y un potro entrenado paga menos. Con 2000 carreras simuladas, desde la
 carrera 5 ninguna estrategia recupera más de ~0.87 por ficha. El análisis está en
-`analisis/Jackpot_Jockeys_Analisis.xlsx`; se hizo antes de los potros entrenados.
+`analisis/Jackpot_Jockeys_Analisis.xlsx`; se hizo antes de los potros entrenados y de que la casa aprendiera. Si un caballo mejora, sus cuotas bajan para mantener esa ventaja.
 
 ### Personalidades
 
@@ -134,7 +134,7 @@ Equipos de hasta 3 jugadores:
 
 - **Comprar:** 400 fichas, corredor o bravo. Es tuyo entre partidas.
 - **Correr:** hasta 3 potros por carrera, y hasta 8 caballos en total. Se inscribe solo.
-- **Premio de dueño:** si gana cobras 50 × su cuota de Que gane, con un mínimo de 100.
+- **Premio de dueño:** si gana cobras 50 × su cuota de Que gane, con un mínimo de 100, más el 20 % de lo que ganó la casa con las apuestas de esa carrera.
 - **Disfraces:** de 150 a 400 fichas. Solo cambian el dibujo.
 
 **Entrenar** cuesta 150 fichas. Eliges velocidad, choques o control, y `trainHorse` (`evolucion.js`) hace tres cosas:
@@ -175,6 +175,16 @@ vuelve al centro, pero pierde tiempo.
 
 **Embestidas:** el que va hacia el otro con más ímpetu lo aturde 0.6 s y sale con un impulso de medio segundo.
 
+**Aprenden de cada carrera:** al terminar, los caballos de la casa repasan de uno en uno y en un hilo aparte, empezando por los que peor llegaron:
+
+1. **Repaso:** 30 generaciones contra los rivales que tuvo cerca, premiando sobre todo llegar primero y castigando más lo que le falló (salidas, vallas, barro y golpes).
+2. **Examen:** de 36 pistas. Solo se queda con lo aprendido si gana a más rivales y, si es bravo o pícaro, conserva al menos 80 % de sus embestidas.
+3. **Cuotas:** `houseEdges` (`evolucion.js`) corre 600 carreras simuladas y baja las cuotas del que quedó mejor. Sin esto, apostarle siempre al mejor le ganaba a la casa (1.12 por ficha); con esto, ninguna estrategia pasó de 0.99.
+
+Con 42 lecciones por caballo, medidas en 500 carreras contra los originales, los seis llegan en mejor puesto: de 0.03 a 0.44 puestos, y solo unos claramente más que el ruido. Solo uno gana cada carrera, así que no pueden ganar siempre.
+
+Lo aprendido se guarda en `caballos_aprendidos.json`, junto a las cuentas. Los cerebros de fábrica no cambian y borrar ese archivo los restaura.
+
 ## Entrenar los caballos de la casa
 
 ```bash
@@ -204,4 +214,5 @@ el servidor para que use los caballos nuevos.
 | `narrador.js` | Frases del narrador |
 | `compartir.js`, `app/main.js` | Túnel de Cloudflare y app de escritorio |
 | `public/pantalla.html`, `public/cel.html` | Pantalla grande y celular |
-| `jugadores.json` | Cuentas; se crea solo y no se versiona |
+| `aprendiz.js` | Aprendizaje de los caballos de la casa en un hilo aparte |
+| `jugadores.json`, `caballos_aprendidos.json` | Cuentas y lo que aprendió la casa; se crean solos y no se versionan |

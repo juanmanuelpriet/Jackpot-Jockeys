@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const { Worker } = require('worker_threads');
 const { FPS, SIM_SPEED } = require('./sim');
 const { HORSES, loadHandicap } = require('./establo');
-const { Room, roomCode, setHandicap } = require('./sala');
+const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, houseBrains, houseForms } = require('./sala');
 const ws = require('./websocket');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -56,10 +56,61 @@ function startTraining({ accountId, room, focus, brain, body, form }) {
   });
 }
 
+// ─── Los caballos de la casa aprenden de cada carrera, de uno en uno y en hilos aparte ───
+// Lo aprendido se guarda aparte: los cerebros de fábrica no cambian y borrar el archivo los restaura.
+
+const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'caballos_aprendidos.json');
+let learned = {};
+try { learned = JSON.parse(fs.readFileSync(LEARNED_FILE, 'utf8')); } catch { /* aún no han aprendido */ }
+for (const [name, l] of Object.entries(learned)) {
+  if (l.brain) setHouseBrain(name, l.brain);
+  if (l.edge) setHouseEdge(name, l.edge);
+}
+const saveLearned = () => fs.writeFile(LEARNED_FILE, JSON.stringify(learned), () => {});
+const EDGE_RACES = 600;
+
+let lessons = [], learning = false, edgesStale = false;
+function learnFromRace(room, entries) {
+  // La lección más nueva de cada caballo; primero los que peor llegaron
+  lessons = [...lessons.filter(l => !entries.some(e => e.name === l.name)), ...entries.map(e => ({ ...e, room }))].sort((a, b) => b.place - a.place);
+  nextLesson();
+}
+function runLearner(workerData, onResult) {
+  learning = true;
+  const worker = new Worker(path.join(__dirname, 'aprendiz.js'), { workerData });
+  const done = () => { learning = false; nextLesson(); };
+  worker.once('message', r => { onResult(r); done(); });
+  worker.once('error', err => { console.error('Error aprendiendo:', err); done(); });
+}
+function nextLesson() {
+  if (learning) return;
+  if (!lessons.length) {
+    // Terminadas las lecciones, las cuotas se ponen al día con lo que aprendieron
+    if (!edgesStale) return;
+    edgesStale = false;
+    return runLearner({ edgesOf: houseBrains(), forms: houseForms(), races: EDGE_RACES }, edges => {
+      HORSES.forEach((h, i) => {
+        learned[h.name] = { ...learned[h.name], edge: edges[i] };
+        setHouseEdge(h.name, edges[i]);
+      });
+      saveLearned();
+    });
+  }
+  const { room, name, place, ...lesson } = lessons.shift();
+  runLearner({ ...lesson, brain: learned[name]?.brain || lesson.brain }, r => {
+    if (!r.improved) return;
+    learned[name] = { ...learned[name], brain: r.brain, lessons: (learned[name]?.lessons || 0) + 1 };
+    setHouseBrain(name, r.brain);
+    edgesStale = true;
+    saveLearned();
+    room.addLog(`🧠 ${name} aprendió de la carrera (lección ${learned[name].lessons}).`);
+  });
+}
+
 // ─── Salas ───
 
 const rooms = new Map();
-const hooks = { save: saveAccounts, train: startTraining };
+const hooks = { save: saveAccounts, train: startTraining, learn: learnFromRace };
 
 function createRoom() {
   let code;

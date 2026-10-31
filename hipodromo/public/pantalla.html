@@ -147,6 +147,14 @@
   @keyframes blink { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .odd .nm .rc { display: block; font-size: 11px; color: var(--cream-dim); letter-spacing: .5px; }
+  /* ─── Video tutorial: sale la primera vez y se puede saltar ─── */
+  #vid { position: fixed; inset: 0; z-index: 30; background: #000; display: none; }
+  #vid.on { display: block; }
+  #vidEl { width: 100%; height: 100%; object-fit: contain; }
+  #vidBar { position: absolute; right: 3vw; top: 3vh; display: flex; gap: 1.2vw; align-items: center; }
+  #vidBar button { font: inherit; font-size: 2.2vh; letter-spacing: .2vh; text-transform: uppercase; color: var(--green-900); background: var(--gold-hi); border: 0; padding: 1.4vh 2.2vw; cursor: pointer; }
+  #vidBar button.ghost { background: rgba(5,14,9,.8); color: var(--cream); border: 1px solid var(--line); }
+  #vidBar small { color: var(--cream); font-size: 1.7vh; letter-spacing: .1vh; }
   /* ─── Intro con caballos corriendo + tutorial a pantalla completa (se puede saltar) ─── */
   #splash { position: fixed; inset: 0; z-index: 20; background: var(--green-900); display: none; animation: fadeIn .5s; }
   #splash.on { display: block; }
@@ -252,7 +260,11 @@
     <div><div class="k">Cómo se juega</div><div id="tutSlide"></div><div id="tutDots"></div></div>
     <div id="tutJoin"><div class="k">Entra desde tu celular</div><div id="tutQr"></div><div id="tutSala"></div><div id="tutUrl"></div></div>
   </div>
-  <div id="splashBar"><button class="ghost" id="splashNext">Siguiente ›</button><button id="splashSkip">Saltar y jugar</button><small>Enter · saltar &nbsp; H · ver de nuevo</small></div>
+  <div id="splashBar"><button class="ghost" id="splashVideo">▶ Ver video</button><button class="ghost" id="splashNext">Siguiente ›</button><button id="splashSkip">Saltar y jugar</button><small>Enter · saltar &nbsp; H · ver de nuevo &nbsp; V · video</small></div>
+</div>
+<div id="vid">
+  <video id="vidEl" playsinline preload="auto"></video>
+  <div id="vidBar"><small>Enter · saltar</small><button class="ghost" id="vidSound" hidden>🔊 Activar sonido</button><button id="vidSkip">Saltar video</button></div>
 </div>
 <script>
 const PAGE_BUILD = '__BUILD__'; // lo pone el servidor al servir la página
@@ -288,6 +300,8 @@ const COATS = ['#5a321a', '#2c1a0e', '#7b4a24', '#9a7a55', '#1d1d1f', '#8a4b2a']
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 document.addEventListener('keydown', e => {
+  if (vidOn) { if (['Enter', ' ', 'Escape'].includes(e.key)) { e.preventDefault(); closeVideo(); } return; }
+  if (e.key === 'v' || e.key === 'V') return openVideo();
   if (e.key === 'h' || e.key === 'H') return splashOn ? closeSplash() : openTutorial();
   if (splashOn && ['Enter', ' ', 'Escape', 'ArrowRight'].includes(e.key)) { e.preventDefault(); return e.key === 'ArrowRight' ? nextSlide() : skipSplash(); }
   if (e.key === 's' || e.key === 'S') showSensors = !showSensors;
@@ -1595,9 +1609,33 @@ function fillTutJoin(url) {
   if (window.QRCode) new QRCode(q, { text: url, width: 220, height: 220, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
   else q.style.display = 'none';
 }
-let seenSplash = false;
-try { seenSplash = !!sessionStorage.getItem('jj_splash'); } catch {}
-if (!seenSplash) showSplash(false);
+// ─── Video tutorial ───
+// Sale solo la primera vez en este equipo: la gente nueva lo ve y se salta con un toque. Luego se abre con V.
+const vid = document.getElementById('vid'), vidEl = document.getElementById('vidEl'), vidSound = document.getElementById('vidSound');
+let vidOn = false;
+function openVideo() {
+  vidOn = true; vid.classList.add('on');
+  vidSound.hidden = true; vidEl.muted = false;
+  vidEl.src = '/tutorial.webm';
+  // El navegador puede no dejar arrancar con sonido sin un toque: entonces arranca mudo y ofrece activarlo
+  vidEl.play().catch(() => { vidEl.muted = true; vidSound.hidden = false; vidEl.play().catch(() => {}); });
+}
+function closeVideo(toSplash = false) {
+  if (!vidOn) return;
+  vidOn = false; vid.classList.remove('on');
+  vidEl.pause(); vidEl.removeAttribute('src'); vidEl.load();
+  try { localStorage.setItem('jj_video', '1'); } catch {}
+  if (toSplash) showSplash(false); else skipSplash();
+}
+vidEl.onended = () => closeVideo();
+vidEl.onerror = () => { if (vidEl.getAttribute('src')) closeVideo(true); }; // sin video, queda el tutorial de siempre
+document.getElementById('vidSkip').onclick = () => closeVideo();
+vidSound.onclick = () => { vidEl.muted = false; vidSound.hidden = true; };
+document.getElementById('splashVideo').onclick = openVideo;
+let seenSplash = false, seenVideo = false;
+try { seenSplash = !!sessionStorage.getItem('jj_splash'); seenVideo = !!localStorage.getItem('jj_video'); } catch {}
+if (!seenVideo && !qs.has('sinvideo')) openVideo();
+else if (!seenSplash) showSplash(false);
 
 // ─── Conexión ───────────────────────────────────────
 // Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola

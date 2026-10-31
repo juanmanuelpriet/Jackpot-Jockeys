@@ -299,6 +299,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // El video tutorial se sirve por partes para no cargarlo entero en memoria
+  if (url.pathname === '/tutorial.webm') {
+    const file = path.join(__dirname, 'public', 'tutorial.webm');
+    fs.stat(file, (err, st) => {
+      if (err) { res.writeHead(404); res.end(); return; }
+      const m = /bytes=(\d+)-(\d*)/.exec(req.headers.range || '');
+      const start = m ? +m[1] : 0, end = m && m[2] ? Math.min(+m[2], st.size - 1) : st.size - 1;
+      res.writeHead(m ? 206 : 200, { 'Content-Type': 'video/webm', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1,
+        ...(m ? { 'Content-Range': `bytes ${start}-${end}/${st.size}` } : {}) });
+      fs.createReadStream(file, { start, end }).pipe(res);
+    });
+    return;
+  }
+
   const page = PAGES[url.pathname];
   if (page) {
     const gz = /\bgzip\b/.test(req.headers['accept-encoding'] || '');

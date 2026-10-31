@@ -35,7 +35,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1600, height: 960, minWidth: 900, minHeight: 600,
     backgroundColor: '#0b1f15', title: 'Jackpot Jockeys', show: false, icon: path.join(__dirname, 'icono.png'),
-    webPreferences: { contextIsolation: true },
+    webPreferences: { contextIsolation: true, autoplayPolicy: 'no-user-gesture-required' }, // el video tutorial arranca con sonido
   });
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
   win.loadURL(home());

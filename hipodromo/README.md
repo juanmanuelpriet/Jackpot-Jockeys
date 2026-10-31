@@ -65,7 +65,9 @@ El anfitrión puede arrancar con **¡Iniciar ya!** y devolver a todos a las fich
 
 **Podios en vivo:** 💰 Más dinero · 💸 Más gastador · 🕴️ Amigo de la mafia · 🏋️ Mejor entrenador.
 
-**Tutoriales:** la pantalla grande tiene el suyo. El celular muestra uno corto al entrar y una guía la primera vez que
+**Video tutorial:** sale con voz la primera vez que se abre el juego en un equipo y se salta con **Saltar video** o Enter. Se vuelve a ver con la tecla **V**. Se graba con `npm run video` en un Mac (`video/guion.js` tiene lo que dice).
+
+**Tutoriales:** la pantalla grande también tiene uno por pasos. El celular muestra uno corto al entrar y una guía la primera vez que
 abres Mi caballo, Mafia o Peña. Cada sección la repite con **¿Cómo funciona?**.
 
 ### Apuestas
@@ -232,6 +234,7 @@ el servidor para que use los caballos nuevos.
 | `narrador.js` | Frases del narrador |
 | `compartir.js`, `app/main.js` | Túnel de Cloudflare y app de escritorio |
 | `public/pantalla.html`, `public/cel.html` | Pantalla grande y celular |
+| `public/tutorial.webm`, `video/` | Video tutorial y lo que lo graba |
 | `aprendiz.js` | Aprendizaje de los caballos de la casa en un hilo aparte |
 | `cuotas_mundo.json` | Ventaja de cada personalidad en cada mundo |
 | `docs/como_funciona.pdf` | Cómo funciona todo, con ecuaciones y mediciones |

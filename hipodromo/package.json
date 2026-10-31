@@ -10,8 +10,9 @@
     "calibrar": "node calibrar.js 8 500",
     "torneo": "node torneo.js 600 0.7",
     "app": "electron .",
-    "empaquetar": "electron-packager . 'Jackpot Jockeys' --platform=darwin --arch=arm64 --icon=app/icono.icns --app-bundle-id=com.jackpotjockeys.juego --out=dist --overwrite --no-asar --ignore='^/(logs|analisis|dist|docs|node_modules|calibrar\\.js|torneo\\.js|entrenar\\.js|compartir\\.js|analisis\\.ipynb|jugadores\\.json|README\\.md|caballos\\.json)($|/)'",
-    "empaquetar-windows": "electron-packager . 'Jackpot Jockeys' --platform=win32 --arch=x64 --icon=app/icono.ico --out=dist --overwrite --no-asar --ignore='^/(logs|analisis|dist|docs|node_modules|calibrar\\.js|torneo\\.js|entrenar\\.js|compartir\\.js|analisis\\.ipynb|jugadores\\.json|README\\.md|caballos\\.json)($|/)'"
+    "video": "electron video/grabar.js",
+    "empaquetar": "electron-packager . 'Jackpot Jockeys' --platform=darwin --arch=arm64 --icon=app/icono.icns --app-bundle-id=com.jackpotjockeys.juego --out=dist --overwrite --no-asar --ignore='^/(logs|analisis|dist|docs|video|node_modules|calibrar\\.js|torneo\\.js|entrenar\\.js|compartir\\.js|analisis\\.ipynb|jugadores\\.json|README\\.md|caballos\\.json)($|/)'",
+    "empaquetar-windows": "electron-packager . 'Jackpot Jockeys' --platform=win32 --arch=x64 --icon=app/icono.ico --out=dist --overwrite --no-asar --ignore='^/(logs|analisis|dist|docs|video|node_modules|calibrar\\.js|torneo\\.js|entrenar\\.js|compartir\\.js|analisis\\.ipynb|jugadores\\.json|README\\.md|caballos\\.json)($|/)'"
   },
   "license": "MIT",
   "overrides": {

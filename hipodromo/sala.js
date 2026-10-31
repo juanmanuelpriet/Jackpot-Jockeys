@@ -36,7 +36,6 @@ const CFG = {
   // Caballos propios
   horsePrice: 400,
   trainPrice: 150,
-  trainCooldownRaces: 3,  // carreras que descansa el caballo antes de poder entrenar de nuevo
   ownerBonus: 50,         // el dueño cobra 50 × la cuota de Ganador de su caballo (mín. 100)
 };
 
@@ -332,7 +331,7 @@ class Room {
     for (const p of this.players.values()) {
       if (p.debt > 0) p.debt = Math.ceil(p.debt * (1 + CFG.interest));
       const trained = this.accounts.get(p.id)?.horse;
-      if (trained?.trainWait > 0) trained.trainWait--;
+      if (trained?.trainQueued) this.startTraining(p.id, trained);
       p.stats.maxDebt = Math.max(p.stats.maxDebt, p.debt);
     }
     const publicPayouts = payouts.sort((a, b) => b.win - a.win)
@@ -472,7 +471,7 @@ class Room {
       reactions: REACTIONS,
       powers: Object.fromEntries(Object.entries(POWERS).map(([k, p]) => [k, { name: p.name, icon: p.icon, cost: p.cost, desc: p.desc, debuff: p.debuff }])),
       cfg: { loanOptions: CFG.loanOptions, maxDebt: CFG.maxDebt, interest: CFG.interest, mafiaFavorCost: CFG.mafiaFavorCost,
-        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainCooldownRaces: CFG.trainCooldownRaces, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, collectorCut: CFG.collectorCut, ownerBonus: CFG.ownerBonus, playerHorsesPerRace: CFG.playerHorsesPerRace, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
+        skins: SKINS, horsePrice: CFG.horsePrice, trainPrice: CFG.trainPrice, trainGenerations: TRAIN_GENERATIONS, personalidades: PERSONALIDADES, collectorCut: CFG.collectorCut, ownerBonus: CFG.ownerBonus, playerHorsesPerRace: CFG.playerHorsesPerRace, giftPerRace: CFG.giftPerRace, maxAllianceSize: CFG.maxAllianceSize },
     };
   }
 
@@ -483,7 +482,7 @@ class Room {
     const acc = this.accounts.get(id) || {};
     const horse = acc.horse ? {
       name: acc.horse.name, color: acc.horse.color, perfil: acc.horse.perfil, level: acc.horse.level, enrolled: acc.horse.enrolled,
-      training: acc.horse.training || null, trainProgress: acc.horse.trainProgress || 0, trainWait: acc.horse.trainWait || 0, body: acc.horse.body || {}, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
+      training: acc.horse.training || null, trainProgress: acc.horse.trainProgress || 0, trainQueued: !!acc.horse.trainQueued, body: acc.horse.body || {}, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
       skin: acc.horse.skin || 'normal',
       // Número en la carrera actual (o null si no corre en esta)
       inRace: (() => { const i = this.lineup.findIndex(h => h.owner === id); return i >= 0 ? i : null; })(),
@@ -796,15 +795,22 @@ class Room {
     const acc = this.accounts.get(p.id);
     if (!acc.horse) return { error: 'No tienes caballo' };
     if (acc.horse.training) return { error: 'Ya está entrenando' };
-    if (acc.horse.trainWait > 0) return { error: `Está descansando: faltan ${acc.horse.trainWait} carreras` };
     if (!TRAIN_FOCUS[focus]) return { error: 'Entrenamiento inválido' };
     if (p.coins < CFG.trainPrice) return { error: `Entrenar cuesta ${CFG.trainPrice} fichas` };
     p.coins -= CFG.trainPrice;
     acc.horse.training = focus;
     acc.horse.trainProgress = 0;
     this.narrate('entreno', { p: p.name, h: acc.horse.name, n: TRAIN_FOCUS[focus] });
-    this.hooks.train({ accountId: p.id, room: this, focus, brain: acc.horse.brain, body: acc.horse.body, form: baseHandicap(acc.horse.perfil) });
+    // Mientras entrena no compite: si ya está en esta carrera (puede tener boletos), empieza cuando termine
+    const running = this.phase !== 'resultados' && this.lineup.some(h => h.owner === p.id);
+    if (running) acc.horse.trainQueued = true;
+    else this.startTraining(p.id, acc.horse);
     return {};
+  }
+
+  startTraining(accountId, horse) {
+    horse.trainQueued = false;
+    this.hooks.train({ accountId, room: this, focus: horse.training, brain: horse.brain, body: horse.body, form: baseHandicap(horse.perfil) });
   }
 
   trainingProgress(accountId, done) {
@@ -823,7 +829,6 @@ class Room {
     horse.trainProgress = 0;
     if (!result || !result.improved) { if (p) p.coins += CFG.trainPrice; }
     if (result) {
-      horse.trainWait = CFG.trainCooldownRaces;
       horse.history = [...(horse.history || []), { focus, ...result.summary, improved: result.improved }].slice(-10);
       if (result.improved) {
         horse.brain = result.brain;

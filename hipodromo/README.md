@@ -89,18 +89,18 @@ carrera 5 ninguna estrategia recupera más de ~0.87 por ficha. El análisis est�
 
 ### Personalidades
 
-Se ven siempre junto al nombre. Datos de 450 carreras simuladas:
+En la pantalla grande se ven mientras se apuesta; en el celular, junto al nombre. Datos de 450 carreras simuladas:
 
 | | Personalidad | Cómo corre | Podio | Choques por carrera | Gana en pista corta / larga |
 |---|---|---|---|---|---|
-| 💨 | Corredor | Limpio y constante | 57 % | 2.8 | 22 % / 11 % |
-| 🦊 | Pícaro | Empuja a veces y esquiva | 46 % | 3.7 | 14 % / 19 % |
-| 😤 | Bravo | Busca pelea | 45 % | 4.4 | 11 % / 20 % |
-| 🔥 | Muy bravo | Todo o nada | 38 % | 4.8 | 10 % / 28 % |
+| 💨 | Corredor | Limpio y constante | 55 % | 2.7 | 20 % / 12 % |
+| 🦊 | Pícaro | Empuja a veces y recibe pocos golpes | 51 % | 3.4 | 13 % / 13 % |
+| 😤 | Bravo | Busca pelea | 48 % | 5.0 | 11 % / 27 % |
+| 🔥 | Muy bravo | Todo o nada | 36 % | 5.4 | 16 % / 23 % |
 
 ### Poderes
 
-Se usan en carrera: tocas un caballo y luego el poder. Cada jugador espera 4 s entre poderes.
+Se usan en carrera con un toque: los de ayuda van a tu caballo y los de freno al rival que va más cerca delante de él. Si tocas otro caballo, van a ese. Cada jugador espera 4 s entre poderes.
 
 | Poder | Costo | Efecto |
 |---|---|---|
@@ -145,16 +145,16 @@ Equipos de hasta 3 jugadores:
 3. **Toma un examen** de 36 pistas contra su versión anterior, con las mismas salidas y la misma suerte. Si no mejora
    más que el ruido de la medida, o corre mucho peor, sigue igual y se devuelven las fichas.
 
-Después descansa 3 carreras. Mientras practica no entra a carreras nuevas.
+Se puede entrenar lo que quieras y cuando quieras, pero **mientras entrena no compite**. Si ya está en la carrera actual, empieza a entrenar cuando esa termine.
 
 ## Cómo funcionan los caballos
 
-**Red neuronal:** 13 → 8 → 3 → 3 → 2 (tanh). Decide giro y acelerador y no tiene ninguna regla de embestir. Percibe:
+**Red neuronal:** 14 → 8 → 3 → 3 → 2 (tanh). Decide giro y acelerador y no tiene ninguna regla de embestir. Percibe:
 
 - 5 sensores de distancia a bordes y vallas
 - distancia, rumbo y velocidad del rival más cercano, y si tiene escudo o furia
 - si él mismo tiene furia o turbo
-- distancia al barro
+- distancia al barro y de qué lado está
 - su puesto en la carrera
 
 | Caballo | Personalidad | Cerebro |

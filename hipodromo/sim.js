@@ -36,7 +36,7 @@ function mulberry32(seed) {
   };
 }
 
-// ─── Red neuronal (13 → 8 → 3 → 3 → 2, tanh) ────────
+// ─── Red neuronal (14 → 8 → 3 → 3 → 2, tanh) ────────
 // La red no tiene ninguna regla de "embestir": solo decide giro y acelerador
 // a partir de lo que percibe. Entradas:
 //   0-4  sensores de distancia a bordes y vallas (5 rayos en abanico)
@@ -44,10 +44,11 @@ function mulberry32(seed) {
 //   7    velocidad relativa del rival            8  ¿el rival está protegido? (escudo/furia)
 //   9    ¿tengo furia?                          10  ¿tengo turbo?
 //   11   distancia al barro que tengo adelante  12  mi puesto en la carrera (0 = primero)
-const NUM_INPUTS = 13;
+//   13   lado de ese barro (-1 izquierda, +1 derecha, 0 si no hay)
+const NUM_INPUTS = 14;
 const HIDDEN_1 = 8;
 const INPUT_NAMES = ['sensor_-72', 'sensor_-36', 'sensor_0', 'sensor_+36', 'sensor_+72',
-  'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto'];
+  'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado'];
 
 function predict(brain, input) {
   let x = input;
@@ -408,6 +409,9 @@ class Horse {
     this.rival = [1, 0, 0, 0];
     this.place = 0;      // 0 = va primero (lo actualiza stepRace)
     this.mud = 1;
+    this.mudSide = 0;    // de qué lado está el barro que tiene adelante
+    this.mudHits = 0;    // charcos pisados
+    this.inMud = null;
     this.lastProgress = track.progress(this.x, this.y);
     this.maxProgress = this.lastProgress;
     this.total = 0;
@@ -442,9 +446,10 @@ class Horse {
     this.rival = [bestD / RIVAL_RANGE, rel / Math.PI, (best.speed - this.speed) / 9, protectedRival];
   }
 
-  // Distancia al barro más cercano dentro de un cono de ±30° hacia adelante
+  // Distancia y lado del barro más cercano dentro de un cono de ±30° hacia adelante
   _senseMud() {
     let best = SENSOR_LENGTH;
+    this.mudSide = 0;
     for (const o of this.track.obstacles) {
       if (o.type !== 'barro') continue;
       const dx = o.x - this.x, dy = o.y - this.y;
@@ -452,7 +457,10 @@ class Horse {
       if (d >= best) continue;
       let rel = Math.atan2(dy, dx) - this.angle;
       rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-      if (Math.abs(rel) < Math.PI / 6 || d < 0) best = Math.max(0, d);
+      if (Math.abs(rel) < Math.PI / 6 || d < 0) {
+        best = Math.max(0, d);
+        this.mudSide = Math.max(-1, Math.min(1, rel / (Math.PI / 6)));
+      }
     }
     return best / SENSOR_LENGTH;
   }
@@ -460,7 +468,7 @@ class Horse {
   inputs(numHorses) {
     return [...this.sensors, ...this.rival,
       this.fx.rage > 0 ? 1 : 0, this.fx.boost > 0 ? 1 : 0,
-      this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0];
+      this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0, this.mudSide];
   }
 
   update(others = []) {
@@ -481,6 +489,7 @@ class Horse {
     if (blind) {
       this.rival = [Math.random(), Math.random() * 2 - 1, Math.random() - 0.5, Math.round(Math.random())];
       this.mud = Math.random();
+      this.mudSide = Math.random() * 2 - 1;
     } else {
       this._senseRival(others);
       this.mud = this._senseMud();
@@ -496,12 +505,16 @@ class Horse {
     if (fx.carrot > 0) this.speed *= 1.35;
 
     // Barro: frena mientras se pisa
+    let puddle = null;
     for (const o of this.track.obstacles) {
       if (o.type === 'barro' && (this.x - o.x) ** 2 + (this.y - o.y) ** 2 < o.r * o.r) {
         this.speed *= 0.55;
+        puddle = o;
         break;
       }
     }
+    if (puddle && puddle !== this.inMud) this.mudHits++;
+    this.inMud = puddle;
 
     const nx = this.x + Math.cos(this.angle) * this.speed;
     const ny = this.y + Math.sin(this.angle) * this.speed;

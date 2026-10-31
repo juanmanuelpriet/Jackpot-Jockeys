@@ -8,9 +8,10 @@ const SIZES = ['corta', 'media', 'larga'];
 // Aptitud: avanzar, terminar rápido (cada tick ahorrado vale un punto), saltar, no tropezar
 // ni salirse. `hit` premia cada embestida dada (máx. 8), `taken` castiga las recibidas y
 // `place` premia cada rival que deja atrás en la llegada (para que un bravo también quiera ganar).
-function makeFitness({ hit = 0, taken = 10, fall = 40, stumble = 15, jump = 5, place = 0 } = {}) {
+// `mud` castiga cada charco pisado: frena tan poco que sin esto no vale la pena aprender a esquivarlo.
+function makeFitness({ hit = 0, taken = 10, fall = 40, stumble = 15, jump = 5, place = 0, mud = 40 } = {}) {
   return (h, finishBonus, beaten = 0) => h.total + finishBonus - h.stumbles * stumble - h.falls * fall
-    + h.jumps * jump + Math.min(h.hitsGiven, 8) * hit - h.hitsTaken * taken + beaten * place;
+    + h.jumps * jump + Math.min(h.hitsGiven, 8) * hit - h.hitsTaken * taken + beaten * place - h.mudHits * mud;
 }
 
 // Corre una carrera y devuelve los caballos con sus estadísticas
@@ -72,7 +73,7 @@ function evolve(opts) {
     population = parents.map(cloneBrain);
     while (population.length < pop) {
       const child = mutateBrain(parents[Math.floor(rng() * parents.length)], mutation[0] + rng() * (mutation[1] - mutation[0]), rng);
-      // Exploración extra en las entradas del entorno (filas 5 a 12: rival, efectos, barro y puesto)
+      // Exploración extra en las entradas del entorno (filas 5 a 13: rival, efectos, barro y puesto)
       if (exploreEnv) for (let r = 5; r < child[0].W.length; r++) child[0].W[r] = child[0].W[r].map(w => w + (rng() - 0.5) * envNoise);
       population.push(child);
     }
@@ -106,9 +107,9 @@ const TRAIN_GENERATIONS = 60;
 const EXAM_TRACKS = 36;
 const MAX_WORSE_PLACE = 0.3; // rivales que puede dejar de ganarle por carrera a cambio del rasgo
 const FOCUS = {
-  velocidad: { trait: 'speed', step: 0.015, max: 0.06, stat: s => s.time, better: -1, fitness: (h, fb, beaten) => fb * 3 - h.falls * 30 - h.stumbles * 15 - h.hitsTaken * 5 + beaten * 40 },
-  agresion: { trait: 'power', step: 0.1, max: 0.4, stat: s => s.hits, better: 1, envNoise: 0.5, fitness: (h, fb, beaten) => h.hitsGiven * 150 + fb - h.falls * 40 + beaten * 30 },
-  control: { trait: 'agility', step: 0.05, max: 0.2, stat: s => s.falls + s.stumbles, better: -1, fitness: (h, fb, beaten) => -h.falls * 300 - h.stumbles * 150 + fb + beaten * 30 },
+  velocidad: { trait: 'speed', step: 0.015, max: 0.06, stat: s => s.time, better: -1, fitness: (h, fb, beaten) => fb * 3 - h.falls * 30 - h.stumbles * 15 - h.hitsTaken * 5 - h.mudHits * 40 + beaten * 40 },
+  agresion: { trait: 'power', step: 0.1, max: 0.4, stat: s => s.hits, better: 1, envNoise: 0.5, fitness: (h, fb, beaten) => h.hitsGiven * 150 + fb - h.falls * 40 - h.mudHits * 40 + beaten * 30 },
+  control: { trait: 'agility', step: 0.05, max: 0.2, stat: s => s.falls + s.stumbles, better: -1, fitness: (h, fb, beaten) => -h.falls * 300 - h.stumbles * 150 - h.mudHits * 40 + fb + beaten * 30 },
 };
 
 // Convierte el cuerpo del caballo en lo que necesita la carrera (0 = sin entrenar)

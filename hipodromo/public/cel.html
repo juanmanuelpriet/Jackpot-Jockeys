@@ -101,7 +101,7 @@
   #trackTip { display: flex; justify-content: space-between; gap: 8px; width: 100%; font-size: 13px; color: var(--mute); padding: 2px 2px 6px; text-align: left; }
   #trackTip b { color: var(--accent); font-weight: 500; }
   #trackTip u { color: var(--accent); text-decoration: none; white-space: nowrap; }
-  #live { font-size: 18px; font-weight: 500; text-align: center; padding: 6px 12px; margin-bottom: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); }
+  #live { font-size: 16px; font-weight: 500; text-align: center; padding: 4px 12px; cursor: pointer; margin-bottom: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); }
   .steps { margin: 2px 0 12px; }
   .steps div { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 7px 0; border-top: 1px solid var(--sep); font-size: 15px; line-height: 1.3; color: var(--txt); }
   .steps div:first-child { border-top: 0; }
@@ -122,9 +122,14 @@
   #amounts button.sel { background: var(--txt); color: var(--bg); border-color: var(--txt); }
   .rowBtns { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
   .rowBtns .big { padding: 11px 6px; font-size: 15px; letter-spacing: 1px; }
-  #powers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .powers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .pwLabel { font-size: 13px; color: var(--green); margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pwLabel.hurt { color: var(--red); margin-top: 5px; }
+  .pwLabel b { font-weight: 500; color: var(--txt); }
+  .item.help { box-shadow: inset 4px 0 0 var(--green); background: rgba(127,212,146,.10); }
+  .item.hurt { box-shadow: inset 4px 0 0 var(--red); background: rgba(255,107,94,.10); }
   .pw { min-width: 0; padding: 5px 2px; border-radius: var(--r); background: var(--card2); border: 1px solid var(--line); text-align: center; }
-  .pw .e { font-size: 22px; line-height: 1.1; }
+  .pw .e { font-size: 20px; line-height: 1.1; }
   .pw b { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
   .pw small { display: block; font-size: 11px; color: var(--green); }
   .pw.bad small { color: var(--red); }
@@ -236,8 +241,10 @@
     <div class="rowBtns"><button class="big gray" id="undoBtn">↩ Deshacer</button><button class="big" id="readyBtn">Listo</button></div>
   </div>
   <div id="powerDock" class="hidden">
-    <div id="powerTxt" style="font-size:14px;margin-bottom:5px"></div>
-    <div id="powers"></div>
+    <div class="pwLabel" id="helpTxt"></div>
+    <div class="powers" id="powersHelp"></div>
+    <div class="pwLabel hurt" id="hurtTxt"></div>
+    <div class="powers" id="powersHurt"></div>
   </div>
 </div></div>
 
@@ -278,7 +285,7 @@ const params = new URLSearchParams(location.search);
 let sala = (params.get('sala') || store.get('jj_sala') || '').toUpperCase();
 let myId = store.get('jj_id');
 let state = null, me = null, selHorse = null, amount = 100, lastRaceKey = null, joining = false, showTickets = false;
-let betType = 'ganador', picks = [], moreTypes = false, canUndo = false, targetAuto = true; // apuesta en preparación: tipo y caballos en orden (1º, 2º, 3º)
+let betType = 'ganador', picks = [], moreTypes = false, canUndo = false; // apuesta en preparación: tipo y caballos en orden (1º, 2º, 3º)
 const ORD = ['1º', '2º', '3º'];
 
 // Tipos de apuesta en palabras sencillas
@@ -378,14 +385,17 @@ document.getElementById('amounts').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   amount = b.dataset.a === 'Todo' ? 'Todo' : +b.dataset.a; render();
 };
-document.getElementById('powers').onclick = e => {
+const usePower = e => {
   const b = e.target.closest('.pw'); if (!b || b.disabled) return;
-  if (selHorse == null) return toast('Primero toca un caballo');
+  const { help, hurt } = powerTargets(), k = b.dataset.k, horse = b.dataset.side === 'hurt' ? hurt : help;
+  if (horse == null) return toast('Toca un caballo y luego el poder');
   tap();
-  const k = b.dataset.k;
-  if (k === 'mafia') return api('mafiaFavor', { horse: selHorse }).then(j => j && toast(`🕴️ La mafia congela a ${state.horses[selHorse].name}. Le debes ${state.cfg.mafiaFavorCost} más.`));
-  api('power', { power: k, horse: selHorse }).then(j => j && toast(`${state.powers[k].icon} ${state.powers[k].name} para ${state.horses[selHorse].name}`));
+  if (k === 'mafia') return api('mafiaFavor', { horse }).then(j => j && toast(`🕴️ La mafia frena a ${state.horses[horse].name}. Le debes ${state.cfg.mafiaFavorCost} más.`));
+  api('power', { power: k, horse }).then(j => j && toast(`${state.powers[k].icon} ${state.powers[k].name} para ${state.horses[horse].name}`));
 };
+document.getElementById('powersHelp').onclick = usePower;
+document.getElementById('powersHurt').onclick = usePower;
+document.getElementById('live').onclick = () => { showTickets = !showTickets; render(); };
 document.getElementById('horses').onclick = e => {
   const el = e.target.closest('.item'); if (!el) return;
   const i = +el.dataset.i;
@@ -396,7 +406,7 @@ document.getElementById('horses').onclick = e => {
     // Combinadas: se eligen en orden y tocar de nuevo uno lo quita. Al completarlas queda apostado
     if (picks.includes(i)) picks = picks.filter(x => x !== i); else picks.push(i);
     if (picks.length === n) return placeBet();
-  } else { targetAuto = false; selHorse = selHorse === i ? null : i; }
+  } else selHorse = selHorse === i ? null : i;
   render();
 };
 
@@ -456,14 +466,12 @@ function renderCarrera() {
   setHTML('trackTip', `<span>Pista ${esc(size)}: suele ganar <b>${best.icon} ${esc(best.name)}</b></span><u>Personalidades ?</u>`);
 
   // Los caballos no cambian de lugar en la lista: durante la carrera no se mueven bajo el dedo
-  if (racing && targetAuto && selHorse == null) {
-    const own = me.horse ? me.horse.inRace : null;
-    selHorse = me.tickets.length ? me.tickets[0].sel[0] : own;
-  }
+  const targets = racing ? powerTargets() : {};
   const a = betAmount();
   const yours = i => me.horse && me.horse.inRace === i ? '<span class="yours">Tuyo</span>' : '';
   setHTML('horses', s.horses.map((h, i) => {
     const pk = picks.indexOf(i), chosen = betting ? pk >= 0 : selHorse === i, pr = persOf(h);
+    const mark = !racing || selHorse != null ? '' : targets.mine.has(i) ? 'help' : targets.hurt === i ? 'hurt' : '';
     const mine = me.tickets.filter(tk => tk.sel.includes(i)).reduce((x, tk) => x + tk.amount, 0);
     let right = '';
     if (betting && s.oddsReady) {
@@ -471,7 +479,7 @@ function renderCarrera() {
       else right = pk >= 0 ? `<span class="badge">${betType === 'quiniela' ? '✓' : ORD[pk]}</span>` : '';
     } else if (!betting) right = `<span class="badge" style="${h.pos === 1 ? '' : 'background:var(--card2);color:var(--txt)'}">${h.pos}º</span>`;
     const extra = betting && h.recent && h.recent.length ? ` · ${h.recent.map(medal).join('')}` : h.ownerName ? ` · de ${esc(h.ownerName)}` : '';
-    return `<button class="item ${chosen ? 'sel' : ''} ${me.horse && me.horse.inRace === i ? 'own' : ''}" data-i="${i}">
+    return `<button class="item ${chosen ? 'sel' : ''} ${me.horse && me.horse.inRace === i ? 'own' : ''} ${mark}" data-i="${i}">
       <div class="avatar" style="background:${h.color}">${i + 1}${skinIcon(h) ? `<span class="sk">${skinIcon(h)}</span>` : ''}</div>
       ${racing ? `<div style="min-width:0"><div class="t">${yours(i)}${pr.icon} ${esc(h.name)}</div></div>
       <div class="r">${mine ? '<span class="mine">🎟</span> ' : ''}${right}</div>` : `<div style="min-width:0"><div class="t">${yours(i)}${esc(h.name)}</div><div class="s">${pr.icon} ${esc(pr.name)}${extra}${mine ? ` · <span class="mine">🎟 ${fmt(mine)}</span>` : ''}</div></div>
@@ -480,10 +488,10 @@ function renderCarrera() {
 
   // Panel inferior: boletos, cuánto y Listo
   if (betting) {
-    const spent = me.tickets.reduce((x, tk) => x + tk.amount, 0), best2 = me.tickets.reduce((x, tk) => x + tk.ifHit, 0);
+    const spent = me.tickets.reduce((x, tk) => x + tk.amount, 0), best2 = bestPayout();
     setHTML('slipTxt', !s.oddsReady ? '<span class="mute">La casa calcula las cuotas…</span>'
       : T.picks > 1 ? `<span class="mute">${U.e} ${esc(U.how)} (${picks.length}/${T.picks})</span>`
-      : me.tickets.length ? `<span>🎟 ${me.tickets.length} ${me.tickets.length === 1 ? 'boleto' : 'boletos'} · ${fmt(spent)}</span><span class="mute">hasta ${fmt(best2)} ${showTickets ? '▴' : '▾'}</span>`
+      : me.tickets.length ? `<span>🎟 Pusiste ${fmt(spent)}</span><span class="mute">si aciertas quedas con <b style="color:var(--accent)">${fmt(leftWith(best2))}</b> ${showTickets ? '▴' : '▾'}</span>`
       : `<span class="mute">Toca un caballo: apuestas ${fmt(a)} al instante</span>`);
     setHTML('amounts', AMOUNTS.map(v => `<button data-a="${v}" class="${amount === v ? 'sel' : ''}">${v}</button>`).join(''));
     document.getElementById('undoBtn').disabled = !canUndo;
@@ -492,28 +500,34 @@ function renderCarrera() {
     rb.className = 'big ' + (me.ready ? 'green' : '');
   }
 
-  // En carrera: poderes, siempre a la vista
+  // En carrera: arriba lo que ayuda, abajo lo que frena, y cada grupo ya sabe a quién va
   if (racing) {
-    const target = selHorse != null ? s.horses[selHorse] : null, cd = me.cooldown || 0;
-    setHTML('powerTxt', target ? `<span class="mute">Poder para</span> <b>${selHorse + 1} · ${esc(target.name)}</b>` : '<span class="mute">Toca un caballo y luego un poder</span>');
-    setHTML('powers', Object.entries(s.powers).map(([k, p]) =>
-      `<button class="pw ${p.debuff ? 'bad' : ''}" data-k="${k}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}><div class="e">${p.icon}</div><b>${esc(p.name)}</b><small>${p.cost}</small></button>`).join('')
-      + `<button class="pw bad" data-k="mafia" ${me.favorUsed || me.debt + s.cfg.mafiaFavorCost > s.cfg.maxDebt ? 'disabled' : ''}><div class="e">🕴️</div><b>Sabotaje</b><small>deuda ${s.cfg.mafiaFavorCost}</small></button>`);
+    const name = i => i == null ? '' : `${i + 1} · ${esc(s.horses[i].name)}`, cd = me.cooldown || 0;
+    setHTML('helpTxt', targets.help != null ? `🟢 Ayudar a <b>${name(targets.help)}</b>` : '🟢 Ayudar: toca un caballo');
+    setHTML('hurtTxt', targets.hurt != null ? `🔴 Frenar a <b>${name(targets.hurt)}</b>` : '🔴 Frenar: toca un caballo');
+    const btn = (k, p, side) => `<button class="pw ${side === 'hurt' ? 'bad' : ''}" data-k="${k}" data-side="${side}" ${me.coins < p.cost || cd > 0 ? 'disabled' : ''}><div class="e">${p.icon}</div><b>${esc(p.name)}</b><small>${p.cost}</small></button>`;
+    const all = Object.entries(s.powers);
+    setHTML('powersHelp', all.filter(([, p]) => !p.debuff).map(([k, p]) => btn(k, p, 'help')).join(''));
+    setHTML('powersHurt', all.filter(([, p]) => p.debuff).map(([k, p]) => btn(k, p, 'hurt')).join('')
+      + `<button class="pw bad" data-k="mafia" data-side="hurt" ${me.favorUsed || me.debt + s.cfg.mafiaFavorCost > s.cfg.maxDebt ? 'disabled' : ''}><div class="e">🕴️</div><b>Sabotaje</b><small>deuda ${s.cfg.mafiaFavorCost}</small></button>`);
   }
 
-  // En vivo: una sola línea con lo que importa
+  // En vivo: cuánto pusiste y con cuánto quedarías si terminara ahora
   const live = document.getElementById('live');
   if (racing && me.tickets.length && me.live) {
     live.classList.remove('hidden');
-    setHTML('live', me.live.gross ? `<span class="pos">Si termina ahora ganas ${fmt(me.live.gross - me.live.mafia)}</span>` : '<span class="mute">Si termina ahora no ganas nada</span>');
+    const spent = me.race.bets + me.race.powers;
+    setHTML('live', `<span class="mute">Pusiste ${fmt(spent)} · si termina ahora </span>` + (me.live.gross
+      ? `<span class="pos">quedas con ${fmt(me.coins + me.live.gross - me.live.mafia)}</span>`
+      : `<span class="neg">quedas con ${fmt(me.coins)}</span>`));
   } else live.classList.add('hidden');
 
   // Lista de boletos: solo si se pide
-  if (betting && showTickets && me.tickets.length) {
+  if ((betting || racing) && showTickets && me.tickets.length) {
     setHTML('tickets', `<div class="group" style="margin-top:8px">${me.tickets.map(tk =>
       `<div class="item"><div class="avatar" style="background:var(--card2);font-size:20px">${TYPE_UI[tk.type].e}</div>
         <div style="min-width:0"><div class="t" style="font-size:15px">${esc(pickNames(tk.type, tk.sel))}</div><div class="s">${TYPE_UI[tk.type].name} · ${xs(tk.odds)} · pusiste ${fmt(tk.amount)}</div></div>
-        <div class="r"><div class="win">${fmt(tk.ifHit)}</div></div></div>`).join('')}</div>`);
+        <div class="r"><div class="win">${fmt(tk.ifHit)}</div><div class="x">si acierta</div></div></div>`).join('')}</div>`);
   } else setHTML('tickets', '');
 
   // Resultados
@@ -547,6 +561,38 @@ function renderCarrera() {
   } else res.classList.add('hidden');
 }
 
+// A quién ayudar y a quién frenar: tu caballo principal (donde más apostaste, o tu potro) y el rival
+// más cercano que va delante de él; si va primero, el que lo persigue. Tocar un caballo manda todos los poderes a ese.
+function powerTargets() {
+  if (selHorse != null) return { help: selHorse, hurt: selHorse, mine: new Set() };
+  const own = me.horse ? me.horse.inRace : null;
+  const sorted = [...me.tickets].sort((a, b) => b.amount - a.amount);
+  const help = sorted.length ? sorted[0].sel[0] : own;
+  const mine = new Set(me.tickets.flatMap(tk => tk.sel));
+  if (own != null) mine.add(own);
+  const order = state.horses.map((h, i) => ({ i, pos: h.pos })).sort((a, b) => a.pos - b.pos).map(x => x.i);
+  const at = help == null ? 0 : order.indexOf(help);
+  const ahead = order.slice(0, at).reverse().find(i => !mine.has(i));
+  const behind = order.slice(at + 1).find(i => !mine.has(i));
+  return { help, hurt: ahead ?? behind ?? null, mine };
+}
+// Lo máximo que puede cobrarse con los boletos: se prueban todas las llegadas posibles, porque no todos pueden acertar a la vez
+function bestPayout() {
+  const n = state.horses.length, hit = (tk, o) => ({
+    ganador: () => tk.sel[0] === o[0], place: () => o.slice(0, 2).includes(tk.sel[0]), podio: () => o.includes(tk.sel[0]),
+    quiniela: () => tk.sel.every(x => o.slice(0, 2).includes(x)), exacta: () => tk.sel[0] === o[0] && tk.sel[1] === o[1],
+    trifecta: () => tk.sel.every((x, k) => o[k] === x),
+  }[tk.type]());
+  let best = 0;
+  for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) for (let c = 0; c < n; c++) {
+    if (a === b || a === c || b === c) continue;
+    best = Math.max(best, me.tickets.reduce((x, tk) => x + (hit(tk, [a, b, c]) ? tk.ifHit : 0), 0));
+  }
+  return best;
+}
+// Fichas con las que quedarías al cobrar `win`, después de que pase el cobrador de la mafia
+const leftWith = win => me.coins + win - Math.min(me.debt, Math.floor(win * state.cfg.collectorCut));
+
 // Podios en vivo: se juega hasta aburrirse, así que siempre se ve quién va ganando
 const MEDALS = ['🥇', '🥈', '🥉'];
 function podiumsHTML() {
@@ -574,7 +620,7 @@ function renderCaballo() {
       <div class="mute">Nivel ${h.level} · ${h.wins} victorias · ${h.perfil === 'bravo' ? '😤 Bravo' : '💨 Corredor'}</div>
       <div style="font-size:14px;margin-top:4px">⚡ +${Math.round((h.body.speed || 0) * 1000) / 10} % velocidad · 🎯 +${Math.round((h.body.agility || 0) * 100)} % giro · 💥 +${Math.round((h.body.power || 0) * 100)} % fuerza</div>
       <div class="note" style="margin:10px 0 0;text-align:center">${h.inRace != null ? `🏇 <b>Corre en esta carrera con el número ${h.inRace + 1}.</b> Búscalo en la lista con la etiqueta TUYO.`
-        : h.training ? 'Está entrenando: vuelve a correr cuando termine.'
+        : h.training ? 'Está entrenando: vuelve a competir cuando termine.'
         : !h.enrolled ? 'No está inscrito: no corre.'
         : state.phase === 'apuestas' ? 'Esta carrera ya está llena de potros: entra en la próxima.'
         : '⏳ <b>Entra en la próxima carrera</b> (esta ya arrancó).'}</div>
@@ -584,7 +630,7 @@ function renderCaballo() {
     ${shopHTML(h)}`);
 }
 
-// Entrenar: en práctica, descansando o listo. El último resultado dice si el rasgo mejoró de verdad
+// Entrenar: en espera, en práctica o listo. El último resultado dice si el rasgo mejoró de verdad
 const TRAIN_UI = {
   velocidad: { e: '⚡', name: 'Velocidad', stat: 'Tiempo por carrera', unit: ' s' },
   agresion: { e: '💥', name: 'Choques', stat: 'Choques por carrera', unit: '' },
@@ -596,9 +642,9 @@ function trainHTML(h, c) {
     ${last.improved ? 'Se quedó con lo aprendido.' : `No mejoró: sigue igual y te devolvimos 🪙 ${c.trainPrice}.`}</div>` : '';
   if (h.training) {
     const u2 = TRAIN_UI[h.training], pct = Math.round(h.trainProgress / c.trainGenerations * 100);
-    return `<b>🏋️ Entrenando ${u2.e} ${u2.name}…</b><div class="mute" style="font-size:14px">Generación ${h.trainProgress} de ${c.trainGenerations}. Tarda menos de un minuto.</div><div class="bar"><i style="width:${pct}%"></i></div>`;
+    if (h.trainQueued) return `<b>🏋️ ${u2.e} ${u2.name}: empieza al terminar esta carrera</b><div class="mute" style="font-size:14px">Mientras entrene no compite.</div>`;
+    return `<b>🏋️ Entrenando ${u2.e} ${u2.name}…</b><div class="mute" style="font-size:14px">Generación ${h.trainProgress} de ${c.trainGenerations}. Mientras tanto no compite.</div><div class="bar"><i style="width:${pct}%"></i></div>`;
   }
-  if (h.trainWait > 0) return `<b>😴 Descansando</b><div class="mute" style="font-size:14px">Puede volver a entrenar en ${h.trainWait} ${h.trainWait === 1 ? 'carrera' : 'carreras'}.</div>${result}`;
   return `<div class="btnRow three" style="margin-top:0">${Object.entries(TRAIN_UI).map(([k, u3]) => `<button class="soft" data-train="${k}">${u3.e} ${u3.name}</button>`).join('')}</div>${result}`;
 }
 
@@ -747,7 +793,7 @@ const TUTO = [
   ['meta', '🎯', 'Termina con más fichas', () => `Empiezas con <b>1.000</b>. Se juega hasta que se aburran. 🏆 muestra quién va ganando.`],
   ['apostar', '🎟️', 'Toca un caballo y ya apostaste', () => `El número dorado es lo que recibes si aciertas. <b>↩ Deshacer</b> corrige un dedazo. Con todos en <b>Listo</b>, arrancan.`],
   ['tipos', '🥇', 'Más fácil paga menos', () => `<b>🥇 Que gane</b> paga más que <b>🥈 Top 2</b> y <b>🥉 Podio</b>. En <b>➕ Más</b> adivinas varios puestos: casi nunca sale, pero paga muchísimo.`],
-  ['poderes', '🥕', 'En carrera mira la pantalla grande', () => `Toca un caballo y luego un poder. Los verdes ayudan, los rojos frenan.`
+  ['poderes', '🥕', 'En carrera mira la pantalla grande', () => `<b>🟢 Arriba ayudas a tu caballo. 🔴 Abajo frenas a su rival.</b> Un toque y listo. Si quieres otro caballo, tócalo primero.`
     + `<div class="steps" style="margin-top:8px">${Object.values(state.powers).map(p => `<div><span>${p.icon}</span><span><b>${esc(p.name)}</b> <small>${esc(p.desc)} · cuesta ${p.cost}</small></span></div>`).join('')}</div>`],
   ['personalidades', '🧬', 'Cada caballo corre a su manera', persGuide],
   ['mas', '🐴', 'Lo demás, cuando lo necesites', () => `<b>Mi caballo</b>, <b>Mafia</b> y <b>Peña</b> te explican cómo funcionan la primera vez que entras.`],
@@ -761,9 +807,9 @@ const SECTIONS = [
   ])],
   ['entreno', '🏋️', 'Así aprende tu potro', () => steps([
     ['1️⃣', `<b>Eliges qué mejorar:</b> ⚡ velocidad, 💥 choques o 🎯 control. Cuesta ${fmt(state.cfg.trainPrice)} fichas.`],
-    ['2️⃣', `<b>Practica ${state.cfg.trainGenerations} generaciones</b> en pistas nuevas. Tarda menos de un minuto.`],
+    ['2️⃣', `<b>Practica ${state.cfg.trainGenerations} generaciones</b> en pistas nuevas. Tarda menos de un minuto y <b>mientras tanto no compite</b>.`],
     ['3️⃣', `<b>Presenta un examen.</b> Si mejoró, se queda con lo aprendido y sube de nivel. Si no, sigue igual y te devolvemos las fichas.`],
-    ['😴', `<b>Después descansa ${state.cfg.trainCooldownRaces} carreras</b> antes de volver a entrenar.`],
+    ['🔁', `<b>Entrena lo que quieras, cuando quieras.</b> Si ya está en la carrera, empieza al terminar.`],
     ['📉', `<b>Entre mejor sea, menos paga</b> cuando le apuestan: la casa también lo sabe.`],
   ])],
   ['mafia', '🕴️', 'La mafia es un banco malo', () => mafiaSteps(state.cfg)],
@@ -810,7 +856,7 @@ function connect() {
   es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;
     if (m.build && !PAGE_BUILD.startsWith('__') && m.build !== PAGE_BUILD) { location.reload(); return; } // el servidor se actualizó
-    if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; canUndo = false; targetAuto = true; showTickets = false; }
+    if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; canUndo = false; showTickets = false; }
     lastRaceKey = m.raceKey;
     // La parte fija (precios, poderes, disfraces) solo llega la primera vez: se conserva
     if (state) for (const k of ['cfg', 'powers', 'reactions']) if (!(k in m)) m[k] = state[k];

@@ -192,7 +192,7 @@ class Room {
   joinLineup(p) {
     if (this.phase !== 'apuestas' || this.phaseEnds !== null) return false;
     const horse = this.accounts.get(p.id)?.horse;
-    if (!horse || !horse.enrolled || horse.training || this.lineup.some(h => h.owner === p.id)) return false;
+    if (!horse || !horse.enrolled || horse.training || horse.sitOut === this.match.race || this.lineup.some(h => h.owner === p.id)) return false;
     if (this.lineup.filter(h => h.owner).length >= CFG.playerHorsesPerRace || this.lineup.length >= CFG.maxHorses) return false;
     this.lineup.push(this.ownedEntry(p, horse));
     this.forms.push(+(0.93 + Math.random() * 0.14).toFixed(3));
@@ -203,13 +203,39 @@ class Room {
     return true;
   }
 
+  // Saca su potro de la carrera mientras se apuesta: se devuelven los boletos que lo llevan, los demás
+  // boletos siguen valiendo con su nuevo número y un caballo de la casa llena el cupo si hace falta
+  leaveLineup(p) {
+    const i = this.lineup.findIndex(h => h.owner === p.id);
+    if (i < 0) return;
+    const [gone] = this.lineup.splice(i, 1);
+    this.forms.splice(i, 1);
+    if (this.lineup.length < 6) {
+      const k = HORSES.findIndex(h => !this.lineup.some(x => x.name === h.name));
+      this.lineup.push({ ...HORSES[k], brain: BRAINS[k], handicap: HANDICAP[k], skin: randomHouseSkin() });
+      this.forms.push(+(0.93 + Math.random() * 0.14).toFixed(3));
+    }
+    for (const q of this.players.values()) {
+      for (const tk of q.tickets.filter(t => t.sel.includes(i))) {
+        q.coins += tk.amount; q.stats.bet -= tk.amount; q.stats.spent -= tk.amount; q.race.bets -= tk.amount;
+      }
+      q.tickets = q.tickets.filter(t => !t.sel.includes(i));
+      for (const tk of q.tickets) tk.sel = tk.sel.map(x => x > i ? x - 1 : x);
+    }
+    this.phaseEnds = null; // si había cuenta regresiva, vuelve a empezar con la fila nueva
+    this.lineupVer++;
+    this.placeHorses();
+    this.requestOdds();
+    this.addLog(`${gone.name} se va a entrenar y sale de la carrera. Se devuelven sus boletos.`);
+  }
+
   // 6 caballos: hasta 3 de jugadores inscritos (los que llevan más tiempo sin correr primero)
   // y el resto de la casa, elegidos al azar
   buildLineup() {
     const online = this.connectedIds();
     const owned = [...this.players.values()]
       .map(p => ({ p, horse: this.accounts.get(p.id)?.horse }))
-      .filter(({ p, horse }) => horse && horse.enrolled && !horse.training && online.has(p.id))
+      .filter(({ p, horse }) => horse && horse.enrolled && !horse.training && horse.sitOut !== this.match.race && online.has(p.id))
       .sort((a, b) => (a.horse.lastRace || 0) - (b.horse.lastRace || 0))
       .slice(0, CFG.playerHorsesPerRace);
     const lineup = owned.map(({ p, horse }) => this.ownedEntry(p, horse));
@@ -482,7 +508,7 @@ class Room {
     const acc = this.accounts.get(id) || {};
     const horse = acc.horse ? {
       name: acc.horse.name, color: acc.horse.color, perfil: acc.horse.perfil, level: acc.horse.level, enrolled: acc.horse.enrolled,
-      training: acc.horse.training || null, trainProgress: acc.horse.trainProgress || 0, trainQueued: !!acc.horse.trainQueued, body: acc.horse.body || {}, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
+      training: acc.horse.training || null, trainProgress: acc.horse.trainProgress || 0, trainQueued: !!acc.horse.trainQueued, sitsOut: acc.horse.sitOut === this.match.race + (this.phase === 'apuestas' ? 0 : 1), body: acc.horse.body || {}, wins: acc.horse.wins || 0, history: (acc.horse.history || []).slice(-5),
       skin: acc.horse.skin || 'normal',
       // Número en la carrera actual (o null si no corre en esta)
       inRace: (() => { const i = this.lineup.findIndex(h => h.owner === id); return i >= 0 ? i : null; })(),
@@ -544,22 +570,18 @@ class Room {
     const odds = this.oddsOf(type, sel), key = ticketKey(type, sel);
     const same = p.tickets.find(tk => tk.type === type && ticketKey(type, tk.sel) === key && tk.odds === odds);
     if (same) same.amount += amount; else p.tickets.push({ type, sel, amount, odds });
-    p.lastBet = { type, key, odds, amount };
     const names = sel.map(i => this.lineup[i].name).join(type === 'quiniela' ? ' y ' : ' → ');
     this.addLog(`${p.name} juega ${amount} a ${t.name}: ${names} (x${odds}).`);
     return {};
   }
 
-  // Deshace la última apuesta (en el celular apostar es un solo toque: un dedazo se corrige aquí)
-  unbet(p) {
+  // Quita un boleto y devuelve lo apostado. Sin número, quita el último
+  unbet(p, { ticket } = {}) {
     if (this.phase !== 'apuestas') return { error: 'Las apuestas están cerradas' };
-    const b = p.lastBet;
-    const tk = b && p.tickets.find(t => t.type === b.type && ticketKey(t.type, t.sel) === b.key && t.odds === b.odds);
+    const i = ticket == null ? p.tickets.length - 1 : parseInt(ticket, 10), tk = p.tickets[i];
     if (!tk) return { error: 'No hay nada que deshacer' };
-    tk.amount -= b.amount;
-    if (tk.amount <= 0) p.tickets = p.tickets.filter(t => t !== tk);
-    p.coins += b.amount; p.stats.bet -= b.amount; p.stats.spent -= b.amount; p.race.bets -= b.amount;
-    p.lastBet = null;
+    p.tickets.splice(i, 1);
+    p.coins += tk.amount; p.stats.bet -= tk.amount; p.stats.spent -= tk.amount; p.race.bets -= tk.amount;
     return {};
   }
 
@@ -801,9 +823,11 @@ class Room {
     acc.horse.training = focus;
     acc.horse.trainProgress = 0;
     this.narrate('entreno', { p: p.name, h: acc.horse.name, n: TRAIN_FOCUS[focus] });
-    // Mientras entrena no compite: si ya está en esta carrera (puede tener boletos), empieza cuando termine
-    const running = this.phase !== 'resultados' && this.lineup.some(h => h.owner === p.id);
-    if (running) acc.horse.trainQueued = true;
+    // Cada entrenamiento le cuesta una carrera. Mientras se apuesta sale de esta; si ya está corriendo,
+    // empieza al terminar y se salta la siguiente, aunque acabe de entrenar antes de que arranque
+    acc.horse.sitOut = this.phase === 'apuestas' ? this.match.race : this.match.race + 1;
+    if (this.phase === 'apuestas') this.leaveLineup(p);
+    if (this.phase === 'carrera' && this.lineup.some(h => h.owner === p.id)) acc.horse.trainQueued = true;
     else this.startTraining(p.id, acc.horse);
     return {};
   }
@@ -828,6 +852,7 @@ class Room {
     horse.training = null;
     horse.trainProgress = 0;
     if (!result || !result.improved) { if (p) p.coins += CFG.trainPrice; }
+    if (!result) horse.sitOut = null;
     if (result) {
       horse.history = [...(horse.history || []), { focus, ...result.summary, improved: result.improved }].slice(-10);
       if (result.improved) {

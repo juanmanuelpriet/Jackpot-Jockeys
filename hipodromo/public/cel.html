@@ -117,6 +117,11 @@
   #dock .inner { max-width: 532px; margin: 0 auto; }
   #slipTxt { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; margin-bottom: 6px; min-height: 18px; width: 100%; text-align: left; }
   #slipTxt b { font-size: 16px; font-weight: 500; }
+  #betNow { display: flex; flex-direction: column; }
+  #betNowTxt { font-size: 15px; margin-bottom: 6px; }
+  #betAmt { padding: 9px 12px; font-size: 22px; text-align: center; margin-bottom: 7px; }
+  #betWin { font-size: 14px; text-align: center; margin-bottom: 7px; min-height: 18px; }
+  .delTk { width: 34px; height: 34px; margin-left: 8px; flex: none; border-radius: 50%; background: var(--card2); border: 1px solid var(--sep); font-size: 15px; }
   #amounts { display: flex; gap: 6px; margin-bottom: 7px; }
   #amounts button { flex: 1; padding: 8px 0; border-radius: 8px; background: var(--card2); border: 1px solid var(--sep); font-weight: 500; font-size: 15px; }
   #amounts button.sel { background: var(--txt); color: var(--bg); border-color: var(--txt); }
@@ -236,9 +241,17 @@
 
 <div id="dock" class="hidden"><div class="inner">
   <div id="betDock">
-    <button id="slipTxt"></button>
-    <div id="amounts"></div>
-    <div class="rowBtns"><button class="big gray" id="undoBtn">↩ Deshacer</button><button class="big" id="readyBtn">Listo</button></div>
+    <div id="betNow" class="hidden">
+      <div id="betNowTxt"></div>
+      <input id="betAmt" type="number" inputmode="numeric" min="1" step="1" placeholder="¿Cuánto apuestas?" aria-label="Cuánto apuestas">
+      <div id="amounts"></div>
+      <div id="betWin"></div>
+      <div class="rowBtns"><button class="big gray" id="betCancel">Cancelar</button><button class="big" id="betOk">Apostar</button></div>
+    </div>
+    <div id="betIdle">
+      <button id="slipTxt"></button>
+      <div class="rowBtns"><button class="big gray" id="undoBtn">↩ Deshacer</button><button class="big" id="readyBtn">Listo</button></div>
+    </div>
   </div>
   <div id="powerDock" class="hidden">
     <div class="pwLabel" id="helpTxt"></div>
@@ -285,7 +298,7 @@ const params = new URLSearchParams(location.search);
 let sala = (params.get('sala') || store.get('jj_sala') || '').toUpperCase();
 let myId = store.get('jj_id');
 let state = null, me = null, selHorse = null, amount = 100, lastRaceKey = null, joining = false, showTickets = false;
-let betType = 'ganador', picks = [], moreTypes = false, canUndo = false; // apuesta en preparación: tipo y caballos en orden (1º, 2º, 3º)
+let betType = 'ganador', picks = [], moreTypes = false; // apuesta en preparación: tipo y caballos en orden (1º, 2º, 3º)
 const ORD = ['1º', '2º', '3º'];
 
 // Tipos de apuesta en palabras sencillas
@@ -355,20 +368,35 @@ document.getElementById('joinBtn').onclick = async () => {
 };
 
 // ─── Acciones de la pestaña Carrera ───
-// Apostar es un solo toque: al completar los caballos la apuesta queda hecha. Un dedazo se corrige con Deshacer.
+// Apostar: tocas el caballo, escribes cuánto y confirmas. Cualquier boleto se puede quitar antes de la carrera.
+const typedAmount = () => parseInt(document.getElementById('betAmt').value, 10) || 0;
 async function placeBet() {
-  const a = betAmount();
-  if (a <= 0) { picks = []; render(); return toast('No tienes fichas. La mafia presta…'); }
+  const a = typedAmount();
+  if (a <= 0) return toast('Escribe cuánto quieres apostar');
+  if (a > me.coins) return toast(`Solo tienes ${fmt(me.coins)} fichas`);
   const type = betType, sel = picks;
-  picks = [];
-  if (await api('bet', { type, sel, amount: a })) { canUndo = true; toast(`🎟 ${fmt(a)} · ${TYPE_UI[type].e} ${pickNames(type, sel)}`); }
+  amount = a;
+  if (await api('bet', { type, sel, amount: a })) { picks = []; toast(`🎟 ${fmt(a)} · ${TYPE_UI[type].e} ${pickNames(type, sel)}`); }
   render();
 }
-document.getElementById('undoBtn').onclick = async () => {
+document.getElementById('betOk').onclick = () => { tap(); placeBet(); };
+document.getElementById('betCancel').onclick = () => { tap(); picks = []; render(); };
+document.getElementById('betAmt').oninput = () => render();
+async function removeTicket(ticket) {
+  const tk = me.tickets[ticket ?? me.tickets.length - 1];
+  if (!tk) return;
   tap();
-  if (await api('unbet')) { canUndo = false; toast('↩ Apuesta deshecha'); render(); }
+  if (await api('unbet', { ticket })) { toast(`↩ Te devolvimos ${fmt(tk.amount)}: ${pickNames(tk.type, tk.sel)}`); render(); }
+}
+document.getElementById('undoBtn').onclick = () => removeTicket();
+document.getElementById('tickets').onclick = e => {
+  const b = e.target.closest('.delTk');
+  if (b) removeTicket(+b.dataset.ticket);
 };
-document.getElementById('slipTxt').onclick = () => { showTickets = !showTickets; render(); };
+document.getElementById('slipTxt').onclick = () => {
+  showTickets = !showTickets; render();
+  if (showTickets) document.getElementById('tickets').scrollIntoView({ block: 'nearest' });
+};
 document.getElementById('trackTip').onclick = () => openTopic('personalidades');
 document.getElementById('readyBtn').onclick = () => { tap(); api('ready', { ready: !me.ready }); };
 const pickType = e => {
@@ -383,7 +411,8 @@ document.getElementById('types').onclick = pickType;
 document.getElementById('moreTypes').onclick = pickType;
 document.getElementById('amounts').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
-  amount = b.dataset.a === 'Todo' ? 'Todo' : +b.dataset.a; render();
+  document.getElementById('betAmt').value = b.dataset.a === 'Todo' ? me.coins : b.dataset.a;
+  render();
 };
 const usePower = e => {
   const b = e.target.closest('.pw'); if (!b || b.disabled) return;
@@ -402,10 +431,12 @@ document.getElementById('horses').onclick = e => {
   tap();
   if (state.phase === 'apuestas') {
     if (!state.oddsReady) return;
+    if (me.coins <= 0) return toast('No tienes fichas. La mafia presta…');
     const n = state.pools[betType].picks;
-    // Combinadas: se eligen en orden y tocar de nuevo uno lo quita. Al completarlas queda apostado
-    if (picks.includes(i)) picks = picks.filter(x => x !== i); else picks.push(i);
-    if (picks.length === n) return placeBet();
+    // Se eligen en orden y tocar de nuevo uno lo quita. Con uno solo, tocar otro cambia de caballo
+    if (picks.includes(i)) picks = picks.filter(x => x !== i);
+    else if (n === 1) picks = [i];
+    else if (picks.length < n) picks.push(i);
   } else selHorse = selHorse === i ? null : i;
   render();
 };
@@ -492,9 +523,20 @@ function renderCarrera() {
     setHTML('slipTxt', !s.oddsReady ? '<span class="mute">La casa calcula las cuotas…</span>'
       : T.picks > 1 ? `<span class="mute">${U.e} ${esc(U.how)} (${picks.length}/${T.picks})</span>`
       : me.tickets.length ? `<span>🎟 Pusiste ${fmt(spent)}</span><span class="mute">si aciertas quedas con <b style="color:var(--accent)">${fmt(leftWith(best2))}</b> ${showTickets ? '▴' : '▾'}</span>`
-      : `<span class="mute">Toca un caballo: apuestas ${fmt(a)} al instante</span>`);
-    setHTML('amounts', AMOUNTS.map(v => `<button data-a="${v}" class="${amount === v ? 'sel' : ''}">${v}</button>`).join(''));
-    document.getElementById('undoBtn').disabled = !canUndo;
+      : `<span class="mute">Toca un caballo y escribe cuánto apuestas</span>`);
+    document.getElementById('undoBtn').disabled = !me.tickets.length;
+    // Con los caballos elegidos: cuánto apuesta y qué recibiría
+    const choosing = s.oddsReady && picks.length === T.picks, input = document.getElementById('betAmt');
+    if (choosing && document.getElementById('betNow').classList.contains('hidden')) input.value = betAmount();
+    document.getElementById('betNow').classList.toggle('hidden', !choosing);
+    document.getElementById('betIdle').classList.toggle('hidden', choosing);
+    if (choosing) {
+      const typed = typedAmount(), q = quote(betType, picks), win = Math.floor(q * typed);
+      setHTML('betNowTxt', `${U.e} ${esc(U.name)}: <b>${esc(pickNames(betType, picks))}</b> · ${xs(q)}`);
+      setHTML('amounts', AMOUNTS.map(v => `<button data-a="${v}" class="${String(typed) === String(v) ? 'sel' : ''}">${v}</button>`).join(''));
+      setHTML('betWin', typed > me.coins ? `<span class="neg">Solo tienes ${fmt(me.coins)} fichas</span>`
+        : typed > 0 ? `<span class="mute">Si aciertas recibes ${fmt(win)} y quedas con </span><b style="color:var(--accent)">${fmt(leftWith(win) - typed)}</b>` : '');
+    }
     const rb = document.getElementById('readyBtn');
     rb.textContent = me.ready ? '✓ Listo' : 'Listo';
     rb.className = 'big ' + (me.ready ? 'green' : '');
@@ -524,10 +566,10 @@ function renderCarrera() {
 
   // Lista de boletos: solo si se pide
   if ((betting || racing) && showTickets && me.tickets.length) {
-    setHTML('tickets', `<div class="group" style="margin-top:8px">${me.tickets.map(tk =>
+    setHTML('tickets', `<div class="group" style="margin-top:8px">${me.tickets.map((tk, idx) =>
       `<div class="item"><div class="avatar" style="background:var(--card2);font-size:20px">${TYPE_UI[tk.type].e}</div>
         <div style="min-width:0"><div class="t" style="font-size:15px">${esc(pickNames(tk.type, tk.sel))}</div><div class="s">${TYPE_UI[tk.type].name} · ${xs(tk.odds)} · pusiste ${fmt(tk.amount)}</div></div>
-        <div class="r"><div class="win">${fmt(tk.ifHit)}</div><div class="x">si acierta</div></div></div>`).join('')}</div>`);
+        <div class="r"><div class="win">${fmt(tk.ifHit)}</div><div class="x">si acierta</div></div>${betting ? `<button class="delTk" data-ticket="${idx}" aria-label="Quitar apuesta">✕</button>` : ''}</div>`).join('')}</div>`);
   } else setHTML('tickets', '');
 
   // Resultados
@@ -620,7 +662,7 @@ function renderCaballo() {
       <div class="mute">Nivel ${h.level} · ${h.wins} victorias · ${h.perfil === 'bravo' ? '😤 Bravo' : '💨 Corredor'}</div>
       <div style="font-size:14px;margin-top:4px">⚡ +${Math.round((h.body.speed || 0) * 1000) / 10} % velocidad · 🎯 +${Math.round((h.body.agility || 0) * 100)} % giro · 💥 +${Math.round((h.body.power || 0) * 100)} % fuerza</div>
       <div class="note" style="margin:10px 0 0;text-align:center">${h.inRace != null ? `🏇 <b>Corre en esta carrera con el número ${h.inRace + 1}.</b> Búscalo en la lista con la etiqueta TUYO.`
-        : h.training ? 'Está entrenando: vuelve a competir cuando termine.'
+        : h.training || h.sitsOut ? 'Por entrenar se salta esta carrera. Vuelve en la siguiente.'
         : !h.enrolled ? 'No está inscrito: no corre.'
         : state.phase === 'apuestas' ? 'Esta carrera ya está llena de potros: entra en la próxima.'
         : '⏳ <b>Entra en la próxima carrera</b> (esta ya arrancó).'}</div>
@@ -642,7 +684,7 @@ function trainHTML(h, c) {
     ${last.improved ? 'Se quedó con lo aprendido.' : `No mejoró: sigue igual y te devolvimos 🪙 ${c.trainPrice}.`}</div>` : '';
   if (h.training) {
     const u2 = TRAIN_UI[h.training], pct = Math.round(h.trainProgress / c.trainGenerations * 100);
-    if (h.trainQueued) return `<b>🏋️ ${u2.e} ${u2.name}: empieza al terminar esta carrera</b><div class="mute" style="font-size:14px">Mientras entrene no compite.</div>`;
+    if (h.trainQueued) return `<b>🏋️ ${u2.e} ${u2.name}: empieza al terminar esta carrera</b><div class="mute" style="font-size:14px">Se salta la carrera siguiente.</div>`;
     return `<b>🏋️ Entrenando ${u2.e} ${u2.name}…</b><div class="mute" style="font-size:14px">Generación ${h.trainProgress} de ${c.trainGenerations}. Mientras tanto no compite.</div><div class="bar"><i style="width:${pct}%"></i></div>`;
   }
   return `<div class="btnRow three" style="margin-top:0">${Object.entries(TRAIN_UI).map(([k, u3]) => `<button class="soft" data-train="${k}">${u3.e} ${u3.name}</button>`).join('')}</div>${result}`;
@@ -791,7 +833,7 @@ const persGuide = () => `Siempre se ven junto al nombre.<div class="steps" style
   `<div><span>${p.icon}</span><span><b>${esc(p.name)}.</b> ${esc(p.line)}<small>Podio ${p.podio} % · ${String(p.choques).replace('.', ',')} choques por carrera · gana en pista corta ${p.gana.corta} %, larga ${p.gana.larga} %</small></span></div>`).join('')}</div>`;
 const TUTO = [
   ['meta', '🎯', 'Termina con más fichas', () => `Empiezas con <b>1.000</b>. Se juega hasta que se aburran. 🏆 muestra quién va ganando.`],
-  ['apostar', '🎟️', 'Toca un caballo y ya apostaste', () => `El número dorado es lo que recibes si aciertas. <b>↩ Deshacer</b> corrige un dedazo. Con todos en <b>Listo</b>, arrancan.`],
+  ['apostar', '🎟️', 'Toca un caballo y escribe cuánto', () => `El número dorado es lo que recibes si aciertas. <b>↩ Deshacer</b> quita tu última apuesta, y en la lista de boletos quitas la que quieras con <b>✕</b>. Con todos en <b>Listo</b>, arrancan.`],
   ['tipos', '🥇', 'Más fácil paga menos', () => `<b>🥇 Que gane</b> paga más que <b>🥈 Top 2</b> y <b>🥉 Podio</b>. En <b>➕ Más</b> adivinas varios puestos: casi nunca sale, pero paga muchísimo.`],
   ['poderes', '🥕', 'En carrera mira la pantalla grande', () => `<b>🟢 Arriba ayudas a tu caballo. 🔴 Abajo frenas a su rival.</b> Un toque y listo. Si quieres otro caballo, tócalo primero.`
     + `<div class="steps" style="margin-top:8px">${Object.values(state.powers).map(p => `<div><span>${p.icon}</span><span><b>${esc(p.name)}</b> <small>${esc(p.desc)} · cuesta ${p.cost}</small></span></div>`).join('')}</div>`],
@@ -809,7 +851,7 @@ const SECTIONS = [
     ['1️⃣', `<b>Eliges qué mejorar:</b> ⚡ velocidad, 💥 choques o 🎯 control. Cuesta ${fmt(state.cfg.trainPrice)} fichas.`],
     ['2️⃣', `<b>Practica ${state.cfg.trainGenerations} generaciones</b> en pistas nuevas. Tarda menos de un minuto y <b>mientras tanto no compite</b>.`],
     ['3️⃣', `<b>Presenta un examen.</b> Si mejoró, se queda con lo aprendido y sube de nivel. Si no, sigue igual y te devolvemos las fichas.`],
-    ['🔁', `<b>Entrena lo que quieras, cuando quieras.</b> Si ya está en la carrera, empieza al terminar.`],
+    ['🔁', `<b>Entrena lo que quieras, cuando quieras.</b> Cada vez se salta una carrera: si ya apostaron por él, esos boletos se devuelven. Si ya está corriendo, empieza al terminar.`],
     ['📉', `<b>Entre mejor sea, menos paga</b> cuando le apuestan: la casa también lo sabe.`],
   ])],
   ['mafia', '🕴️', 'La mafia es un banco malo', () => mafiaSteps(state.cfg)],
@@ -856,7 +898,7 @@ function connect() {
   es = openStream(`sala=${encodeURIComponent(sala)}&id=${encodeURIComponent(myId)}`, m => {
     if (m.type !== 'state') return;
     if (m.build && !PAGE_BUILD.startsWith('__') && m.build !== PAGE_BUILD) { location.reload(); return; } // el servidor se actualizó
-    if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; canUndo = false; showTickets = false; }
+    if (lastRaceKey && lastRaceKey !== m.raceKey) { selHorse = null; picks = []; showTickets = false; }
     lastRaceKey = m.raceKey;
     // La parte fija (precios, poderes, disfraces) solo llega la primera vez: se conserva
     if (state) for (const k of ['cfg', 'powers', 'reactions']) if (!(k in m)) m[k] = state[k];

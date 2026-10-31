@@ -57,7 +57,7 @@ paga 50 % más.
 
 | Fase | Duración | Qué pasa |
 |---|---|---|
-| Apuestas | Sin reloj: arranca 5 s después de que todos tocan **Listo** | Tocas un caballo y ya apostaste |
+| Apuestas | Sin reloj: arranca 5 s después de que todos tocan **Listo** | Tocas un caballo, escribes cuánto y confirmas; puedes quitar cualquier apuesta |
 | Carrera | Depende de la pista | Usas poderes y sabotajes |
 | Resultados | 25 s | Repetición de la llegada y pagos |
 
@@ -145,7 +145,7 @@ Equipos de hasta 3 jugadores:
 3. **Toma un examen** de 36 pistas contra su versión anterior, con las mismas salidas y la misma suerte. Si no mejora
    más que el ruido de la medida, o corre mucho peor, sigue igual y se devuelven las fichas.
 
-Se puede entrenar lo que quieras y cuando quieras, pero **mientras entrena no compite**. Si ya está en la carrera actual, empieza a entrenar cuando esa termine.
+Se puede entrenar lo que quieras y cuando quieras, pero **cada entrenamiento le cuesta una carrera**. Mientras se apuesta sale de esa carrera y se devuelven los boletos que lo llevan; si ya está corriendo, empieza al terminar y se salta la siguiente.
 
 ## Cómo funcionan los caballos
 

@@ -33,7 +33,7 @@ let saveTimer = null;
 function saveAccounts() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const list = [...accounts.values()].map(a => ({ ...a, horse: a.horse ? { ...a.horse, training: null } : null }));
+    const list = [...accounts.values()].map(a => ({ ...a, horse: a.horse ? { ...a.horse, training: null, trainQueued: false, sitOut: null } : null }));
     fs.writeFile(ACCOUNTS_FILE, JSON.stringify(list), () => {});
   }, 300);
 }

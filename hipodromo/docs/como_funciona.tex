@@ -387,6 +387,9 @@ Pancho Trotes & 2/8 & $18.5 \to 18.8$ & $3.35 \to 3.29$ & $1.57 \to 1.55$ \\
 
 Herradura Loca es la única mejora clara, y es la que más margen tenía, porque era la de peor puesto medio. Una sola lección aceptada le bastó; también se sale un poco más. Cuando un caballo mejora así, $\epsilon_i$ baja sus cuotas para que apostarle no le gane a la casa.
 
+\section{El video tutorial}
+La primera vez que se abre el juego en un equipo sale un video con voz, de unos dos minutos, que explica cómo entrar, apostar, las personalidades, los mundos, los poderes, los potros, la mafia y las peñas. Se salta con un botón o con Enter, y se vuelve a ver con la tecla V o desde la pantalla de inicio. Se graba con el juego real desde \texttt{video/grabar.js}, con un guion en \texttt{video/guion.js}; lo que se ve hay que volver a grabarlo si cambia el juego. El video actual se grabó antes de los cráteres nuevos, los saltos y los caimanes adicionales, así que en algunas escenas se ven los obstáculos anteriores.
+
 \section{Experimentos}
 Cada idea se prueba primero en una copia aparte, sin tocar el juego, y solo se adopta si los números la justifican. Aquí quedan también las que no funcionaron. Salvo que se diga otra cosa, ``tropiezos'', ``salidas'' y ``pisadas'' son por caballo y por carrera. Las pruebas usan pocas carreras comparadas con el ruido del juego, así que las diferencias pequeñas no significan nada.
 
@@ -529,8 +532,49 @@ Heurística & 28.81 & 0.19 & 64\,\% \\
 
 La distancia con la heurística parece estar en los errores. Con unas $1.3$ salidas de más a $1.2$ s y unos $0.9$ tropiezos de más a $0.8$ s se explican unos $2.3$ s, casi toda la diferencia; es una cuenta aproximada, no una medición directa. Que redes tan distintas, incluso desde cero, queden en el mismo punto apunta al entrenamiento o a la aptitud, no al modelo, aunque tampoco está comprobado. La hipótesis siguiente es que no aprenden a frenar antes de las curvas. Las pruebas son solo con corredores, y una red grande podría necesitar más generaciones.
 
+\subsection{Imitar a la heurística con una GRU: sin adoptar}
+Para separar si el freno es el entrenamiento o la red, se entrenaron redes con gradientes para copiar a la heurística, con DAgger: primero conduce la heurística; luego conduce la red, y en cada tick la heurística dice qué habría hecho. Hubo 10 rondas de 240 carreras, mitad solos y mitad con rivales, con el error cuadrático sobre giro y acelerador. La red entrenada en Python da el mismo resultado en el juego, con error menor que $10^{-6}$. Solo se entrenó el corredor, y de cada variante hay dos semillas.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Variante & Tiempo solo (s) & Salidas & Pisadas & Gana contra la casa \\
+\midrule
+Red actual, con evolución & 31.31 & 1.56 & 3.8 & 42\,\% \\
+Red actual, imitando & 32.29 / 32.12 & 1.63 / 1.64 & 3.8 / 3.3 & 28 / 27\,\% \\
+GRU de 8 (666 pesos), imitando & 31.57 / 31.33 & 1.22 / 1.07 & 3.1 / 3.0 & 34 / 33\,\% \\
+GRU de 32 (4962 pesos), imitando & 31.75 / 30.89 & 1.78 / 0.90 & 2.4 / 2.1 & 33 / 37\,\% \\
+\midrule
+Heurística & 28.81 & 0.19 & 0.9 & 64\,\% \\
+\bottomrule
+\end{tabular}
+\caption{Con gradientes la GRU sí supera a la red sin memoria, pero aún no a la evolución en carrera.}
+\end{table}
+
+La mejor red, una GRU de 32, gana en unos mundos y pierde en otros frente a la red actual: hipódromo $28.8$ contra $30.1$ s, Luna $26.9$ contra $28.3$ y pantano $28.9$ contra $30.4$, pero desierto $31.3$ contra $30.7$ y volcán $34.8$ contra $33.8$; en nieve hace $34.7$ contra $34.5$. La otra semilla de la misma arquitectura salió mucho peor, así que el resultado no es estable. La pérdida se quedó en torno a $0.43$, lejos de copiar del todo: lo más probable es que con estos sensores la red no pueda deducir todo lo que la heurística ve en el mapa. Sin memoria, imitar salió peor que evolucionar, así que la imitación por sí sola no explica la mejora. Corrige la conclusión de la sección anterior: el método de entrenamiento sí cambia lo que aporta la memoria. No se adoptó porque gana menos contra la casa y costaría reentrenar a todos con gradientes, reescribir el entrenamiento durante la partida y guardar la memoria de cada caballo.
+
+\subsection{Afinar la GRU con evolución: descartado, redes congeladas}
+La mejor GRU de 32 se afinó con la aptitud de carrera, 300 generaciones y tres semillas. La regla, fijada antes de empezar, era congelar las redes si no superaba a la red actual contra la casa.
+
+\begin{table}[h]\centering
+\begin{tabular}{lcccc}
+\toprule
+Variante & Tiempo solo (s) & Salidas & Volcán (s) & Gana contra la casa \\
+\midrule
+Red actual & 31.31 & 1.56 & 33.8 & 42\,\% \\
+GRU imitando, sin afinar & 30.89 & 0.90 & 34.8 & 37\,\% \\
+GRU afinada, semilla 1 & 33.00 & 2.82 & 45.3 & 23\,\% \\
+GRU afinada, semilla 2 & 31.65 & 0.78 & 39.4 & 26\,\% \\
+GRU afinada, semilla 3 & 32.10 & 1.32 & 37.6 & 12\,\% \\
+\bottomrule
+\end{tabular}
+\caption{Afinar empeoró a la GRU en carrera; las tres semillas quedan por debajo.}
+\end{table}
+
+En la primera generación la población promedia entre $438$ y $845$ puntos, con $15$ a $20$ salidas por carrera, mientras el mejor individuo supera los $2200$: mutar una red de 4962 pesos entrenada con gradientes casi siempre la rompe. Es una explicación probable de por qué la evolución no la mejoró, no una comprobación. \textbf{Decisión: las redes del juego quedan congeladas como están.} Solo se probó con el corredor, y no se descarta que otro método, como PPO, la mejore; hoy el costo no se justifica.
+
 \subsection{Ideas pendientes}
-Quedan sin probar: imitar a la heurística y afinar con evolución; CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
+Quedan sin probar: CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
 
 Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube.com/watch?v=DcYLT37ImBY}, revisado por su transcripción) se toman cuatro advertencias: una política sin memoria puede bastar y entrena más estable; una recompensa extrema y única deja una marca grande; un premio mal definido se explota; y hay que mirar el comportamiento, no solo el puntaje.
 

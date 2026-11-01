@@ -13,6 +13,8 @@ Cada prueba corre en una copia aparte del proyecto, con el parche que le corresp
 | `arquitecturas.diff` | Añade sentidos, red ancha, GRU y memoria de entradas |
 | `corre.sh`, `lista.txt`, `mide.js` | Entrenan y miden cada arquitectura |
 
+En `imitacion/` está el entrenamiento con gradientes: `gen.js` graba, `entrena.py` aprende (necesita PyTorch), `ronda.sh` repite las rondas, `gru32_mejor.json` es la mejor red y `afina.sh` la afina con evolución. Espera una carpeta `base/` a su lado, igual que `corre.sh`.
+
 `corre.sh` espera una carpeta `base/` a su lado con el proyecto ya parchado y `piloto.js`. Para correr todo:
 
 ```bash

@@ -1,0 +1,6 @@
+gru8.1 gru 8 1 1500
+gru8.2 gru 8 2 1500
+gru32.1 gru 32 1 1500
+gru32.2 gru 32 2 1500
+mlp.1 mlp 0 1 4000
+mlp.2 mlp 0 2 4000

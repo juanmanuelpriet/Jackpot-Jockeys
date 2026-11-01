@@ -1,28 +1,28 @@
 {
   "hipodromo": {
     "edge": {
-      "corredor": 0.956,
-      "muybravo": 0.709,
-      "bravo": 1.334,
-      "picaro": 1.089
+      "corredor": 1.004,
+      "muybravo": 0.679,
+      "bravo": 1.279,
+      "picaro": 1.03
     },
     "mejor": "bravo"
   },
   "nieve": {
     "edge": {
-      "corredor": 1.111,
-      "muybravo": 0.635,
-      "bravo": 0.985,
-      "picaro": 1.047
+      "corredor": 1.14,
+      "muybravo": 0.645,
+      "bravo": 0.962,
+      "picaro": 0.974
     },
     "mejor": "corredor"
   },
   "luna": {
     "edge": {
-      "corredor": 0.769,
-      "muybravo": 1.808,
-      "bravo": 0.808,
-      "picaro": 1.079
+      "corredor": 0.776,
+      "muybravo": 1.74,
+      "bravo": 0.887,
+      "picaro": 1.045
     },
     "mejor": "muybravo"
   },

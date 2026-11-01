@@ -28,14 +28,15 @@ const MUNDOS = {
 //   lento      frena mientras se pisa (`freno`)                 resbalon  casi no deja girar (`giro`)
 //   hoyo       al caer queda aturdido (`aturde` en s)           quema     vuelve al centro y pierde tiempo
 //   desvio     lo hace girar mientras lo pisa (`giro`)          ciclo     se activa cada `periodo` ticks durante `activo`
+//   saltable   se salta con velocidad; si no, se pisa y hace su efecto
 const OBSTACULOS = {
   valla: { kind: 'salto', r: 14 },
-  barro: { kind: 'lento', r: 22, freno: 0.55 },
+  barro: { kind: 'lento', r: 22, freno: 0.55, saltable: true },
   pino: { kind: 'solido', r: 13 },
   hielo: { kind: 'resbalon', r: 26, giro: 0.15 },
-  nevada: { kind: 'lento', r: 24, freno: 0.6 },
+  nevada: { kind: 'lento', r: 24, freno: 0.6, saltable: true },
   roca: { kind: 'salto', r: 13 },
-  crater: { kind: 'hoyo', r: 14, aturde: 0.8 },
+  crater: { kind: 'hoyo', r: 14, aturde: 0.8, saltable: true },
   lava: { kind: 'quema', r: 22 },
   geiser: { kind: 'ciclo', r: 20, periodo: 150, activo: 45, aturde: 0.9 },
   basalto: { kind: 'solido', r: 14 },

@@ -445,7 +445,7 @@ class Horse {
     this.finishTick = null;
     this.falls = 0;      // salidas de pista
     this.stumbles = 0;   // choques con vallas
-    this.jumps = 0;      // vallas saltadas
+    this.jumps = 0;      // obstáculos saltados
     this.hitsGiven = 0;  // embestidas a otros caballos
     this.hitsTaken = 0;
     this.hitCd = 0;
@@ -503,12 +503,12 @@ class Horse {
     return w ? Math.max(-1, Math.min(1, w * Math.sin(this.track.windAngle - this.angle) / this.track.world.viento)) : 0;
   }
 
-  // El obstáculo pisable que tiene debajo (los que se pisan no afectan en el aire, salvo el barro de siempre)
+  // El obstáculo pisable que tiene debajo (los que se pisan no afectan en el aire, salvo la arena y la ciénaga)
   _patchAt() {
     for (const o of this.track.obstacles) {
       if (o.kind === 'salto' || o.kind === 'solido') continue;
       if ((this.x - o.x) ** 2 + (this.y - o.y) ** 2 >= o.r * o.r) continue;
-      if (o.kind !== 'lento' && this.fx.jump > 0) continue;
+      if ((o.kind !== 'lento' || OBSTACULOS[o.type].saltable) && this.fx.jump > 0) continue;
       if (o.kind === 'ciclo' && !this._cycleOn(o)) continue;
       return o;
     }
@@ -591,9 +591,12 @@ class Horse {
     // Vallas: con buena velocidad se saltan, si no, el caballo tropieza
     if (fx.jump === 0) {
       for (const o of this.track.obstacles) {
-        if ((o.kind !== 'salto' && o.kind !== 'solido') || o === this.lastHit) continue;
+        const saltable = OBSTACULOS[o.type].saltable;
+        if ((o.kind !== 'salto' && o.kind !== 'solido' && !saltable) || o === this.lastHit) continue;
         if ((nx - o.x) ** 2 + (ny - o.y) ** 2 < (o.r + 6) ** 2) {
           this.lastHit = o;
+          // Barro, nieve y cráteres: con buena velocidad los salta; si no, los pisa
+          if (saltable) { if (this.speed >= world.salto || fx.carrot > 0) { fx.jump = world.aire; this.jumps++; break; } continue; }
           // Con zanahoria el jinete lleva las riendas: siempre salta
           const need = OBSTACULOS[o.type].salto || world.salto;
           if ((o.kind === 'salto' && this.speed >= need) || fx.carrot > 0) { fx.jump = world.aire; this.jumps++; }

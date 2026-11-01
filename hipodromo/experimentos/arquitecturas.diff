@@ -1,0 +1,159 @@
+diff --git sim.js private/tmp/claude-501/-Users-juanmanuelprieto--claude-spares-spare-2lm4cJ/23c32506-5f0f-47f2-b260-2e736eb2f651/scratchpad/mundo/arq/base/sim.js
+index eab0d8e..2e03143 100644
+--- sim.js
++++ private/tmp/claude-501/-Users-juanmanuelprieto--claude-spares-spare-2lm4cJ/23c32506-5f0f-47f2-b260-2e736eb2f651/scratchpad/mundo/arq/base/sim.js
+@@ -50,15 +50,50 @@ function mulberry32(seed) {
+ //   14   qué tan grave es lo que tiene adelante     15  agarre del suelo
+ //   16   viento de lado (-1 izquierda, +1 derecha)  17  gravedad (qué tanta velocidad pide un salto)
+ // "Barro" son todos los obstáculos que se pisan: charcos, hielo, cráteres, lava, géiseres…
+-const NUM_INPUTS = 18;
+-const HIDDEN_1 = 8;
++const SENTIDOS = process.env.JJ_SENTIDOS === '1', GRU_U = +(process.env.JJ_GRU || 0);
++const HIST = process.env.JJ_HIST === '1';
++const NUM_INPUTS = (SENTIDOS ? 22 : 18) * (HIST ? 3 : 1);
++const HIDDEN_1 = +(process.env.JJ_H1 || 8);
+ const INPUT_NAMES = ['sensor_-72', 'sensor_-36', 'sensor_0', 'sensor_+36', 'sensor_+72',
+   'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado',
+   'peligro', 'agarre', 'viento_lado', 'gravedad'];
+ 
+-function predict(brain, input) {
+-  let x = input;
+-  for (const layer of brain) {
++function gruStep(l, x0, mem) {
++  const u = l.b.length / 3, n = x0.length, sig = v => 1 / (1 + Math.exp(-v));
++  while (mem.length < u) mem.push(0);
++  const z = [], r = [], out = [];
++  for (let j = 0; j < u; j++) {
++    let a = l.b[j], c = l.b[j + u];
++    for (let i = 0; i < n; i++) { a += x0[i] * l.W[i][j]; c += x0[i] * l.W[i][j + u]; }
++    for (let k = 0; k < u; k++) { a += mem[k] * l.W[n + k][j]; c += mem[k] * l.W[n + k][j + u]; }
++    z.push(sig(a)); r.push(sig(c));
++  }
++  for (let j = 0; j < u; j++) {
++    let s = l.b[j + 2 * u];
++    for (let i = 0; i < n; i++) s += x0[i] * l.W[i][j + 2 * u];
++    for (let k = 0; k < u; k++) s += r[k] * mem[k] * l.W[n + k][j + 2 * u];
++    out.push((1 - z[j]) * mem[j] + z[j] * Math.tanh(s));
++  }
++  for (let j = 0; j < u; j++) mem[j] = out[j];
++  return out;
++}
++
++function predict(brain, input, mem = []) {
++  // GRU pura: entradas -> GRU -> salidas
++  if (brain[0].gru) {
++    const h = gruStep(brain[0], input, mem), l = brain[1], out = [];
++    for (let j = 0; j < l.b.length; j++) {
++      let s = l.b[j];
++      for (let i = 0; i < h.length; i++) s += h[i] * l.W[i][j];
++      out.push(Math.tanh(s));
++    }
++    return out;
++  }
++  let x = input, x0 = null;
++  const g = brain[4] && brain[4].gru ? brain[4] : null;
++  for (let k = 0; k < 4; k++) {
++    const layer = brain[k];
++    if (k === 2 && g) x = x.concat(gruStep(g, x0, mem));
+     const out = new Array(layer.b.length);
+     for (let j = 0; j < layer.b.length; j++) {
+       let s = layer.b[j];
+@@ -66,18 +101,20 @@ function predict(brain, input) {
+       out[j] = Math.tanh(s);
+     }
+     x = out;
++    if (k === 0) x0 = x;
+   }
+   return x;
+ }
+ 
+ function cloneBrain(brain) {
+-  return brain.map(l => ({ W: l.W.map(r => r.slice()), b: l.b.slice() }));
++  return brain.map(l => ({ ...l, W: l.W.map(r => r.slice()), b: l.b.slice() }));
+ }
+ 
+ // Los cerebros viejos (5 o 7 entradas, 5 neuronas ocultas) se amplían con pesos en
+ // cero: se comportan idéntico hasta que la evolución aprende a usar lo nuevo.
+ function upgradeBrain(brain) {
+   const b = cloneBrain(brain);
++  if (b[0].gru) return b;
+   // Neuronas ocultas nuevas: sin conexiones de entrada ni de salida
+   while (b[0].b.length < HIDDEN_1) {
+     for (const row of b[0].W) row.push(0);
+@@ -85,6 +122,10 @@ function upgradeBrain(brain) {
+     b[1].W.push(new Array(b[1].b.length).fill(0));
+   }
+   while (b[0].W.length < NUM_INPUTS) b[0].W.push(new Array(b[0].b.length).fill(0));
++  if (GRU_U && !b[4]) {
++    for (let k = 0; k < GRU_U; k++) b[2].W.push(new Array(b[2].b.length).fill(0));
++    b.push({ gru: true, W: Array.from({ length: HIDDEN_1 + GRU_U }, () => new Array(GRU_U * 3).fill(0)), b: new Array(GRU_U * 3).fill(0) });
++  }
+   return b;
+ }
+ 
+@@ -452,6 +493,7 @@ class Horse {
+     // efectos (en ticks)
+     this.fx = { boost: 0, blind: 0, freeze: 0, shield: 0, stun: 0, jump: 0, rage: 0, hit: 0, carrot: 0 };
+     this.lastHit = null;
++    this.mem = [];
+   }
+ 
+   get laps() { return this.total / this.track.path.length; }
+@@ -515,11 +557,24 @@ class Horse {
+     return null;
+   }
+ 
++  _sentidos() {
++    const path = this.track.path, n = path.length, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
++    const dir = k => { const a = path[(this.lastProgress + k) % n], b = path[(this.lastProgress + k + 1) % n]; return Math.atan2(b[1] - a[1], b[0] - a[0]); };
++    return [wrap(dir(12) - this.angle) / Math.PI, wrap(dir(30) - this.angle) / Math.PI, wrap(this.heading - this.angle) / Math.PI, this.speed / 9];
++  }
++
+   inputs(numHorses) {
+-    return [...this.sensors, ...this.rival,
++    const now = [...this.sensors, ...this.rival,
+       this.fx.rage > 0 ? 1 : 0, this.fx.boost > 0 ? 1 : 0,
+       this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0, this.mudSide,
+-      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5];
++      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5,
++      ...(SENTIDOS ? this._sentidos() : [])];
++    if (!HIST) return now;
++    // Memoria barata: lo que percibía hace 4 y 8 ticks
++    (this.hist = this.hist || []).push(now);
++    if (this.hist.length > 9) this.hist.shift();
++    const at = k => this.hist[Math.max(0, this.hist.length - 1 - k)];
++    return [...now, ...at(4), ...at(8)];
+   }
+ 
+   update(others = []) {
+@@ -547,7 +602,7 @@ class Horse {
+       this.mud = this._senseMud();
+     }
+ 
+-    const [steer, gas] = predict(this.brain, this.inputs(others.length));
++    const [steer, gas] = this.piloto ? this.piloto(this) : predict(this.brain, this.inputs(others.length), this.mem);
+     this.steer = steer; this.gas = gas;
+ 
+     const world = this.track.world, puddle = this._patchAt(), info = puddle && OBSTACULOS[puddle.type];
+diff --git entrenar.js private/tmp/claude-501/-Users-juanmanuelprieto--claude-spares-spare-2lm4cJ/23c32506-5f0f-47f2-b260-2e736eb2f651/scratchpad/mundo/arq/base/entrenar.js
+index 888c662..e1e1412 100644
+--- entrenar.js
++++ private/tmp/claude-501/-Users-juanmanuelprieto--claude-spares-spare-2lm4cJ/23c32506-5f0f-47f2-b260-2e736eb2f651/scratchpad/mundo/arq/base/entrenar.js
+@@ -26,7 +26,7 @@ if (!['corredor', 'bravo'].includes(PROFILE)) { console.error('Perfil desconocid
+ const fitness = PROFILE === 'bravo'
+   ? makeFitness({ hit: HIT_REWARD, taken: 20, fall: 60, place: PLACE_REWARD })
+   : makeFitness({ hit: 0, taken: 10, fall: 40, place: PLACE_REWARD });
+-const rng = mulberry32(PROFILE === 'bravo' ? 777 + HIT_REWARD : 12345);
++const rng = mulberry32((PROFILE === 'bravo' ? 777 + HIT_REWARD : 12345) + +(process.env.JJ_SEMILLA || 0));
+ const read = f => JSON.parse(fs.readFileSync(path.join(__dirname, f), 'utf8'));
+ const exists = f => fs.existsSync(path.join(__dirname, f));
+ 
+@@ -57,7 +57,7 @@ log.write('perfil,premio_golpe,velocidad,generation,seed,track_size,track_length
+ const avg = (arr, k) => arr.reduce((a, s) => a + s[k], 0) / arr.length;
+ const population = evolve({
+   // Cada generación corre una pista de cada mundo. Mutaciones suaves: ya saben correr y no deben olvidarlo
+-  ...opts, seeds, generations: GENERATIONS, tracksPerGen: WORLDS.length, mutation: [0.02, 0.15],
++  ...opts, seeds, generations: GENERATIONS, tracksPerGen: WORLDS.length, mutation: process.env.JJ_CERO ? [0.05, 0.4] : [0.02, 0.15],
+   onGeneration(g, ranked, tracks, seed) {
+     const best = ranked[0];
+     log.write([PROFILE, PROFILE === 'bravo' ? HIT_REWARD : 0, SPEED, g, seed, tracks[0].size, Math.round(tracks[0].length),

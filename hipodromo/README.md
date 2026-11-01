@@ -238,4 +238,5 @@ el servidor para que use los caballos nuevos.
 | `aprendiz.js` | Aprendizaje de los caballos de la casa en un hilo aparte |
 | `cuotas_mundo.json` | Ventaja de cada personalidad en cada mundo |
 | `docs/como_funciona.pdf` | Cómo funciona todo, con ecuaciones y mediciones |
+| `experimentos/` | Código de las pruebas: heurística, resistencia y arquitecturas |
 | `jugadores.json`, `caballos_aprendidos_mundos.json` | Cuentas y lo que aprendió la casa; se crean solos y no se versionan |

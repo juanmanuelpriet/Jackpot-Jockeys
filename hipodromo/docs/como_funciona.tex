@@ -182,7 +182,7 @@ La red percibe la componente lateral: $\operatorname{clip}\!\left(w(t)\sin(\psi 
 
 \paragraph{Sensores.} Cada rayo llega hasta $180\,C_w$ píxeles y se normaliza siempre con 180. Por eso, en el volcán, ningún rayo marca más de $0.55$: la ceniza acorta la vista y la red lo nota.
 
-\paragraph{Saltos.} Al llegar a una valla, roca o tronco salta si $v \ge S_o$, donde $S_o$ es el umbral propio del obstáculo o, si no tiene, $S_w$. Queda $T_w$ ticks en el aire, sin chocar. Si no le alcanza, queda aturdido $0.8$ s con velocidad cero. Los obstáculos sólidos siempre lo aturden.
+\paragraph{Saltos.} Al llegar a una valla, roca o tronco salta si $v \ge S_o$, donde $S_o$ es el umbral propio del obstáculo o, si no tiene, $S_w$. El barro, los montones de nieve y los cráteres también se saltan con $v \ge S_w$; si no alcanza, se pisan y hacen su efecto, sin tropiezo adicional. Queda $T_w$ ticks en el aire, sin chocar. Si no le alcanza, queda aturdido $0.8$ s con velocidad cero. Los obstáculos sólidos siempre lo aturden.
 
 \paragraph{Salirse.} Fuera de la pista, el jinete lo devuelve al centro en el punto de mayor avance y pierde $1.2$ s.
 
@@ -387,6 +387,153 @@ Pancho Trotes & 2/8 & $18.5 \to 18.8$ & $3.35 \to 3.29$ & $1.57 \to 1.55$ \\
 
 Herradura Loca es la única mejora clara, y es la que más margen tenía, porque era la de peor puesto medio. Una sola lección aceptada le bastó; también se sale un poco más. Cuando un caballo mejora así, $\epsilon_i$ baja sus cuotas para que apostarle no le gane a la casa.
 
+\section{Experimentos}
+Cada idea se prueba primero en una copia aparte, sin tocar el juego, y solo se adopta si los números la justifican. Aquí quedan también las que no funcionaron. Salvo que se diga otra cosa, ``tropiezos'', ``salidas'' y ``pisadas'' son por caballo y por carrera. Las pruebas usan pocas carreras comparadas con el ruido del juego, así que las diferencias pequeñas no significan nada.
+
+\subsection{Castigar más los tropiezos: descartado}
+Se reentrenó a todos con $100E$ en lugar de $15E$ en la aptitud y se midieron 200 carreras por mundo. En la Luna los tropiezos pasaron de $7.9$ a $7.5$, los demás mundos quedaron iguales, y en el volcán las salidas subieron de $3.6$ a $4.3$. Castigar más no enseña a esquivar si no hay espacio para hacerlo.
+
+\subsection{Cráteres más pequeños y a un lado: adoptado}
+El 99\,\% de los tropiezos de la Luna ocurría en cráteres. Con los mismos caballos, sin reentrenar:
+
+\begin{table}[h]\centering
+\begin{tabular}{lc}
+\toprule
+Cráter & Tropiezos en la Luna \\
+\midrule
+Radio 22, cerca del centro (antes) & 7.87 \\
+Radio 14, cerca del centro & 5.20 \\
+Radio 22, a un lado & 2.79 \\
+Radio 14, a un lado (adoptado) & 1.31 \\
+\bottomrule
+\end{tabular}
+\caption{Moverlos a un lado pesa más que achicarlos. 200 carreras.}
+\end{table}
+
+\subsection{Saltar barro, nieve y cráteres: adoptado}
+Los obstáculos marcados como saltables se saltan si el caballo llega con $v \ge v_{\text{salto}}$ del mundo; si no, se pisan y hacen su efecto. En el hipódromo las pisadas bajaron de $5.4$ a $0.2$, en la nieve de $11.7$ a $6.8$ (el hielo no se salta) y en la Luna de $1.3$ a $0.0$, con los tropiezos de $1.4$ a $0.1$. El precio es que, con buena velocidad, esos obstáculos casi no afectan quién gana.
+
+\subsection{Más caimanes en el pantano: adoptado}
+El caimán pasó de $.30$ a $.55$ de los obstáculos, unos $5.5$ por pista en vez de unos $3$. La carrera casi no cambió: los tropiezos fueron de $0.6$ a $0.7$. Es sobre todo un cambio visual; para que muerdan más habría que dejarlos activos más tiempo o acercarlos al centro.
+
+\subsection{Cruzar caballos: viable, sin construir}
+Se cruzaron pares de caballos de tres formas y cada hijo corrió 240 carreras en los seis mundos contra los mismos rivales, con la misma forma física para comparar solo el cerebro.
+
+\begin{table}[h]\centering
+\begin{tabular}{lcc}
+\toprule
+Don Galope $\times$ Patas de Trueno & Puesto medio & Salidas \\
+\midrule
+Padres & 2.26 y 4.17 & 1.5 y 1.7 \\
+Promedio de los pesos & 2.63 & 1.4 \\
+Una capa de cada padre & 3.70 & 2.1 \\
+Mezcla al azar de cada peso & 5.91 & 7.9 \\
+\bottomrule
+\end{tabular}
+\caption{Ejemplo: el promedio es la única forma que no produjo ningún hijo roto.}
+\end{table}
+
+Los rasgos se heredan: Don Galope ($2.9$ embestidas) $\times$ Herradura Loca ($5.0$) da un hijo promedio con $3.7$. Pero ningún hijo superó con claridad a su mejor padre. Don Galope, Sir Relincho y Pura Sangre Fría tienen cerebros casi idénticos (distancia media por peso de $0.36$ a $0.39$, contra $7$ a $11$ con los bravos), así que cruzarlos da casi el mismo caballo. El diseño pendiente es sin géneros: promedio más una mutación pequeña, varios potros y queda el mejor de un examen.
+
+\subsection{El caballo de heurística: las redes no están en el límite}
+Para saber cuánto margen queda se programó un caballo sin red. Conoce toda la pista y las reglas: apunta al punto más lejano que alcanza en línea recta sin salirse ni pisar lo que no se salta, y ensaya $14$ ticks hacia adelante para elegir la mayor velocidad que no lo saca de la pista. Un primer intento con línea de carrera precalculada salió peor y se descartó.
+
+\begin{table}[h]\centering
+\begin{tabular}{lcccc}
+\toprule
+Mundo & \multicolumn{2}{c}{Tiempo solo (s)} & \multicolumn{2}{c}{Salidas} \\
+ & Heurística & Don Galope & Heurística & Don Galope \\
+\midrule
+Hipódromo & 27.0 & 29.0 & 0.00 & 0.88 \\
+Nieve & 31.5 & 33.7 & 0.10 & 1.52 \\
+Luna & 27.0 & 29.0 & 0.07 & 1.18 \\
+Volcán & 29.7 & 32.6 & 0.83 & 2.45 \\
+Desierto & 29.9 & 31.1 & 0.18 & 0.88 \\
+Pantano & 29.2 & 30.3 & 0.00 & 0.78 \\
+\bottomrule
+\end{tabular}
+\caption{60 carreras por mundo, corriendo solos.}
+\end{table}
+
+Contra los caballos de la casa, y sin hándicap a su favor, ganó entre el 39\,\% (pantano) y el 86\,\% (volcán) de 100 carreras por mundo. La comparación no es del todo justa, porque la heurística ve el mapa completo y la red solo sus sensores: es un techo, no una meta segura. No pelea ni esquiva rivales, y aún tropieza algo en nieve y volcán.
+
+\subsection{Resistencia: sin adoptar}
+Hoy el acelerador va a fondo el 95\,\% del tiempo porque no cuesta nada. Para que sea una decisión se añadió, solo en la copia, un aguante $a \in [0,1]$ y dos entradas a la red ($a$ y la fracción de carrera hecha), con el acelerador $g \in [0,1]$:
+\begin{equation}
+a \leftarrow a + \frac{1-g}{300} - \frac{g^2}{420}, \qquad v \leftarrow v \left(0.65 + 0.35 \min\!\left(1, \frac{a}{0.3}\right)\right).
+\end{equation}
+Ir a fondo agota en unos 14 s y con $g \approx 0.71$ el aguante no cambia.
+
+\begin{table}[h]\centering
+\begin{tabular}{lccc}
+\toprule
+240 carreras & Sin resistencia & Sin reentrenar & Reentrenados \\
+\midrule
+Cambios de líder por carrera & 2.07 & 3.53 & 2.93 \\
+El líder a mitad de carrera gana & 75\,\% & 44\,\% & 52\,\% \\
+Tiempo medio (s) & 34.5 & 40.9 & 39.9 \\
+Acelerador a fondo & 95\,\% & 93\,\% & 94\,\% \\
+\bottomrule
+\end{tabular}
+\caption{Primera ronda: más disputa, pero por agotamiento y no por estrategia.}
+\end{table}
+
+Los corredores siguieron al 100\,\% de acelerador y llegaron sin fuerzas. Dosificar sí conviene: la misma red con el acelerador limitado a mano al 75\,\% baja de $37.6$ a $34.7$ s corriendo sola. El entrenamiento no lo encontró, probablemente porque el acelerador queda saturado por pesos muy grandes (sin comprobar).
+
+En un segundo intento las redes arrancaron con el acelerador cerca de $78$\,\%: se redujeron los pesos de esa salida y se ajustó su sesgo. Así sí mantuvieron el ritmo:
+
+\begin{table}[h]\centering
+\begin{tabular}{lccc}
+\toprule
+240 carreras & Sin resistencia & Primer intento & Desde 78\,\% \\
+\midrule
+Acelerador a fondo & 95\,\% & 94\,\% & 6\,\% \\
+Salidas & 1.64 & 1.44 & 0.81 \\
+Tropiezos & 1.03 & 1.25 & 1.20 \\
+Embestidas & 4.0 & 4.5 & 2.7 \\
+Cambios de líder por carrera & 2.07 & 2.93 & 1.93 \\
+El líder a mitad de carrera gana & 75\,\% & 52\,\% & 68\,\% \\
+Tiempo medio (s) & 34.5 & 39.9 & 36.8 \\
+\bottomrule
+\end{tabular}
+\caption{Corren dosificados y se salen menos, pero sin estrategia y sin más disputa.}
+\end{table}
+
+El acelerador casi no varía entre los cuartos de carrera (el corredor va al $80$\,\% en los cuatro) y llegan con aguante de sobra. El defecto parece estar en la regla: un ritmo fijo del $80$\,\% ya hace $34.7$ s, contra $34.5$ s de la heurística, así que variar no da premio. No se adoptó. Para que aparezca estrategia, apretar en ciertos momentos tendría que pagar, por ejemplo con el rebufo detrás de un rival. Tampoco se probó el currículo gradual de fatiga, porque su fin era despegar el acelerador y eso ya se logró. Falta medir aparte si correr menos a fondo baja las salidas por sí solo.
+
+\subsection{Otras arquitecturas: sin ventaja medible}
+Se entrenaron corredores con el mismo presupuesto (200 generaciones, población 36, los seis mundos, sin resistencia), y se midieron en las mismas pistas: 120 carreras solos y 180 contra los mismos rivales de la casa. Las variantes con pesos en cero arrancan exactamente igual que la red actual, lo que se comprobó antes de entrenar. Cada una tiene pocas semillas, así que solo detecta diferencias grandes.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}
+\toprule
+Variante & Tiempo solo (s) & Salidas & Gana contra la casa \\
+\midrule
+Red actual, sin reentrenar & 31.31 & 1.56 & 42\,\% \\
+Red actual, reentrenada & 31.05 / 31.36 & 1.48 / 1.50 & 44 / 39\,\% \\
+Sentidos: curva, derrape y velocidad & 31.25 / 30.98 & 1.49 / 1.46 & 36 / 32\,\% \\
+Primera capa de 16 neuronas & 31.03 / 31.18 & 1.55 / 1.46 & 39 / 37\,\% \\
+GRU de 4 añadida & 30.94 / 31.18 & 1.45 / 1.49 & 42 / 36\,\% \\
+Sentidos y GRU de 4 & 31.11 / 30.96 & 1.48 / 1.49 & 39 / 41\,\% \\
+Entradas de hace 4 y 8 ticks & 31.03 / 31.15 & 1.19 / 1.43 & 30 / 40\,\% \\
+Mixta con GRU de 8, desde cero & 31.32 / 31.24 & 1.63 / 1.52 & 36 / 36\,\% \\
+Red actual desde cero & 31.20 / 31.81 & 1.56 / 1.73 & 32 / 32\,\% \\
+Red actual desde cero, 600 gen. & 31.09 / 31.51 & 1.51 / 1.59 & 37 / 28\,\% \\
+GRU pura de 8 (666 pesos), 600 gen. & 31.06 / 31.84 / 31.71 & 1.35 / 0.73 / 1.63 & 38 / 34 / 28\,\% \\
+\midrule
+Heurística & 28.81 & 0.19 & 64\,\% \\
+\bottomrule
+\end{tabular}
+\caption{Ninguna arquitectura se separa de la red actual, ni se acerca a la heurística.}
+\end{table}
+
+La distancia con la heurística parece estar en los errores. Con unas $1.3$ salidas de más a $1.2$ s y unos $0.9$ tropiezos de más a $0.8$ s se explican unos $2.3$ s, casi toda la diferencia; es una cuenta aproximada, no una medición directa. Que redes tan distintas, incluso desde cero, queden en el mismo punto apunta al entrenamiento o a la aptitud, no al modelo, aunque tampoco está comprobado. La hipótesis siguiente es que no aprenden a frenar antes de las curvas. Las pruebas son solo con corredores, y una red grande podría necesitar más generaciones.
+
+\subsection{Ideas pendientes}
+Quedan sin probar: imitar a la heurística y afinar con evolución; CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
+
+Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube.com/watch?v=DcYLT37ImBY}, revisado por su transcripción) se toman cuatro advertencias: una política sin memoria puede bastar y entrena más estable; una recompensa extrema y única deja una marca grande; un premio mal definido se explota; y hay que mirar el comportamiento, no solo el puntaje.
+
 \section{Limitaciones}
 \begin{itemize}
 \item \textbf{Saber el mundo puede dar una ventaja pequeña.} El mejor caso entre muchas combinaciones devolvió entre $1.00$ y $1.13$ por ficha. Parte de eso es el sesgo de escoger el máximo, y las dos pruebas no coinciden, pero no está descartado que exista una ventaja real, aunque pequeña. El juego muestra a propósito quién ``suele ganar'' en cada mundo.
@@ -398,6 +545,7 @@ Herradura Loca es la única mejora clara, y es la que más margen tenía, porque
 \end{itemize}
 
 \section*{Reproducir}
+El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Los caballos del juego se entrenan así:
 \begin{verbatim}
 node entrenar.js corredor 300 0 1 100
 node entrenar.js bravo 300 60 1 100

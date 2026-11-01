@@ -1,0 +1,66 @@
+diff --git sim.js private/tmp/claude-501/-Users-juanmanuelprieto--claude-spares-spare-2lm4cJ/23c32506-5f0f-47f2-b260-2e736eb2f651/scratchpad/mundo/aguante2/sim.js
+index eab0d8e..4b21c74 100644
+--- sim.js
++++ private/tmp/claude-501/-Users-juanmanuelprieto--claude-spares-spare-2lm4cJ/23c32506-5f0f-47f2-b260-2e736eb2f651/scratchpad/mundo/aguante2/sim.js
+@@ -50,11 +50,12 @@ function mulberry32(seed) {
+ //   14   qué tan grave es lo que tiene adelante     15  agarre del suelo
+ //   16   viento de lado (-1 izquierda, +1 derecha)  17  gravedad (qué tanta velocidad pide un salto)
+ // "Barro" son todos los obstáculos que se pisan: charcos, hielo, cráteres, lava, géiseres…
+-const NUM_INPUTS = 18;
++const AGUANTE = process.env.JJ_AGUANTE === '1';
++const NUM_INPUTS = 20;
+ const HIDDEN_1 = 8;
+ const INPUT_NAMES = ['sensor_-72', 'sensor_-36', 'sensor_0', 'sensor_+36', 'sensor_+72',
+   'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado',
+-  'peligro', 'agarre', 'viento_lado', 'gravedad'];
++  'peligro', 'agarre', 'viento_lado', 'gravedad', 'aguante', 'carrera_hecha'];
+ 
+ function predict(brain, input) {
+   let x = input;
+@@ -452,6 +453,8 @@ class Horse {
+     // efectos (en ticks)
+     this.fx = { boost: 0, blind: 0, freeze: 0, shield: 0, stun: 0, jump: 0, rage: 0, hit: 0, carrot: 0 };
+     this.lastHit = null;
++    this.aguante = 1;    // 1 = fresco, 0 = agotado
++    this.gasSum = 0; this.gasSq = 0; this.gasN = 0; this.gasTop = 0;
+   }
+ 
+   get laps() { return this.total / this.track.path.length; }
+@@ -519,7 +522,7 @@ class Horse {
+     return [...this.sensors, ...this.rival,
+       this.fx.rage > 0 ? 1 : 0, this.fx.boost > 0 ? 1 : 0,
+       this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0, this.mudSide,
+-      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5];
++      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5, this.aguante, Math.min(1, this.laps / this.track.laps)];
+   }
+ 
+   update(others = []) {
+@@ -529,7 +532,7 @@ class Horse {
+     for (const k in fx) if (fx[k] > 0) fx[k]--;
+     if (this.hitCd > 0) this.hitCd--;
+ 
+-    if (fx.freeze > 0 || fx.stun > 0) { this.speed = 0; return; }
++    if (fx.freeze > 0 || fx.stun > 0) { this.speed = 0; this.aguante = Math.min(1, this.aguante + 1 / 300); return; }
+ 
+     const blind = fx.blind > 0;
+     for (let i = 0; i < 5; i++) {
+@@ -547,7 +550,7 @@ class Horse {
+       this.mud = this._senseMud();
+     }
+ 
+-    const [steer, gas] = predict(this.brain, this.inputs(others.length));
++    const [steer, gas] = this.piloto ? this.piloto(this) : predict(this.brain, this.inputs(others.length));
+     this.steer = steer; this.gas = gas;
+ 
+     const world = this.track.world, puddle = this._patchAt(), info = puddle && OBSTACULOS[puddle.type];
+@@ -575,6 +578,10 @@ class Horse {
+     if (fx.boost > 0) target *= 1.5;
+     if (fx.rage > 0) target *= 1.15;
+     if (fx.carrot > 0) target *= 1.35;
++    // Resistencia: ir a fondo cansa y descansar recupera; agotado corre al 65 %
++    { const g = (gas + 1) / 2; this.gasSum += g; this.gasSq += g * g; this.gasN++; if (g > 0.95) this.gasTop++;
++      if (AGUANTE) { this.aguante = Math.max(0, Math.min(1, this.aguante + (1 - g) / 300 - g * g / 420));
++        target *= 0.65 + 0.35 * Math.min(1, this.aguante / 0.3); } }
+     this.speed = world.inercia === 1 ? target : this.speed + (target - this.speed) * world.inercia;
+     if (puddle && info.freno) {
+       if (world.inercia === 1) this.speed *= info.freno; else this.speed *= 1 - (1 - info.freno) * 0.15;

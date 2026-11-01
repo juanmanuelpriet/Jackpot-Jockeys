@@ -1,0 +1,21 @@
+mlp 1
+mlp 2
+sentidos 1 JJ_SENTIDOS=1
+sentidos 2 JJ_SENTIDOS=1
+ancha16 1 JJ_H1=16
+ancha16 2 JJ_H1=16
+gru4 1 JJ_GRU=4
+gru4 2 JJ_GRU=4
+sentidos_gru4 1 JJ_SENTIDOS=1 JJ_GRU=4
+sentidos_gru4 2 JJ_SENTIDOS=1 JJ_GRU=4
+mlp_cero 1 JJ_CERO=1
+mlp_cero 2 JJ_CERO=1
+gru8_cero 1 JJ_CERO=1 JJ_GRU=8
+gru8_cero 2 JJ_CERO=1 JJ_GRU=8
+gru_pura600 1 JJ_PURA=8 JJ_GEN=600
+gru_pura600 2 JJ_PURA=8 JJ_GEN=600
+gru_pura600 3 JJ_PURA=8 JJ_GEN=600
+mlp_cero600 1 JJ_CERO=1 JJ_GEN=600
+mlp_cero600 2 JJ_CERO=1 JJ_GEN=600
+historia 1 JJ_HIST=1
+historia 2 JJ_HIST=1

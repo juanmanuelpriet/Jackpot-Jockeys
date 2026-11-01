@@ -19,10 +19,10 @@
   },
   "luna": {
     "edge": {
-      "corredor": 0.819,
-      "muybravo": 1.582,
-      "bravo": 0.454,
-      "picaro": 1.506
+      "corredor": 0.769,
+      "muybravo": 1.808,
+      "bravo": 0.808,
+      "picaro": 1.079
     },
     "mejor": "muybravo"
   },

@@ -335,11 +335,11 @@ class Track {
       const idx = Math.floor(n * 0.1 + (span / count) * (k + 0.2 + rng() * 0.6)) % n;
       let pick = rng(), type = this.world.obstaculos[0][0];
       for (const [t, p] of this.world.obstaculos) { type = t; if ((pick -= p) < 0) break; }
-      // Lo sólido ocupa un lado de la pista: hay hueco para esquivarlo. Lo que quema o muerde
+      // Lo sólido ocupa un lado de la pista: hay hueco para esquivarlo. Lo que quema, muerde o atrapa
       // también, para que el centro de la pista siempre sea seguro al volver
       const side = rng() < 0.5 ? -1 : 1, kind = OBSTACULOS[type].kind;
       const off = kind === 'salto' || kind === 'solido' ? side * (12 + rng() * 14)
-        : kind === 'quema' || kind === 'ciclo' ? side * (24 + rng() * 12) : (rng() - 0.5) * 40;
+        : kind === 'quema' || kind === 'ciclo' || kind === 'hoyo' ? side * (24 + rng() * 12) : (rng() - 0.5) * 40;
       const o = this.addObstacle(type, idx, off);
       if (kind === 'ciclo') o.fase = Math.floor(rng() * OBSTACULOS[type].periodo);
     }

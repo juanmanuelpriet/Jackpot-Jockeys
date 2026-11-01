@@ -35,7 +35,7 @@ const OBSTACULOS = {
   hielo: { kind: 'resbalon', r: 26, giro: 0.15 },
   nevada: { kind: 'lento', r: 24, freno: 0.6 },
   roca: { kind: 'salto', r: 13 },
-  crater: { kind: 'hoyo', r: 22, aturde: 0.8 },
+  crater: { kind: 'hoyo', r: 14, aturde: 0.8 },
   lava: { kind: 'quema', r: 22 },
   geiser: { kind: 'ciclo', r: 20, periodo: 150, activo: 45, aturde: 0.9 },
   basalto: { kind: 'solido', r: 14 },

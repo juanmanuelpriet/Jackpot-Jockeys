@@ -20,7 +20,7 @@ const MUNDOS = {
   desierto: { name: 'Desierto', icon: '🏜️', desc: 'El viento empuja de lado. Cactus, arena blanda y remolinos.', vel: 1, agarre: 1, inercia: 1, vision: 1, viento: 1.3, salto: 6.5, aire: 10,
     obstaculos: [['cactus', 0.35], ['arena', 0.35], ['remolino', 0.3]] },
   pantano: { name: 'Pantano', icon: '🐊', desc: 'Suelo blando. Troncos altos, ciénaga y caimanes que muerden.', vel: 0.97, agarre: 0.65, inercia: 0.35, vision: 1, viento: 0, salto: 6.5, aire: 10,
-    obstaculos: [['tronco', 0.4], ['cienaga', 0.3], ['caiman', 0.3]] },
+    obstaculos: [['caiman', 0.55], ['tronco', 0.25], ['cienaga', 0.2]] },
 };
 
 // Cómo actúa cada obstáculo:

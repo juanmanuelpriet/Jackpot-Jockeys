@@ -46,11 +46,11 @@
   },
   "pantano": {
     "edge": {
-      "corredor": 0.808,
-      "muybravo": 1.244,
-      "bravo": 1.325,
-      "picaro": 1.005
+      "corredor": 0.758,
+      "muybravo": 1.362,
+      "bravo": 1.355,
+      "picaro": 1.008
     },
-    "mejor": "bravo"
+    "mejor": "muybravo"
   }
 }

@@ -1,4 +1,5 @@
 jugadores.json
+victorias.json
 caballos_aprendidos*.json
 # Salidas de consola de los entrenamientos
 logs/salida_*.txt

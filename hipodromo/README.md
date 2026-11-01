@@ -81,24 +81,23 @@ abres Mi caballo, Mafia o Peña. Cada sección la repite con **¿Cómo funciona?
 | 1º y 2º | llegan en ese orden | x8 |
 | 1º, 2º y 3º | llegan en ese orden | x30 |
 
-La cuota queda fija al apostar: lo que dice tu boleto es lo que cobras. En la carrera 1 todos los caballos son iguales.
-Después, el que gana paga menos y el que pierde paga más.
+La cuota queda fija al apostar: lo que dice tu boleto es lo que cobras. En la carrera 1 de cada partida todos los caballos de la casa pagan igual.
+Después, cuenta el mundo y las veces que cada caballo ha ganado en el juego frente a las que se esperaban: el que gana de más paga menos y el que gana de menos paga más.
 
-**La casa gana a la larga.** La forma de un caballo pesa poco en las cuotas (`cuotas.js`), ninguna cuota paga más de
-1.2 veces lo que pagaría con todos iguales, y un potro entrenado paga menos. Con 2000 carreras simuladas, desde la
-carrera 5 ninguna estrategia recupera más de ~0.87 por ficha. El análisis está en
-`analisis/Jackpot_Jockeys_Analisis.xlsx`; se hizo antes de los potros entrenados y de que la casa aprendiera. Si un caballo mejora, sus cuotas bajan para mantener esa ventaja.
+**La casa gana a la larga.** Las victorias se guardan en `victorias.json` entre partidas y pesan poco al principio y más con el tiempo (`cuotas.js`). Ninguna cuota paga más de
+1.2 veces lo que pagaría con todos iguales, y un potro entrenado paga menos. Con 4000 carreras simuladas, ninguna estrategia probada recuperó más de 0.78 por ficha, sin simular poderes ni potros. El análisis de
+`analisis/Jackpot_Jockeys_Analisis.xlsx` es de las cuotas anteriores. Si un caballo mejora, sus cuotas bajan para mantener esa ventaja.
 
 ### Personalidades
 
-En la pantalla grande se ven mientras se apuesta; en el celular, junto al nombre. Datos de 600 carreras simuladas por personalidad, en todos los mundos:
+En la pantalla grande se ven mientras se apuesta; en el celular, junto al nombre. Datos de 600 carreras simuladas por personalidad, en todos los mundos. El pícaro hoy se parece bastante al corredor:
 
 | | Personalidad | Cómo corre | Podio | Choques por carrera | Gana en pista corta / larga |
 |---|---|---|---|---|---|
-| 💨 | Corredor | Limpio y constante | 57 % | 3.5 | 22 % / 8 % |
-| 🦊 | Pícaro | Empuja a veces y es el que menos golpes recibe | 52 % | 3.0 | 14 % / 19 % |
-| 😤 | Bravo | Busca pelea | 44 % | 5.1 | 14 % / 21 % |
-| 🔥 | Muy bravo | Todo o nada | 32 % | 6.7 | 5 % / 37 % |
+| 💨 | Corredor | Limpio y constante | 56 % | 1.9 | 19 % / 13 % |
+| 🦊 | Pícaro | Empuja a veces y es el que menos se sale, pero recibe muchos golpes | 50 % | 1.9 | 13 % / 13 % |
+| 😤 | Bravo | Busca pelea y rinde parejo | 51 % | 2.8 | 22 % / 25 % |
+| 🔥 | Muy bravo | Todo o nada | 32 % | 4.4 | 9 % / 23 % |
 
 ### Poderes
 
@@ -151,7 +150,7 @@ Se puede entrenar lo que quieras y cuando quieras, pero **cada entrenamiento le 
 
 ## Cómo funcionan los caballos
 
-**Red neuronal:** 18 → 8 → 3 → 3 → 2 (tanh). Decide giro y acelerador y no tiene ninguna regla de embestir. Percibe:
+**Red neuronal:** los seis caballos de la casa son GRU de 32 unidades (4962 pesos, con memoria). Los potros de los jugadores son perceptrones 18 → 8 → 3 → 3 → 2 (199 pesos), porque su entrenamiento se probó con ellos. Ambos deciden giro y acelerador y no tienen ninguna regla de embestir. Perciben:
 
 - 5 sensores de distancia a bordes y vallas
 - distancia, rumbo y velocidad del rival más cercano, y si tiene escudo o furia
@@ -162,13 +161,14 @@ Se puede entrenar lo que quieras y cuando quieras, pero **cada entrenamiento le 
 
 | Caballo | Personalidad | Cerebro |
 |---|---|---|
-| Don Galope, Sir Relincho, Pura Sangre Fría | Corredor | `caballos_corredor.json` |
-| Pancho Trotes | Pícaro | `caballos_bravo_60.json` |
-| Patas de Trueno | Bravo | `caballos_bravo_100.json` |
-| Herradura Loca | Muy bravo | `caballos_bravo_150.json` |
+| Don Galope, Sir Relincho, Pura Sangre Fría | Corredor | `caballos_gru.json` |
+| Pancho Trotes | Pícaro | `caballos_gru.json` |
+| Patas de Trueno | Bravo | `caballos_gru.json` |
+| Herradura Loca | Muy bravo | `caballos_gru.json` |
 
-**Salida pareja:** cada carrera sortea los carriles, y `handicap.json` ajusta la velocidad para que los caballos de la
-casa ganen parecido.
+Las GRU aprendieron imitando a una heurística con cada personalidad. Los potros nacen de `caballos_corredor.json` o `caballos_bravo_100.json`.
+
+**Salida:** cada carrera sortea los carriles, y `handicap.json` da una velocidad a cada personalidad: 0.97 al corredor, 0.96 al pícaro, 1.03 al bravo y 1.10 al muy bravo. No ganan igual a propósito: igualarlos del todo borra las personalidades.
 
 **Pistas:** cada carrera genera una nueva, corta, media o larga, siempre de 2 vueltas. Los caballos entrenan en pistas
 que nunca vieron.
@@ -194,24 +194,24 @@ tropezar. Los que se pisan frenan, hacen perder el control, aturden o queman. Qu
 
 **Aprenden de cada carrera:** al terminar, los caballos de la casa repasan de uno en uno y en un hilo aparte, empezando por los que peor llegaron:
 
-1. **Repaso:** 30 generaciones contra los rivales que tuvo cerca, premiando sobre todo llegar primero y castigando más lo que le falló (salidas, vallas, barro y golpes).
+1. **Repaso:** 30 generaciones, con mutaciones 20 veces más suaves porque una GRU se rompe con las normales, contra los rivales que tuvo cerca, premiando sobre todo llegar primero y castigando más lo que le falló (salidas, vallas, barro y golpes).
 2. **Examen:** de 36 pistas. Solo se queda con lo aprendido si gana a más rivales y, si es bravo o pícaro, conserva al menos 80 % de sus embestidas.
 3. **Cuotas:** `houseEdges` (`evolucion.js`) corre 600 carreras simuladas y baja las cuotas del que quedó mejor. Sin esto, apostarle siempre al mejor le ganaba a la casa (1.12 por ficha); con esto, ninguna estrategia pasó de 0.99.
 
-Con 42 lecciones por caballo, medidas en 500 carreras contra los originales, los seis llegan en mejor puesto: de 0.03 a 0.44 puestos, y solo unos claramente más que el ruido. Solo uno gana cada carrera, así que no pueden ganar siempre.
+Con las GRU, 9 de 12 lecciones pasaron el examen, que es poco exigente. Todavía no se mide cuánto ganan de más tras muchas lecciones. Con las redes anteriores, tras 8 lecciones por caballo y 600 carreras de comparación, solo Herradura Loca mejoró con claridad.
 
-Con mundos, tras 8 lecciones por caballo y 600 carreras de comparación, solo Herradura Loca mejoró con claridad (de 16 % a 31 % de victorias); los otros cinco quedaron dentro del ruido.
-
-Lo aprendido se guarda en `caballos_aprendidos_mundos.json`, junto a las cuentas. Los cerebros de fábrica no cambian y borrar ese archivo los restaura.
+Lo aprendido se guarda en `caballos_aprendidos_gru.json`, junto a las cuentas. Lo aprendido antes por las redes anteriores no se usa. Los cerebros de fábrica no cambian y borrar ese archivo los restaura.
 
 ## Entrenar los caballos de la casa
+
+Las GRU de `caballos_gru.json` se entrenan como explica `experimentos/README.md`. Los comandos de abajo entrenan los perceptrones de los que nacen los potros; `calibrar.js` con 0 iteraciones conserva las velocidades de `handicap.json` y solo mide las cuotas por mundo.
 
 ```bash
 node entrenar.js corredor 300 0 1 100    # caballos_corredor.json
 node entrenar.js bravo 300 60 1 100      # caballos_bravo_60.json (pícaro)
 node entrenar.js bravo 250 100 1.2 150   # caballos_bravo_100.json (bravo)
 node entrenar.js bravo 250 150 1.2 180   # caballos_bravo_150.json (muy bravo)
-node calibrar.js 6 300                   # handicap.json y cuotas_mundo.json
+node calibrar.js 0 400                   # cuotas_mundo.json
 node torneo.js 600 0.7                   # logs/torneo.csv
 jupyter notebook analisis.ipynb          # gráficas en analisis/
 ```
@@ -238,5 +238,6 @@ el servidor para que use los caballos nuevos.
 | `aprendiz.js` | Aprendizaje de los caballos de la casa en un hilo aparte |
 | `cuotas_mundo.json` | Ventaja de cada personalidad en cada mundo |
 | `docs/como_funciona.pdf` | Cómo funciona todo, con ecuaciones y mediciones |
-| `experimentos/` | Código de las pruebas: heurística, resistencia y arquitecturas |
-| `jugadores.json`, `caballos_aprendidos_mundos.json` | Cuentas y lo que aprendió la casa; se crean solos y no se versionan |
+| `caballos_gru.json` | Cerebros de los caballos de la casa |
+| `experimentos/` | Código de las pruebas: heurística, resistencia, arquitecturas y las GRU del juego |
+| `jugadores.json`, `caballos_aprendidos_gru.json`, `victorias.json` | Cuentas, lo que aprendió la casa y sus victorias; se crean solos y no se versionan |

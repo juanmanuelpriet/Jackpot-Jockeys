@@ -311,7 +311,7 @@ const TYPE_UI = {
   trifecta: { e: '🏆', name: '1º, 2º y 3º', how: 'Elige el 1º, el 2º y el 3º, en orden. ¡Paga muchísimo!' },
 };
 
-// Las mismas cuotas que calcula la casa (cuotas.js): Harville con la forma de cada caballo y el factor de pago de la carrera
+// Las mismas cuotas que calcula la casa (cuotas.js): Harville con la probabilidad de cada caballo y el factor de pago de la carrera
 function orderedProb(p, sel) { let prob = 1, used = 0; for (const i of sel) { prob *= p[i] / (1 - used); used += p[i]; } return prob; }
 function betProb(type, sel, p) {
   const n = p.length, others = i => [...Array(n).keys()].filter(x => x !== i), i = sel[0];

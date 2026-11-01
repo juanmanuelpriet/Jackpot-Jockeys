@@ -1,6 +1,6 @@
 # Experimentos
 
-Código de las pruebas documentadas en la sección *Experimentos* de `docs/como_funciona.pdf`. Nada de esto entra al juego ni a la app.
+Código de las pruebas documentadas en la sección *Experimentos* de `docs/como_funciona.pdf`. Solo lo de `personalidades/` llegó al juego, con sus redes ya entrenadas en `caballos_gru.json`.
 
 Cada prueba corre en una copia aparte del proyecto, con el parche que le corresponde:
 
@@ -22,3 +22,5 @@ xargs -P 8 -L 1 ./corre.sh < lista.txt
 ```
 
 El script de las pruebas de cruces no se conservó; su método y sus resultados están en el PDF.
+
+En `personalidades/` están las GRU que corren en el juego. `piloto.js` es la heurística con las cuatro personalidades y `ronda.sh` entrena una con `lista.txt`. Espera a su lado una carpeta `base/` con el proyecto y ese `piloto.js`, y en su `sim.js` la línea de la red debe decir `this.piloto ? this.piloto(this) : predict(this.brain, this.inputs(others.length), this.mem)`. `cand.js` mide cada red contra la casa, `stats.js` las personalidades (con `HC=corredor,pícaro,bravo,muy bravo` prueba velocidades), `casa.js` si una estrategia le gana a la casa y `lecciones.js` si aprenden de una carrera y `mundos_tabla.js` los resultados por mundo.

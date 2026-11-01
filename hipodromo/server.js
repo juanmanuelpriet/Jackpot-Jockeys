@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const { Worker } = require('worker_threads');
 const { FPS, SIM_SPEED } = require('./sim');
 const { HORSES, loadHandicap } = require('./establo');
-const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, houseBrains, houseForms } = require('./sala');
+const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, houseBrains, houseForms, WIN_RECORD } = require('./sala');
 const ws = require('./websocket');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -58,8 +58,9 @@ function startTraining({ accountId, room, focus, brain, body, form }) {
 
 // ─── Los caballos de la casa aprenden de cada carrera, de uno en uno y en hilos aparte ───
 // Lo aprendido se guarda aparte: los cerebros de fábrica no cambian y borrar el archivo los restaura.
+// El archivo cambió de nombre con las GRU: lo aprendido por las redes anteriores no les sirve.
 
-const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'caballos_aprendidos_mundos.json');
+const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'caballos_aprendidos_gru.json');
 let learned = {};
 try { learned = JSON.parse(fs.readFileSync(LEARNED_FILE, 'utf8')); } catch { /* aún no han aprendido */ }
 for (const [name, l] of Object.entries(learned)) {
@@ -110,7 +111,12 @@ function nextLesson() {
 // ─── Salas ───
 
 const rooms = new Map();
-const hooks = { save: saveAccounts, train: startTraining, learn: learnFromRace };
+// Victorias reales de cada caballo: con ellas se ajustan las cuotas de una partida a otra
+const WINS_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'victorias.json');
+try { Object.assign(WIN_RECORD, JSON.parse(fs.readFileSync(WINS_FILE, 'utf8'))); } catch { /* aún no hay carreras */ }
+const saveWins = () => fs.writeFile(WINS_FILE, JSON.stringify(WIN_RECORD), () => {});
+
+const hooks = { save: saveAccounts, train: startTraining, learn: learnFromRace, saveWins };
 
 function createRoom() {
   let code;

@@ -1,47 +1,40 @@
 // cuotas.js — La casa de apuestas: cuotas fijas que salen de los resultados de la partida.
 //
-// 1. Cada caballo tiene una "forma" (rating) que empieza en 0: en la primera carrera todos son
-//    iguales y manda el azar. Después de cada carrera sube o baja según el puesto en que llegó.
-// 2. La probabilidad de ganar sale de esa forma (softmax). Las combinadas usan la fórmula de
-//    Harville, la de los hipódromos: P(i 1º, j 2º) = p_i · p_j / (1 − p_i), y así para el 3º.
-// 3. Cuota = factor de pago del tipo / probabilidad. En la carrera 1 el factor hace que "Que gane"
+// 1. Punto de partida: cuánto gana cada personalidad en cada mundo según simulaciones (cuotas_mundo.json).
+// 2. Las victorias reales corrigen ese punto de partida: se comparan las carreras que ganó cada caballo en el
+//    juego con las que se esperaban de él (winFactor). Al principio pesa poco, porque pocas carreras son azar,
+//    y lo viejo se va olvidando, porque los caballos aprenden.
+// 3. Las combinadas usan la fórmula de Harville, la de los hipódromos: P(i 1º, j 2º) = p_i · p_j / (1 − p_i),
+//    y así para el 3º.
+// 4. Cuota = factor de pago del tipo / probabilidad. En la carrera 1 el factor hace que "Que gane"
 //    pague x2 en cualquier caballo; carrera a carrera sube hasta la cuota normal de la casa
 //    (PAYOUT): la partida se pone más jugosa a medida que avanza.
-// 4. Los resultados pasados casi no predicen la próxima carrera (manda la forma del día). Si las cuotas
-//    les hicieran caso del todo, el que pierde seguido pagaría x30 y ganaría 1 de cada 6: la casa
-//    perdería (apostar a todo devolvía ~3 fichas por ficha). Por eso la forma pesa solo FORM_WEIGHT,
-//    tiene tope y ninguna cuota supera ODDS_CAP veces lo que pagaría si todos fueran iguales.
-//    Comprobado con 2.000 carreras simuladas: desde la carrera 5 ninguna estrategia (apostar a todo,
-//    al favorito o siempre a lo que más paga, en cualquier tipo) recupera más de ~0.87 por ficha.
+// 5. Ninguna cuota supera ODDS_CAP veces lo que pagaría si todos fueran iguales: el que casi nunca gana
+//    no puede pagar tanto que apostarle siempre le gane a la casa.
 
 const PAYOUT = 0.80;       // desde la carrera 5 la casa devuelve como mucho ~80-87 % de lo apostado
-const FORM_WEIGHT = 0.35;  // cuánto pesa la forma (resultados) frente a "todos iguales"
 const ODDS_CAP = 1.2;      // ninguna cuota paga más de 1.2 × la cuota con todos iguales
 const RAMP_RACES = 4;      // carreras que tarda en llegar ahí
 const MIN_ODDS = 1.05;
 const MAX_ODDS = 5000;
 // Factor de pago de la carrera 1 (todos iguales, 6 caballos): x2, x1.5, x1.2, x4, x8, x30
 const START = { ganador: 1 / 3, place: 0.5, podio: 0.6, quiniela: 4 / 15, exacta: 8 / 30, trifecta: 0.25 };
-// Cuánto cambia la forma según el puesto (1º, 2º, …) y cuánto se olvida cada carrera
-const PLACE_DELTA = [0.6, 0.3, 0.1, -0.15, -0.35, -0.5];
-const MEMORY = 0.92, MAX_RATING = 1.2;
+const WIN_PRIOR = 5;       // victorias que debe acumular un caballo para que su historial pese tanto como la simulación
+const WIN_MEMORY = 0.98;   // lo que se conserva del historial por carrera: pesan las últimas ~50
 
-// Probabilidad de ganar a partir de la forma de cada caballo, mezclada con "todos iguales"
-function probsFromRatings(ratings) {
-  const n = ratings.length, e = ratings.map(r => Math.exp(r)), sum = e.reduce((a, b) => a + b, 0);
-  return e.map(x => (1 - FORM_WEIGHT) / n + FORM_WEIGHT * x / sum);
-}
+// Cuánto más (o menos) gana un caballo de lo esperado. `rec` = { wins, expected }; sin historial vale 1
+const winFactor = (rec = {}) => ((rec.wins || 0) + WIN_PRIOR) / ((rec.expected || 0) + WIN_PRIOR);
+
+// Historial de un caballo después de una carrera en la que se esperaba que ganara con probabilidad `expected`
+const recordRace = (rec = {}, won, expected) => ({
+  wins: (rec.wins || 0) * WIN_MEMORY + (won ? 1 : 0),
+  expected: (rec.expected || 0) * WIN_MEMORY + expected,
+});
 
 // Ventaja que da un cuerpo entrenado: multiplica su probabilidad antes de normalizar. La casa conoce lo
 // entrenado, porque en simulación un potro al tope gana ~60 % de las carreras y sin esto pagaría de más.
 function trainedEdge(body = {}) {
   return Math.exp(20 * (body.speed || 0) + 4 * (body.agility || 0));
-}
-
-// Nueva forma de un caballo después de llegar en el puesto `place` (0 = ganó) de `n`
-function updateRating(r, place, n) {
-  const k = Math.round(place * (PLACE_DELTA.length - 1) / Math.max(1, n - 1));
-  return Math.max(-MAX_RATING, Math.min(MAX_RATING, r * MEMORY + PLACE_DELTA[k]));
 }
 
 // Factores de pago de cada tipo en la carrera `race` (1, 2, …) con `n` caballos, con el bono del Gran Premio.
@@ -91,4 +84,4 @@ function oddsFor(type, sel, p, pay) {
   return +Math.min(MAX_ODDS, Math.max(MIN_ODDS, Math.min(pay[type] / prob, even * ODDS_CAP))).toFixed(2);
 }
 
-module.exports = { probsFromRatings, trainedEdge, updateRating, payFactors, betProb, oddsFor, orderedProb, ODDS_CAP };
+module.exports = { winFactor, recordRace, trainedEdge, payFactors, betProb, oddsFor, orderedProb, ODDS_CAP };

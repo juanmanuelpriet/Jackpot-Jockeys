@@ -56,9 +56,31 @@ const INPUT_NAMES = ['sensor_-72', 'sensor_-36', 'sensor_0', 'sensor_+36', 'sens
   'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado',
   'peligro', 'agarre', 'viento_lado', 'gravedad'];
 
-function predict(brain, input) {
-  let x = input;
-  for (const layer of brain) {
+// Paso de la GRU: `mem` es lo que recuerda de los ticks anteriores y se actualiza aquí
+function gruStep(l, x, mem) {
+  const u = l.b.length / 3, n = x.length, sig = v => 1 / (1 + Math.exp(-v));
+  while (mem.length < u) mem.push(0);
+  const z = new Array(u), r = new Array(u), out = new Array(u);
+  for (let j = 0; j < u; j++) {
+    let a = l.b[j], c = l.b[j + u];
+    for (let i = 0; i < n; i++) { a += x[i] * l.W[i][j]; c += x[i] * l.W[i][j + u]; }
+    for (let k = 0; k < u; k++) { a += mem[k] * l.W[n + k][j]; c += mem[k] * l.W[n + k][j + u]; }
+    z[j] = sig(a); r[j] = sig(c);
+  }
+  for (let j = 0; j < u; j++) {
+    let s = l.b[j + 2 * u];
+    for (let i = 0; i < n; i++) s += x[i] * l.W[i][j + 2 * u];
+    for (let k = 0; k < u; k++) s += r[k] * mem[k] * l.W[n + k][j + 2 * u];
+    out[j] = (1 - z[j]) * mem[j] + z[j] * Math.tanh(s);
+  }
+  for (let j = 0; j < u; j++) mem[j] = out[j];
+  return out;
+}
+
+// Dos tipos de cerebro: la casa usa GRU (con memoria) y los potros, el perceptrón
+function predict(brain, input, mem = []) {
+  let x = brain[0].gru ? gruStep(brain[0], input, mem) : input;
+  for (const layer of brain[0].gru ? brain.slice(1) : brain) {
     const out = new Array(layer.b.length);
     for (let j = 0; j < layer.b.length; j++) {
       let s = layer.b[j];
@@ -71,13 +93,14 @@ function predict(brain, input) {
 }
 
 function cloneBrain(brain) {
-  return brain.map(l => ({ W: l.W.map(r => r.slice()), b: l.b.slice() }));
+  return brain.map(l => ({ ...l, W: l.W.map(r => r.slice()), b: l.b.slice() }));
 }
 
 // Los cerebros viejos (5 o 7 entradas, 5 neuronas ocultas) se amplían con pesos en
 // cero: se comportan idéntico hasta que la evolución aprende a usar lo nuevo.
 function upgradeBrain(brain) {
   const b = cloneBrain(brain);
+  if (b[0].gru) return b;
   // Neuronas ocultas nuevas: sin conexiones de entrada ni de salida
   while (b[0].b.length < HIDDEN_1) {
     for (const row of b[0].W) row.push(0);
@@ -94,6 +117,8 @@ function mutateBrain(brain, rate, rng) {
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   };
   const b = cloneBrain(brain);
+  // Una GRU tiene 25 veces más pesos y se rompe con mutaciones normales (medido: aprende 5 de 6 lecciones con 0.05 y 1 de 6 con 1)
+  if (b[0].gru) rate *= 0.05;
   for (const l of b) {
     for (const row of l.W) for (let j = 0; j < row.length; j++) row[j] += gauss() * rate;
     for (let j = 0; j < l.b.length; j++) l.b[j] += gauss() * rate;
@@ -452,6 +477,7 @@ class Horse {
     // efectos (en ticks)
     this.fx = { boost: 0, blind: 0, freeze: 0, shield: 0, stun: 0, jump: 0, rage: 0, hit: 0, carrot: 0 };
     this.lastHit = null;
+    this.mem = []; // memoria de la GRU
   }
 
   get laps() { return this.total / this.track.path.length; }
@@ -547,7 +573,7 @@ class Horse {
       this.mud = this._senseMud();
     }
 
-    const [steer, gas] = predict(this.brain, this.inputs(others.length));
+    const [steer, gas] = predict(this.brain, this.inputs(others.length), this.mem);
     this.steer = steer; this.gas = gas;
 
     const world = this.track.world, puddle = this._patchAt(), info = puddle && OBSTACULOS[puddle.type];

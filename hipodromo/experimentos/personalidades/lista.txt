@@ -1,0 +1,10 @@
+corredor 1
+corredor 2
+corredor 3
+corredor 4
+picaro 1
+picaro 2
+bravo 1
+bravo 2
+muybravo 1
+muybravo 2

@@ -3,10 +3,10 @@
 
 const crypto = require('crypto');
 const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, MUNDOS } = require('./sim');
-const { HORSES, PERSONALIDADES, POWERS, SKINS, randomHouseSkin, loadBrains, loadHandicap, loadWorldEdges, applyPower } = require('./establo');
+const { HORSES, PERSONALIDADES, POWERS, POTROS, SKINS, randomHouseSkin, loadBrains, loadColtBrain, loadHandicap, loadWorldEdges, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
 const { TRAIN_GENERATIONS, bodyOpts } = require('./evolucion');
-const { probsFromRatings, trainedEdge, updateRating, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
+const { winFactor, recordRace, trainedEdge, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
 
 // Qué se puede entrenar y cómo lo cuenta el narrador
 const TRAIN_FOCUS = { velocidad: 'velocidad', agresion: 'agresión', control: 'control' };
@@ -74,13 +74,12 @@ const PLAYER_COLORS = ['#e85d75', '#4fb3d9', '#9bc53d', '#e0e0d8', '#b07cff', '#
 const BRAINS = loadBrains();
 let HANDICAP = loadHandicap();
 const WORLD_EDGE = loadWorldEdges();
+const WIN_RECORD = {}; // victorias reales y esperadas de cada caballo en el juego; las guarda server.js
 const HOUSE_EDGE = {}; // cuánto mejor es cada caballo de la casa tras aprender: baja sus cuotas
 const houseEntry = i => ({ ...HORSES[i], brain: BRAINS[i], handicap: HANDICAP[i], edge: HOUSE_EDGE[HORSES[i].name] || 1, skin: randomHouseSkin() });
 const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
 // Hándicap de partida para los potros de los jugadores, según el tipo de cerebro con el que nacen
-const baseHandicap = perfil => perfil === 'bravo'
-  ? HANDICAP[HORSES.findIndex(h => h.estilo === 'bravo')]
-  : mean(HORSES.map((h, i) => [h, i]).filter(([h]) => h.perfil === 'corredor').map(([, i]) => HANDICAP[i]));
+const baseHandicap = perfil => POTROS[perfil].handicap;
 // Un potro corre con el hándicap de su perfil y su cuerpo entrenado
 const ownedBody = horse => {
   const { form, agility, power } = bodyOpts(horse.body, baseHandicap(horse.perfil));
@@ -130,7 +129,6 @@ class Room {
 
   newMatch() {
     this.match = { num: (this.match?.num || 0) + 1, race: 0, grandPrixEvery: CFG.grandPrixEvery };
-    this.ratings = {}; // forma de cada caballo en esta partida (por nombre): empiezan iguales
     this.recent = {};  // últimos puestos de cada caballo, para mostrarlos
     this.alliances.clear();
     for (const p of this.players.values()) this.resetPlayer(p);
@@ -268,16 +266,16 @@ class Room {
 
   // ─── Cuotas de la casa ────────────────────────────
 
-  // Cuotas a partir de la forma de cada caballo en la partida (en la carrera 1 todos iguales)
+  // Cuotas: lo que se espera de cada caballo (lo que aprendió y cómo le va en este mundo), corregido con sus
+  // victorias reales en el juego. La carrera 1 de la casa paga igual a todos
   requestOdds() {
-    // Lo que aprendió cada caballo y cómo le va en este mundo. La carrera 1 de la casa paga igual a todos
     const byWorld = WORLD_EDGE[this.track.mundo]?.edge || {}, first = this.match.race <= 1;
-    const weights = probsFromRatings(this.lineup.map(h => this.ratings[h.name] || 0)).map((x, i) => {
-      const h = this.lineup[i];
-      return x * (h.owner || !first ? h.edge || 1 : 1) * (first ? 1 : byWorld[h.pers] || 1);
-    });
-    const sum = weights.reduce((x, y) => x + y, 0);
-    this.probs = weights.map(x => x / sum);
+    const norm = a => { const sum = a.reduce((x, y) => x + y, 0); return a.map(x => x / sum); };
+    // Lo esperado sin historial: contra esto se comparan las victorias al terminar la carrera
+    this.expected = norm(this.lineup.map(h => (h.edge || 1) * (byWorld[h.pers] || 1)));
+    this.probs = first
+      ? norm(this.lineup.map(h => h.owner ? h.edge || 1 : 1))
+      : norm(this.expected.map((x, i) => x * winFactor(WIN_RECORD[this.lineup[i].name])));
     this.pay = payFactors(this.match.race, this.grandPrix ? 1 + CFG.grandPrixBonus : 1, this.lineup.length);
   }
   oddsOf(type, sel) { return oddsFor(type, sel, this.probs, this.pay); }
@@ -323,12 +321,13 @@ class Room {
     const winner = order[0], W = this.lineup[winner];
     const staked = this.pot();
     const { payouts, byType } = this.settle(order);
-    // La forma de cada caballo se ajusta con su puesto: el que gana pagará menos la próxima vez
+    // Cuenta quién ganó: el que gana más de lo esperado pagará menos la próxima vez
     order.forEach((i, place) => {
       const name = this.lineup[i].name;
-      this.ratings[name] = updateRating(this.ratings[name] || 0, place, order.length);
+      WIN_RECORD[name] = recordRace(WIN_RECORD[name], place === 0, this.expected[i]);
       this.recent[name] = [place + 1, ...(this.recent[name] || [])].slice(0, 3);
     });
+    this.hooks.saveWins?.();
     const ledger = new Map([...this.players.values()].map(p => [p, { won: 0, mafia: 0, commission: 0, owner: 0, ownerCut: 0 }]));
     // Pagar: primero pasa el cobrador de la mafia; los aliados cobran comisión (la paga la casa)
     for (const po of payouts) {
@@ -794,10 +793,9 @@ class Room {
     perfil = perfil === 'bravo' ? 'bravo' : 'corredor';
     if (p.coins < CFG.horsePrice) return { error: `Un potro cuesta ${CFG.horsePrice} fichas` };
     p.coins -= CFG.horsePrice;
-    const seedIdx = HORSES.findIndex(h => h.perfil === perfil && (perfil === 'corredor' || h.estilo === 'bravo'));
     const used = new Set([...this.accounts.values()].map(a => a.horse?.color));
     acc.horse = {
-      name, perfil, brain: BRAINS[seedIdx], level: 1, enrolled: true, wins: 0, history: [],
+      name, perfil, brain: loadColtBrain(perfil), level: 1, enrolled: true, wins: 0, history: [],
       color: PLAYER_COLORS.find(c => !used.has(c)) || PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
     };
     this.narrate('potro', { p: p.name, h: name });
@@ -896,6 +894,6 @@ class Room {
 }
 
 module.exports = { Room, roomCode, CFG, BET_TYPES, setHandicap: h => { HANDICAP = h; },
-  houseBrains: () => BRAINS, houseForms: () => HANDICAP,
+  WIN_RECORD, houseBrains: () => BRAINS, houseForms: () => HANDICAP,
   setHouseBrain: (name, brain) => { BRAINS[HORSES.findIndex(h => h.name === name)] = brain; },
   setHouseEdge: (name, edge) => { HOUSE_EDGE[name] = edge; } };

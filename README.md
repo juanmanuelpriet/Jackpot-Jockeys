@@ -7,6 +7,10 @@
 
 ## Descargar y jugar
 
+**La app, sin instalar nada más:** [**Mac (Apple Silicon)**](https://github.com/juanmanuelpriet/Jackpot-Jockeys/releases/latest/download/Jackpot-Jockeys-Mac.zip) · [**Windows**](https://github.com/juanmanuelpriet/Jackpot-Jockeys/releases/latest/download/Jackpot-Jockeys-Windows.zip). No está firmada: en Mac se abre la primera vez con clic derecho → Abrir, y en Windows con Más información → Ejecutar de todas formas.
+
+**O desde el código:**
+
 Solo necesitas [Node 18 o más nuevo](https://nodejs.org).
 
 1. Descarga el juego: [**Jackpot-Jockeys-train3.zip**](https://github.com/juanmanuelpriet/Jackpot-Jockeys/archive/refs/heads/train3.zip) (unos 47 MB) y descomprímelo.

@@ -7,7 +7,7 @@ jugador apuesta, ayuda a su favorito y sabotea al resto desde **su celular**.
 
 ## Cómo abrirlo
 
-**App de escritorio:** abre **Jackpot Jockeys** desde Aplicaciones. Crea la sala y el QR sola, y al cerrarla no
+**App de escritorio:** descárgala para [Mac](https://github.com/juanmanuelpriet/Jackpot-Jockeys/releases/latest/download/Jackpot-Jockeys-Mac.zip) o [Windows](https://github.com/juanmanuelpriet/Jackpot-Jockeys/releases/latest/download/Jackpot-Jockeys-Windows.zip) y ábrela; en Mac, muévela a Aplicaciones. Crea la sala y el QR sola, y al cerrarla no
 queda nada corriendo.
 
 **Desde la terminal** (solo necesita Node 18+):

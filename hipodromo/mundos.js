@@ -28,24 +28,25 @@ const MUNDOS = {
 //   lento      frena mientras se pisa (`freno`)                 resbalon  casi no deja girar (`giro`)
 //   hoyo       al caer queda aturdido (`aturde` en s)           quema     vuelve al centro y pierde tiempo
 //   desvio     lo hace girar mientras lo pisa (`giro`)          ciclo     se activa cada `periodo` ticks durante `activo`
-//   saltable   se salta con velocidad; si no, se pisa y hace su efecto
+//   saltable   se salta con velocidad (`salto`, si pide más que el mundo); si no, se pisa y hace su efecto
+//   atrapa     saltarlo no salva: también alcanza al que va en el aire
 const OBSTACULOS = {
   valla: { kind: 'salto', r: 14 },
   barro: { kind: 'lento', r: 22, freno: 0.55, saltable: true },
   pino: { kind: 'solido', r: 13 },
-  hielo: { kind: 'resbalon', r: 26, giro: 0.15 },
+  hielo: { kind: 'resbalon', r: 26, giro: 0.15, saltable: true },
   nevada: { kind: 'lento', r: 24, freno: 0.6, saltable: true },
   roca: { kind: 'salto', r: 13 },
   crater: { kind: 'hoyo', r: 14, aturde: 0.8, saltable: true },
-  lava: { kind: 'quema', r: 22 },
-  geiser: { kind: 'ciclo', r: 20, periodo: 150, activo: 45, aturde: 0.9 },
-  basalto: { kind: 'solido', r: 14 },
+  lava: { kind: 'quema', r: 22, saltable: true, salto: 8 },
+  geiser: { kind: 'ciclo', r: 20, periodo: 150, activo: 45, aturde: 0.9, atrapa: true },
+  basalto: { kind: 'salto', r: 14, salto: 8 },
   cactus: { kind: 'solido', r: 12 },
-  arena: { kind: 'lento', r: 28, freno: 0.65 },
-  remolino: { kind: 'desvio', r: 24, giro: 0.14, freno: 0.85 },
+  arena: { kind: 'lento', r: 28, freno: 0.65, saltable: true },
+  remolino: { kind: 'desvio', r: 24, giro: 0.14, freno: 0.85, atrapa: true },
   tronco: { kind: 'salto', r: 16, salto: 7 },
-  cienaga: { kind: 'lento', r: 26, freno: 0.45 },
-  caiman: { kind: 'ciclo', r: 18, periodo: 120, activo: 30, aturde: 1.1 },
+  cienaga: { kind: 'lento', r: 26, freno: 0.45, saltable: true },
+  caiman: { kind: 'ciclo', r: 18, periodo: 120, activo: 30, aturde: 1.1, atrapa: true },
 };
 
 // Qué tan grave es pisarlo, como lo percibe la red

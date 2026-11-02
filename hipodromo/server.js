@@ -10,7 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Worker } = require('worker_threads');
 const { FPS, SIM_SPEED } = require('./sim');
-const { HORSES, loadHandicap } = require('./establo');
+const { HORSES, PERFILES, PERSONALIDADES, loadHandicapPers } = require('./establo');
 const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, houseBrains, houseForms, WIN_RECORD } = require('./sala');
 const ws = require('./websocket');
 
@@ -58,22 +58,22 @@ function startTraining({ accountId, room, focus, brain, body, form }) {
 
 // ─── Los caballos de la casa aprenden de cada carrera, de uno en uno y en hilos aparte ───
 // Lo aprendido se guarda aparte: los cerebros de fábrica no cambian y borrar el archivo los restaura.
-// El archivo cambió de nombre con las GRU: lo aprendido por las redes anteriores no les sirve.
+// Se guarda por línea de personalidad, no por caballo. El archivo cambia de nombre con cada generación de redes: lo aprendido por las anteriores no les sirve.
 
-const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'caballos_aprendidos_gru.json');
+const LEARNED_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'perfiles_aprendidos.json');
 let learned = {};
 try { learned = JSON.parse(fs.readFileSync(LEARNED_FILE, 'utf8')); } catch { /* aún no han aprendido */ }
-for (const [name, l] of Object.entries(learned)) {
-  if (l.brain) setHouseBrain(name, l.brain);
-  if (l.edge) setHouseEdge(name, l.edge);
+for (const [slot, l] of Object.entries(learned)) {
+  if (l.brain) setHouseBrain(slot, l.brain);
+  if (l.edge) setHouseEdge(slot, l.edge);
 }
 const saveLearned = () => fs.writeFile(LEARNED_FILE, JSON.stringify(learned), () => {});
 const EDGE_RACES = 600;
 
 let lessons = [], learning = false, edgesStale = false;
 function learnFromRace(room, entries) {
-  // La lección más nueva de cada caballo; primero los que peor llegaron
-  lessons = [...lessons.filter(l => !entries.some(e => e.name === l.name)), ...entries.map(e => ({ ...e, room }))].sort((a, b) => b.place - a.place);
+  // La lección más nueva de cada línea; primero las que peor llegaron
+  lessons = [...lessons.filter(l => !entries.some(e => e.slot === l.slot)), ...entries.map(e => ({ ...e, room }))].sort((a, b) => b.place - a.place);
   nextLesson();
 }
 function runLearner(workerData, onResult) {
@@ -90,30 +90,32 @@ function nextLesson() {
     if (!edgesStale) return;
     edgesStale = false;
     return runLearner({ edgesOf: houseBrains(), forms: houseForms(), races: EDGE_RACES }, edges => {
-      HORSES.forEach((h, i) => {
-        learned[h.name] = { ...learned[h.name], edge: edges[i] };
-        setHouseEdge(h.name, edges[i]);
+      PERFILES.forEach(({ slot }, i) => {
+        learned[slot] = { ...learned[slot], edge: edges[i] };
+        setHouseEdge(slot, edges[i]);
       });
       saveLearned();
     });
   }
-  const { room, name, place, ...lesson } = lessons.shift();
-  runLearner({ ...lesson, brain: learned[name]?.brain || lesson.brain }, r => {
+  const { room, name, slot, place, ...lesson } = lessons.shift();
+  runLearner({ ...lesson, brain: learned[slot]?.brain || lesson.brain }, r => {
     if (!r.improved) return;
-    learned[name] = { ...learned[name], brain: r.brain, lessons: (learned[name]?.lessons || 0) + 1 };
-    setHouseBrain(name, r.brain);
+    learned[slot] = { ...learned[slot], brain: r.brain, lessons: (learned[slot]?.lessons || 0) + 1 };
+    setHouseBrain(slot, r.brain);
     edgesStale = true;
     saveLearned();
-    room.addLog(`🧠 ${name} aprendió de la carrera (lección ${learned[name].lessons}).`);
+    const p = PERSONALIDADES[lesson.pers];
+    room.addLog(`🧠 La carrera de ${name} mejoró el perfil ${p.icon} ${p.name} (lección ${learned[slot].lessons}).`);
   });
 }
 
 // ─── Salas ───
 
 const rooms = new Map();
-// Victorias reales de cada caballo: con ellas se ajustan las cuotas de una partida a otra
+// Victorias reales de cada línea y de cada potro: con ellas se ajustan las cuotas de una partida a otra
 const WINS_FILE = path.join(process.env.JJ_DATA_DIR || __dirname, 'victorias.json');
 try { Object.assign(WIN_RECORD, JSON.parse(fs.readFileSync(WINS_FILE, 'utf8'))); } catch { /* aún no hay carreras */ }
+for (const h of HORSES) delete WIN_RECORD[h.name]; // historial de cuando se contaba por caballo de la casa
 const saveWins = () => fs.writeFile(WINS_FILE, JSON.stringify(WIN_RECORD), () => {});
 
 const hooks = { save: saveAccounts, train: startTraining, learn: learnFromRace, saveWins };
@@ -347,7 +349,7 @@ setInterval(() => {
     if (!empty) broadcastState(room, tick % 2 === 0);
   }
   // El hándicap se puede recalibrar sin reiniciar el servidor
-  if (tick % 150 === 0) setHandicap(loadHandicap());
+  if (tick % 150 === 0) setHandicap(loadHandicapPers());
 }, 250);
 
 // WebSocket: la vía principal para empujar el estado y las posiciones de la carrera

@@ -831,7 +831,7 @@ document.getElementById('reactBox').onclick = e => {
 // Cada guía: [clave, emoji, título, explicación (HTML)]. TUTO sale al entrar por primera vez;
 // SECTIONS sale la primera vez que se abre cada sección y luego con su enlace "¿Cómo funciona?".
 const steps = rows => `<div class="steps">${rows.map(([e, t]) => `<div><span>${e}</span><span>${t}</span></div>`).join('')}</div>`;
-const persGuide = () => `Siempre se ven junto al nombre.<div class="steps" style="margin-top:8px">${Object.values(state.cfg.personalidades).map(p =>
+const persGuide = () => `Siempre se ven junto al nombre. Cada partida y tras cada Gran Premio cambian al azar.<div class="steps" style="margin-top:8px">${Object.values(state.cfg.personalidades).map(p =>
   `<div><span>${p.icon}</span><span><b>${esc(p.name)}.</b> ${esc(p.line)}<small>Podio ${p.podio} % · ${String(p.choques).replace('.', ',')} choques por carrera · gana en pista corta ${p.gana.corta} %, larga ${p.gana.larga} %</small></span></div>`).join('')}</div>`;
 const TUTO = [
   ['meta', '🎯', 'Termina con más fichas', () => `Empiezas con <b>1.000</b>. Se juega hasta que se aburran. 🏆 muestra quién va ganando.`],

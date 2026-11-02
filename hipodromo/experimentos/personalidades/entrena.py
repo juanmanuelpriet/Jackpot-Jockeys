@@ -1,26 +1,34 @@
 # Entrena una red para copiar a la heurística, con el mismo cálculo y formato que usa el juego.
-import sys, json, glob, numpy as np, torch
+import sys, os, json, glob, numpy as np, torch
 arq, u, carpeta, pasos, seed = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
 torch.manual_seed(seed); np.random.seed(seed); torch.set_num_threads(1)
-NI, T, BATCH = 18, (80 if arq == 'gru' else 1), (64 if arq == 'gru' else 512)
-class Gru(torch.nn.Module):
+CAPAS = int(os.environ.get('CAPAS', 1))
+NI, T, BATCH = int(os.environ.get('NI', 22)), (80 if arq == 'gru' else 1), (64 if arq == 'gru' else 512)
+class Celda(torch.nn.Module):
     def __init__(s, n, u):
         super().__init__(); s.n, s.u = n, u
         s.W = torch.nn.Parameter(torch.randn(n + u, 3 * u) * .15); s.b = torch.nn.Parameter(torch.zeros(3 * u))
+    def forward(s, x, h):
+        u = s.u; Wx, Wh = s.W[:s.n], s.W[s.n:]
+        xw = x @ Wx; hw = h @ Wh
+        z = torch.sigmoid(s.b[:u] + xw[:, :u] + hw[:, :u]); r = torch.sigmoid(s.b[u:2*u] + xw[:, u:2*u] + hw[:, u:2*u])
+        c = torch.tanh(s.b[2*u:] + xw[:, 2*u:] + (r * h) @ Wh[:, 2*u:])
+        return (1 - z) * h + z * c
+class Gru(torch.nn.Module):
+    def __init__(s, n, u, capas=1):
+        super().__init__(); s.u = u
+        s.capas = torch.nn.ModuleList([Celda(n if i == 0 else u, u) for i in range(capas)])
         s.oW = torch.nn.Parameter(torch.randn(u, 2) * .15); s.ob = torch.nn.Parameter(torch.zeros(2))
     def forward(s, X):
-        h = torch.zeros(X.shape[0], s.u); out = []; u = s.u
-        Wx, Wh = s.W[:s.n], s.W[s.n:]
+        hs = [torch.zeros(X.shape[0], s.u) for _ in s.capas]; out = []
         for t in range(X.shape[1]):
-            x = X[:, t]; xw = x @ Wx; hw = h @ Wh
-            z = torch.sigmoid(s.b[:u] + xw[:, :u] + hw[:, :u]); r = torch.sigmoid(s.b[u:2*u] + xw[:, u:2*u] + hw[:, u:2*u])
-            c = torch.tanh(s.b[2*u:] + xw[:, 2*u:] + (r * h) @ Wh[:, 2*u:])
-            h = (1 - z) * h + z * c
-            out.append(torch.tanh(h @ s.oW + s.ob))
+            x = X[:, t]
+            for i, c in enumerate(s.capas): x = hs[i] = c(x, hs[i])
+            out.append(torch.tanh(x @ s.oW + s.ob))
         return torch.stack(out, 1)
     def export(s):
         f = lambda p: p.detach().cpu().numpy().tolist()
-        return [{'gru': True, 'W': f(s.W), 'b': f(s.b)}, {'W': f(s.oW), 'b': f(s.ob)}]
+        return [{'gru': True, 'W': f(c.W), 'b': f(c.b)} for c in s.capas] + [{'W': f(s.oW), 'b': f(s.ob)}]
 class Mlp(torch.nn.Module):
     def __init__(s, n):
         super().__init__(); d = [n, 8, 3, 3, 2]
@@ -32,7 +40,7 @@ class Mlp(torch.nn.Module):
         return x
     def export(s):
         return [{'W': W.detach().numpy().tolist(), 'b': b.detach().numpy().tolist()} for W, b in zip(s.W, s.b)]
-m = Gru(NI, u) if arq == 'gru' else Mlp(NI)
+m = Gru(NI, u, CAPAS) if arq == 'gru' else Mlp(NI)
 ck = carpeta + '/modelo.pt'
 try: m.load_state_dict(torch.load(ck))
 except FileNotFoundError: pass
@@ -50,7 +58,9 @@ for p in range(pasos):
     X = torch.tensor(B[:, :, :NI]); Y = torch.tensor(B[:, :, NI:])
     if arq != 'gru': X, Y = X[:, 0], Y[:, 0]
     pred = m(X); e = pred - Y
-    loss = (e[..., 0] ** 2).mean() + (e[..., 1] ** 2).mean()
+    # Pesan más los momentos con un obstáculo cerca: es donde se decide saltar o esquivar (entrada 18, o 11 sin los sentidos nuevos)
+    near = 1 + 2 * (X[..., 18 if NI > 18 else 11] < .6).float()
+    loss = ((e[..., 0] ** 2 + e[..., 1] ** 2) * near).mean()
     op.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0); op.step(); tot += loss.item()
 torch.save(m.state_dict(), ck)
 json.dump(m.export(), open(carpeta + '/red.json', 'w'))

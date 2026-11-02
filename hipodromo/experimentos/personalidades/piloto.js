@@ -5,10 +5,12 @@ const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const MARGEN = +(process.env.P_M || 10), HORIZ = +(process.env.P_H || 14), ALCANCE = 110, PASO = 3, LADOS = [0, -14, 14, -28, 28, -38, 38];
 const NIVELES = [1, .94, .88, .82, .76, .7, .62, .54, .46, .38];
 
-function evita(o, h, salto) {
+// Qué rodea cada estilo. Quien lleva velocidad salta lo que se puede; el que `rodea` no se arriesga y el que `pisa` ni frena por lo blando
+function evita(o, h, salto, e = {}) {
   const info = OBSTACULOS[o.type];
-  if (o.kind === 'salto') return h.speed < (info.salto || salto) + 0.3;
-  if (info.saltable) return h.speed < salto + 0.3;
+  if (info.atrapa || e.rodea) return true;
+  if (e.pisa && info.saltable) return false;
+  if (o.kind === 'salto' || info.saltable) return h.speed < (info.salto || salto) + 0.3;
   return true;
 }
 function libre(tr, x0, y0, x1, y1, malos) {
@@ -55,33 +57,35 @@ function ensaya(h, v, t0, tr, w, wind, giro) {
   }
   return true;
 }
-function piloto(h) {
+function piloto(h, e = {}) {
   const tr = h.track, w = tr.world, wind = tr.windAt(h.ticks), giro = 0.08 * (h.agility || 1);
-  const malos = tr.obstacles.filter(o => (o.x - h.x) ** 2 + (o.y - h.y) ** 2 < 500 ** 2 && evita(o, h, w.salto));
+  const malos = tr.obstacles.filter(o => (o.x - h.x) ** 2 + (o.y - h.y) ** 2 < 500 ** 2 && evita(o, h, w.salto, e));
   const t = apunta(tr, h.x, h.y, h.lastProgress, malos);
   const tope = 9 * h.form * w.vel * (process.env.JJ_AGUANTE === '1' ? 0.89 : 1);
-  let quiere = tope * NIVELES[NIVELES.length - 1];
-  for (const f of NIVELES) if (ensaya(h, tope * f, t, tr, w, wind, giro)) { quiere = tope * f; break; }
+  // `prisa`: nunca baja de esa fracción, aunque el ensayo diga que se va a salir
+  let quiere = tope * (e.prisa || NIVELES[NIVELES.length - 1]);
+  for (const f of NIVELES) if (f >= (e.prisa || 0) && ensaya(h, tope * f, t, tr, w, wind, giro)) { quiere = tope * f; break; }
   return [mando(h.x, h.y, h.angle, h.heading, t, tr, w, wind, giro), Math.max(-1, Math.min(1, (quiere / (h.form * w.vel) - 3) / 3 - 1))];
 }
 // Personalidad: solo usa lo que la red también percibe (rival más cercano y puesto). Quien embiste va a buscar al rival que tiene
 // a tiro con cierto acelerador mínimo, y el muy bravo ni mira si se sale (`fijo`); el corredor esquiva.
-const ESTILOS = { corredor: { esquiva: .28 },
-  picaro: { alcance: +(process.env.E_PA || .35), cono: .6, gas: .6 },
-  bravo: { alcance: +(process.env.E_BA || .7), cono: 1.1, gas: .85 },
-  muybravo: { alcance: 1, cono: 1.8, gas: 1, fijo: process.env.E_FIJO !== '0' } };
+const ESTILOS = { corredor: { esquiva: .28, rodea: true },
+  picaro: { alcance: +(process.env.E_PA || .7), cono: .7, gas: .8, esquiva: .25, detras: true },
+  bravo: { alcance: +(process.env.E_BA || .85), cono: 1.3, gas: .95 },
+  muybravo: { alcance: 1, cono: 1.8, gas: 1, fijo: process.env.E_FIJO !== '0', pisa: true, prisa: .7 } };
 const tope1 = v => Math.max(-1, Math.min(1, v));
 function conEstilo(pers) {
   const e = ESTILOS[pers];
   return h => {
-    const base = piloto(h), [d, rel, , prot] = h.rival, ang = rel * Math.PI, giro = 0.08 * (h.agility || 1);
-    if (e.esquiva) {
+    const base = piloto(h, e), [d, rel, , prot] = h.rival, ang = rel * Math.PI, giro = 0.08 * (h.agility || 1);
+    // El pícaro empuja al que va delante; si va primero, se aparta como el corredor
+    if (e.esquiva && (!e.detras || h.place === 0)) {
       if (d >= e.esquiva || Math.abs(ang) > .7) return base;
       return [tope1(base[0] - Math.sign(ang || 1) * .5), base[1]];
     }
     if (!prot && d < e.alcance && Math.abs(ang) <= e.cono) {
       const dist = d * 120, x = h.x + Math.cos(h.angle + ang) * dist, y = h.y + Math.sin(h.angle + ang) * dist, tr = h.track, w = tr.world;
-      const malos = tr.obstacles.filter(o => (o.x - h.x) ** 2 + (o.y - h.y) ** 2 < 200 ** 2 && evita(o, h, w.salto));
+      const malos = tr.obstacles.filter(o => (o.x - h.x) ** 2 + (o.y - h.y) ** 2 < 200 ** 2 && evita(o, h, w.salto, e));
       const ok = tr.onTrack(x, y) && malos.every(o => { const dd = Math.max(1, dist), ux = (x - h.x) / dd, uy = (y - h.y) / dd, t = Math.max(0, Math.min(dd, (o.x - h.x) * ux + (o.y - h.y) * uy)); return (h.x + ux * t - o.x) ** 2 + (h.y + uy * t - o.y) ** 2 >= (o.r + 8) ** 2; });
       if (ok || e.fijo) return [tope1(ang / giro), Math.max(base[1], e.gas)];
     }

@@ -50,37 +50,42 @@ function mulberry32(seed) {
 //   14   qué tan grave es lo que tiene adelante     15  agarre del suelo
 //   16   viento de lado (-1 izquierda, +1 derecha)  17  gravedad (qué tanta velocidad pide un salto)
 // "Barro" son todos los obstáculos que se pisan: charcos, hielo, cráteres, lava, géiseres…
-const NUM_INPUTS = 18;
+const NUM_INPUTS = 22;
 const HIDDEN_1 = 8;
 const INPUT_NAMES = ['sensor_-72', 'sensor_-36', 'sensor_0', 'sensor_+36', 'sensor_+72',
   'rival_dist', 'rival_rumbo', 'rival_vel_rel', 'rival_protegido', 'mi_furia', 'mi_turbo', 'barro_adelante', 'mi_puesto', 'barro_lado',
-  'peligro', 'agarre', 'viento_lado', 'gravedad'];
+  'peligro', 'agarre', 'viento_lado', 'gravedad', 'obstaculo_adelante', 'obstaculo_lado', 'se_puede_saltar', 'mi_velocidad'];
 
 // Paso de la GRU: `mem` es lo que recuerda de los ticks anteriores y se actualiza aquí
-function gruStep(l, x, mem) {
-  const u = l.b.length / 3, n = x.length, sig = v => 1 / (1 + Math.exp(-v));
-  while (mem.length < u) mem.push(0);
+function gruStep(l, x, mem, off = 0) {
+  const u = l.b.length / 3, n = l.W.length - u, sig = v => 1 / (1 + Math.exp(-v));
+  while (mem.length < off + u) mem.push(0);
   const z = new Array(u), r = new Array(u), out = new Array(u);
   for (let j = 0; j < u; j++) {
     let a = l.b[j], c = l.b[j + u];
     for (let i = 0; i < n; i++) { a += x[i] * l.W[i][j]; c += x[i] * l.W[i][j + u]; }
-    for (let k = 0; k < u; k++) { a += mem[k] * l.W[n + k][j]; c += mem[k] * l.W[n + k][j + u]; }
+    for (let k = 0; k < u; k++) { a += mem[off + k] * l.W[n + k][j]; c += mem[off + k] * l.W[n + k][j + u]; }
     z[j] = sig(a); r[j] = sig(c);
   }
   for (let j = 0; j < u; j++) {
     let s = l.b[j + 2 * u];
     for (let i = 0; i < n; i++) s += x[i] * l.W[i][j + 2 * u];
-    for (let k = 0; k < u; k++) s += r[k] * mem[k] * l.W[n + k][j + 2 * u];
-    out[j] = (1 - z[j]) * mem[j] + z[j] * Math.tanh(s);
+    for (let k = 0; k < u; k++) s += r[k] * mem[off + k] * l.W[n + k][j + 2 * u];
+    out[j] = (1 - z[j]) * mem[off + j] + z[j] * Math.tanh(s);
   }
-  for (let j = 0; j < u; j++) mem[j] = out[j];
+  for (let j = 0; j < u; j++) mem[off + j] = out[j];
   return out;
 }
 
 // Dos tipos de cerebro: la casa usa GRU (con memoria) y los potros, el perceptrón
 function predict(brain, input, mem = []) {
-  let x = brain[0].gru ? gruStep(brain[0], input, mem) : input;
-  for (const layer of brain[0].gru ? brain.slice(1) : brain) {
+  let x = input, off = 0;
+  for (const layer of brain) {
+    if (layer.gru) { // Varias GRU seguidas comparten `mem`, cada una en su tramo
+      x = gruStep(layer, x, mem, off);
+      off += layer.b.length / 3;
+      continue;
+    }
     const out = new Array(layer.b.length);
     for (let j = 0; j < layer.b.length; j++) {
       let s = layer.b[j];
@@ -457,6 +462,7 @@ class Horse {
     this.mud = 1;
     this.mudSide = 0;    // de qué lado está el barro que tiene adelante
     this.danger = 0;     // qué tan grave es
+    this.ahead = [1, 0, 0]; // cualquier obstáculo adelante: distancia, lado y si se puede saltar
     this.mudHits = 0;    // obstáculos pisados
     this.inMud = null;
     this.heading = this.angle; // hacia dónde avanza de verdad: en suelo resbaloso va detrás de la cabeza
@@ -471,6 +477,8 @@ class Horse {
     this.falls = 0;      // salidas de pista
     this.stumbles = 0;   // choques con vallas
     this.jumps = 0;      // obstáculos saltados
+    this.dodges = 0;     // obstáculos esquivados: pasó cerca sin pisarlos ni saltarlos
+    this.near = new Map();
     this.hitsGiven = 0;  // embestidas a otros caballos
     this.hitsTaken = 0;
     this.hitCd = 0;
@@ -534,18 +542,38 @@ class Horse {
     for (const o of this.track.obstacles) {
       if (o.kind === 'salto' || o.kind === 'solido') continue;
       if ((this.x - o.x) ** 2 + (this.y - o.y) ** 2 >= o.r * o.r) continue;
-      if ((o.kind !== 'lento' || OBSTACULOS[o.type].saltable) && this.fx.jump > 0) continue;
+      if (this.fx.jump > 0 && !OBSTACULOS[o.type].atrapa) continue;
       if (o.kind === 'ciclo' && !this._cycleOn(o)) continue;
       return o;
     }
     return null;
   }
 
+  // Lo más cercano en el cono de ±30°, sea lo que sea, y qué le pasaría al llegar con la velocidad que lleva:
+  //   1 lo pasa (lo salta, o es un ciclo apagado)   -0.5 se salta, pero va lento   -1 no se salta   0 no hay nada
+  _senseAhead() {
+    let best = SENSOR_LENGTH;
+    this.ahead = [1, 0, 0];
+    for (const o of this.track.obstacles) {
+      const dx = o.x - this.x, dy = o.y - this.y, d = Math.hypot(dx, dy) - o.r;
+      if (d >= best) continue;
+      let rel = Math.atan2(dy, dx) - this.angle;
+      rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+      if (Math.abs(rel) >= Math.PI / 6 && d >= 0) continue;
+      best = Math.max(0, d);
+      const info = OBSTACULOS[o.type], fast = this.speed >= (info.salto || this.track.world.salto);
+      const pass = info.atrapa ? (o.kind === 'ciclo' && !this._cycleOn(o, CICLO_AVISO) ? 1 : -1)
+        : o.kind === 'solido' ? -1 : (fast ? 1 : -0.5);
+      this.ahead = [best / SENSOR_LENGTH, Math.max(-1, Math.min(1, rel / (Math.PI / 6))), pass];
+    }
+  }
+
   inputs(numHorses) {
     return [...this.sensors, ...this.rival,
       this.fx.rage > 0 ? 1 : 0, this.fx.boost > 0 ? 1 : 0,
       this.mud, numHorses > 1 ? this.place / (numHorses - 1) : 0, this.mudSide,
-      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5];
+      this.danger, this.track.world.agarre, this._windSide(), this.track.world.salto / 6.5,
+      ...this.ahead, this.speed / 9];
   }
 
   update(others = []) {
@@ -568,9 +596,11 @@ class Horse {
       this.mud = Math.random();
       this.mudSide = Math.random() * 2 - 1;
       this.danger = Math.random();
+      this.ahead = [Math.random(), Math.random() * 2 - 1, Math.random() * 2 - 1];
     } else {
       this._senseRival(others);
       this.mud = this._senseMud();
+      this._senseAhead();
     }
 
     const [steer, gas] = predict(this.brain, this.inputs(others.length), this.mem);
@@ -590,7 +620,7 @@ class Horse {
     if (puddle && puddle.kind === 'hoyo' && entered) { fx.stun = Math.round(FPS * info.aturde); this.stumbles++; this.speed = 0; return; }
     if (puddle && puddle.kind === 'ciclo' && puddle !== this.lastBite) {
       this.lastBite = puddle;
-      fx.stun = Math.round(FPS * info.aturde); fx.hit = 12; this.stumbles++; this.speed = 0;
+      fx.stun = Math.round(FPS * info.aturde); fx.hit = 12; fx.jump = 0; this.stumbles++; this.speed = 0;
       return;
     }
     if (this.lastBite && (this.x - this.lastBite.x) ** 2 + (this.y - this.lastBite.y) ** 2 > 60 * 60) this.lastBite = null;
@@ -617,12 +647,12 @@ class Horse {
     // Vallas: con buena velocidad se saltan, si no, el caballo tropieza
     if (fx.jump === 0) {
       for (const o of this.track.obstacles) {
-        const saltable = OBSTACULOS[o.type].saltable;
+        const { saltable, salto } = OBSTACULOS[o.type];
         if ((o.kind !== 'salto' && o.kind !== 'solido' && !saltable) || o === this.lastHit) continue;
         if ((nx - o.x) ** 2 + (ny - o.y) ** 2 < (o.r + 6) ** 2) {
           this.lastHit = o;
-          // Barro, nieve y cráteres: con buena velocidad los salta; si no, los pisa
-          if (saltable) { if (this.speed >= world.salto || fx.carrot > 0) { fx.jump = world.aire; this.jumps++; break; } continue; }
+          // Lo que se pisa: con buena velocidad lo salta; si no, lo pisa
+          if (saltable) { if (this.speed >= (salto || world.salto) || fx.carrot > 0) { fx.jump = world.aire; this.jumps++; break; } continue; }
           // Con zanahoria el jinete lleva las riendas: siempre salta
           const need = OBSTACULOS[o.type].salto || world.salto;
           if ((o.kind === 'salto' && this.speed >= need) || fx.carrot > 0) { fx.jump = world.aire; this.jumps++; }
@@ -660,6 +690,20 @@ class Horse {
     } else if (++this.stuck > FPS * 4) {
       this._resetToPath(FPS);
     }
+    this._countDodges();
+  }
+
+  // Esquivar vale lo mismo que saltar: cuenta los obstáculos que pasó de cerca sin tocarlos ni saltarlos
+  _countDodges() {
+    for (const o of this.track.obstacles) {
+      const d2 = (this.x - o.x) ** 2 + (this.y - o.y) ** 2;
+      if (d2 < (o.r + 30) ** 2) {
+        this.near.set(o, this.near.get(o) !== false && this.fx.jump === 0 && d2 >= (o.r + 6) ** 2);
+      } else if (this.near.has(o) && d2 > (o.r + 60) ** 2) {
+        if (this.near.get(o)) this.dodges++;
+        this.near.delete(o);
+      }
+    }
   }
 
   _resetToPath(stunTicks) {
@@ -671,6 +715,7 @@ class Horse {
     this.heading = this.angle;
     this.lastProgress = i;
     this.stuck = 0;
+    this.near.clear();
     this.fx.stun = stunTicks;
   }
 }

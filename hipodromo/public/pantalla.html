@@ -206,11 +206,17 @@
     border: 0; padding: 1.2vh 3vh; cursor: pointer; }
   #splashBar button.ghost { background: transparent; color: var(--cream); border: 1px solid var(--line); }
   #splashBar small { font-size: 1.5vh; color: var(--cream-dim); letter-spacing: .2vh; text-transform: uppercase; }
+  #obstBar { position: absolute; left: 8px; bottom: 8px; z-index: 1; display: flex; gap: 12px; padding: 5px 12px 5px 6px; max-width: calc(100% - 16px); pointer-events: none; background: rgba(5,14,9,0.72); border-radius: 8px; }
+  .ob { display: flex; align-items: center; gap: 6px; text-align: left; font-size: 12px; line-height: 1.2; color: var(--cream-dim); }
+  .ob img { width: 38px; height: 38px; flex: none; }
+  .ob b { display: block; font-weight: 700; color: var(--cream); }
+  #introObs { display: grid; gap: 6px; margin: 12px 0 2px; }
+  #introObs .ob { font-size: 15px; } #introObs .ob img { width: 46px; height: 46px; }
   .hint { position: absolute; bottom: 8px; right: 10px; font-size: 11px; letter-spacing: 2px; color: rgba(241, 232, 211, 0.4); text-transform: uppercase; }
   @media (max-width: 1100px) {
     #stage { grid-template-columns: 190px minmax(0, 1fr) 220px; }
     .row { font-size: 13px; gap: 6px; padding: 4px 10px; grid-template-columns: 26px 6px 1fr auto; } .row .nm small { display: none; }
-    #brand .card, #players, .hint { display: none; } #brand .name { font-size: 20px; } #clock { min-width: 200px; } #clock .big { font-size: 24px; }
+    #brand .card, #players, .hint, #obstBar { display: none; } #brand .name { font-size: 20px; } #clock { min-width: 200px; } #clock .big { font-size: 24px; }
     #potBox .pot { font-size: 26px; } .odd { font-size: 13px; gap: 6px; } #qr img, #qr canvas { width: 72px !important; height: 72px !important; }
   }
   @media (max-width: 760px) {
@@ -237,8 +243,9 @@
     <canvas id="c"></canvas>
     <div id="persBar"></div>
     <div class="hint">S · sensores de la red &nbsp;&nbsp; C · cámara &nbsp;&nbsp; H · cómo se juega</div>
+    <div id="obstBar"></div>
     <div id="reacts"></div>
-    <div id="intro"><div class="plate card"><div class="k" id="introK"></div><h2 id="introTitle"></h2><div class="sub" id="introSub"></div>
+    <div id="intro"><div class="plate card"><div class="k" id="introK"></div><h2 id="introTitle"></h2><div class="sub" id="introSub"></div><div id="introObs"></div>
       <div class="calc" id="introCalc"></div><div class="tip" id="introTip"></div></div></div>
     <div id="results"><div class="plate card" id="resCard"></div></div>
   </div>
@@ -813,98 +820,205 @@ function bakeTrack() {
   bakeMini();
 }
 
-const patch = (g, o, base, top, shine) => {
-  blob(g, 1, 2, o.r, o.r * 0.72, 'rgba(0,0,0,0.4)');
-  blob(g, 0, 0, o.r * 0.95, o.r * 0.68, base);
-  blob(g, -3, -2, o.r * 0.6, o.r * 0.38, top, 0.3);
-  blob(g, -o.r * 0.28, -o.r * 0.22, o.r * 0.25, o.r * 0.08, shine, 0.3);
+// El contorno de cada charco coincide con su área real, para que se vea por dónde se puede pasar
+const patch = (g, o, base, top, shine, edge = 'rgba(0,0,0,0.6)') => {
+  blob(g, 1, 2.5, o.r * 1.02, o.r * 0.9, 'rgba(0,0,0,0.38)');
+  blob(g, 0, 0, o.r, o.r * 0.88, base);
+  g.strokeStyle = edge; g.lineWidth = 2; g.beginPath(); g.ellipse(0, 0, o.r, o.r * 0.88, 0, 0, 7); g.stroke();
+  blob(g, -o.r * 0.1, -o.r * 0.08, o.r * 0.68, o.r * 0.54, top, 0.3);
+  blob(g, -o.r * 0.34, -o.r * 0.34, o.r * 0.28, o.r * 0.09, shine, 0.3);
+};
+const bubbles = (g, o, c, list) => { g.strokeStyle = c; g.lineWidth = 1.2; for (const [x, y, q] of list) { g.beginPath(); g.arc(x * o.r, y * o.r, q * o.r, 0, 7); g.stroke(); } };
+
+// Caimán visto desde arriba, con la cabeza hacia +x. `open` separa las mandíbulas (0 cerrada, 1 abierta)
+function drawCaiman(g, r, open = 0, eye = '#ffe04a') {
+  const line = '#0b2410', skin = '#6db33f', dark = '#3d7d2a';
+  g.lineJoin = 'round'; g.strokeStyle = line; g.lineWidth = Math.max(1.4, r * 0.09);
+  // Patas
+  for (const [x, side] of [[0.28, -1], [0.28, 1], [-0.52, -1], [-0.52, 1]]) {
+    g.fillStyle = dark; g.beginPath(); g.ellipse((x - 0.08) * r, side * 0.46 * r, 0.17 * r, 0.11 * r, side * -0.7, 0, 7); g.fill(); g.stroke();
+  }
+  // Cola
+  g.fillStyle = skin; g.beginPath(); g.moveTo(-0.45 * r, -0.28 * r);
+  g.quadraticCurveTo(-1.0 * r, -0.2 * r, -1.42 * r, 0.16 * r); g.quadraticCurveTo(-1.0 * r, 0.14 * r, -0.45 * r, 0.28 * r); g.closePath(); g.fill(); g.stroke();
+  // Mandíbulas: giran sobre la bisagra y dejan ver la boca roja con dientes
+  const ang = open * 0.62, hinge = 0.42 * r;
+  if (open > 0.03) {
+    g.fillStyle = '#c21d2a'; g.beginPath(); g.moveTo(hinge, 0);
+    g.lineTo(hinge + Math.cos(ang) * 0.92 * r, Math.sin(ang) * 0.92 * r); g.lineTo(hinge + Math.cos(ang) * 0.92 * r, -Math.sin(ang) * 0.92 * r); g.closePath(); g.fill();
+  }
+  for (const side of open > 0.03 ? [-1, 1] : [0]) {
+    g.save(); g.translate(hinge, 0); g.rotate(side * ang);
+    const half = side ? 0.13 : 0.26; // cerrada se dibuja como un solo hocico
+    if (side) { g.fillStyle = '#fff'; for (let k = 0.2; k < 0.92; k += 0.17) { g.beginPath(); g.moveTo(k * r, side * -0.02 * r); g.lineTo((k + 0.05) * r, side * -0.15 * r); g.lineTo((k + 0.1) * r, side * -0.02 * r); g.fill(); } }
+    g.fillStyle = skin; g.beginPath();
+    if (side) { g.moveTo(0, 0); g.lineTo(0.96 * r, 0); g.quadraticCurveTo(1.0 * r, side * half * r, 0.8 * r, side * half * 1.1 * r); g.lineTo(0, side * 0.26 * r); }
+    else { g.moveTo(0, -0.26 * r); g.lineTo(0.8 * r, -0.14 * r); g.quadraticCurveTo(1.0 * r, 0, 0.8 * r, 0.14 * r); g.lineTo(0, 0.26 * r); }
+    g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+  // Cuerpo y escamas del lomo
+  g.fillStyle = skin; g.beginPath(); g.ellipse(-0.06 * r, 0, 0.66 * r, 0.42 * r, 0, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = dark; for (let k = -1.1; k < 0.5; k += 0.27) { const q = k < -0.5 ? 0.06 : 0.1; g.beginPath(); g.moveTo(k * r, -q * r); g.lineTo((k + 0.13) * r, 0); g.lineTo(k * r, q * r); g.lineTo((k - 0.13) * r, 0); g.fill(); }
+  // Ojos saltones: es lo primero que se reconoce
+  for (const side of [-1, 1]) {
+    g.fillStyle = eye; g.beginPath(); g.arc(0.5 * r, side * 0.25 * r, 0.14 * r, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#071008'; g.fillRect(0.47 * r, side * 0.25 * r - 0.1 * r, 0.06 * r, 0.2 * r);
+  }
+}
+const spiral = (g, r, turns, width, color) => {
+  g.strokeStyle = color; g.lineWidth = width; g.lineCap = 'round'; g.beginPath();
+  for (let a = 0; a < turns; a += 0.25) { const q = r * (1 - a / turns); g.lineTo(Math.cos(a) * q, Math.sin(a) * q); }
+  g.stroke();
 };
 const OBSTACLE_ART = {
-  barro(g, o) { patch(g, o, '#3e2914', '#4f361c', 'rgba(255,255,255,0.18)'); },
+  barro(g, o) {
+    patch(g, o, '#3a2510', '#553719', 'rgba(255,255,255,0.28)', '#1c1006');
+    bubbles(g, o, 'rgba(190,150,100,0.75)', [[0.34, 0.2, 0.11], [-0.28, 0.34, 0.08], [0.1, -0.3, 0.07]]);
+  },
   valla(g, o) { // Valla de steeplechase: seto de ramas con alas blancas
     g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(-o.r + 2, -2, o.r * 2, 10);
     g.fillStyle = '#4a3a1f'; g.fillRect(-o.r, -5, o.r * 2, 9);
-    for (let k = -o.r; k < o.r; k += 3) { g.fillStyle = k % 2 ? '#3b5a24' : '#557a2e'; g.fillRect(k, -6, 2, 5); }
-    g.fillStyle = '#f1e8d3'; g.fillRect(-o.r - 4, -8, 5, 14); g.fillRect(o.r - 1, -8, 5, 14);
-    g.fillStyle = '#8e1d22'; g.fillRect(-o.r - 4, -8, 5, 3); g.fillRect(o.r - 1, -8, 5, 3);
+    for (let k = -o.r; k < o.r; k += 3) { g.fillStyle = k % 2 ? '#3b5a24' : '#6b9a38'; g.fillRect(k, -7, 2, 6); }
+    g.fillStyle = '#f1e8d3'; g.fillRect(-o.r - 5, -9, 6, 16); g.fillRect(o.r - 1, -9, 6, 16);
+    g.fillStyle = '#c1262d'; g.fillRect(-o.r - 5, -9, 6, 4); g.fillRect(o.r - 1, -9, 6, 4); g.fillRect(-o.r - 5, -1, 6, 3); g.fillRect(o.r - 1, -1, 6, 3);
   },
   pino(g, o) { THEMES.nieve.scatter(g, 0, 0, o.r * 1.1); },
   hielo(g, o) {
-    patch(g, o, '#bfe6f5', '#e4f6fc', 'rgba(255,255,255,0.95)');
-    g.strokeStyle = 'rgba(70,140,185,0.7)'; g.lineWidth = 1;
-    g.beginPath(); g.moveTo(-o.r * 0.6, -o.r * 0.1); g.lineTo(-o.r * 0.1, o.r * 0.15); g.lineTo(o.r * 0.55, -o.r * 0.2); g.moveTo(-o.r * 0.1, o.r * 0.15); g.lineTo(0, o.r * 0.45); g.stroke();
+    patch(g, o, '#4fb9ea', '#b7e9fb', 'rgba(255,255,255,0.98)', '#14618f');
+    g.strokeStyle = '#14618f'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(-o.r * 0.65, -o.r * 0.1); g.lineTo(-o.r * 0.1, o.r * 0.15); g.lineTo(o.r * 0.6, -o.r * 0.25); g.moveTo(-o.r * 0.1, o.r * 0.15); g.lineTo(0, o.r * 0.6); g.moveTo(o.r * 0.25, -o.r * 0.05); g.lineTo(o.r * 0.45, o.r * 0.4); g.stroke();
   },
   nevada(g, o) {
-    blob(g, 2, 3, o.r, o.r * 0.72, 'rgba(60,85,110,0.3)');
-    for (const [x, y, q] of [[-0.45, 0.05, 0.6], [0.4, -0.05, 0.62], [0, -0.15, 0.68], [0.05, 0.25, 0.55]]) blob(g, x * o.r, y * o.r, q * o.r, q * o.r * 0.72, '#ffffff');
-    blob(g, 0, 0.2 * o.r, o.r * 0.45, o.r * 0.12, 'rgba(150,180,205,0.35)');
+    blob(g, 2, 4, o.r, o.r * 0.88, 'rgba(45,70,100,0.5)');
+    for (const [x, y, q] of [[-0.45, 0.05, 0.56], [0.42, -0.05, 0.58], [0, -0.28, 0.6], [0.02, 0.28, 0.58]]) blob(g, x * o.r, y * o.r, q * o.r, q * o.r * 0.86, '#6f8dab');
+    for (const [x, y, q] of [[-0.45, 0.02, 0.5], [0.42, -0.08, 0.52], [0, -0.3, 0.54], [0.02, 0.25, 0.52]]) blob(g, x * o.r, y * o.r, q * o.r, q * o.r * 0.86, '#ffffff');
+    blob(g, 0.12 * o.r, 0.2 * o.r, o.r * 0.42, o.r * 0.12, 'rgba(120,155,190,0.5)');
   },
   roca(g, o) {
-    blob(g, 3, 4, o.r, o.r * 0.8, 'rgba(0,0,0,0.5)');
-    g.fillStyle = '#74767e'; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283, q = o.r * (0.78 + (k * 53 % 10) / 40); g.lineTo(Math.cos(a) * q, Math.sin(a) * q); } g.fill();
-    blob(g, -o.r * 0.25, -o.r * 0.25, o.r * 0.42, o.r * 0.3, '#a2a4ac');
+    blob(g, 3, 4, o.r, o.r * 0.85, 'rgba(0,0,0,0.55)');
+    g.fillStyle = '#676a73'; g.strokeStyle = '#17181d'; g.lineWidth = 2; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283, q = o.r * (0.82 + (k * 53 % 10) / 50); g.lineTo(Math.cos(a) * q, Math.sin(a) * q); } g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#b4b6bd'; g.beginPath(); g.moveTo(-o.r * 0.55, -o.r * 0.15); g.lineTo(-o.r * 0.1, -o.r * 0.62); g.lineTo(o.r * 0.35, -o.r * 0.28); g.lineTo(-o.r * 0.05, o.r * 0.05); g.closePath(); g.fill();
   },
   crater(g, o) {
-    blob(g, 0, 0, o.r * 1.08, o.r * 0.95, '#a7a9b1'); blob(g, 1, 1.5, o.r * 0.88, o.r * 0.76, '#2e2f35'); blob(g, 3, 4, o.r * 0.55, o.r * 0.45, '#17181c');
+    blob(g, 0, 0, o.r * 1.1, o.r * 1.0, '#c4c6cc'); g.strokeStyle = '#3b3c44'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(0, 0, o.r * 1.1, o.r * 1.0, 0, 0, 7); g.stroke();
+    blob(g, 1, 1.5, o.r * 0.84, o.r * 0.76, '#2a2b31'); blob(g, 2.5, 3.5, o.r * 0.58, o.r * 0.5, '#0c0d10');
   },
   lava(g, o) {
-    blob(g, 0, 0, o.r * 1.08, o.r * 0.82, '#2a120c');
-    const l = g.createRadialGradient(-2, -2, 2, 0, 0, o.r); l.addColorStop(0, '#fff0a0'); l.addColorStop(0.45, '#ff9326'); l.addColorStop(1, '#c3280b');
-    g.fillStyle = l; g.beginPath(); g.ellipse(0, 0, o.r * 0.95, o.r * 0.7, 0, 0, 7); g.fill();
-    blob(g, o.r * 0.3, -o.r * 0.1, o.r * 0.2, o.r * 0.12, '#3a1a10'); blob(g, -o.r * 0.4, o.r * 0.25, o.r * 0.14, o.r * 0.09, '#3a1a10');
+    blob(g, 0, 0, o.r * 1.22, o.r * 1.08, 'rgba(255,90,20,0.3)');
+    blob(g, 0, 0, o.r * 1.04, o.r * 0.92, '#1d0a06');
+    const l = g.createRadialGradient(-2, -2, 2, 0, 0, o.r); l.addColorStop(0, '#fff3a8'); l.addColorStop(0.45, '#ff9326'); l.addColorStop(1, '#d42a08');
+    g.fillStyle = l; g.beginPath(); g.ellipse(0, 0, o.r * 0.92, o.r * 0.8, 0, 0, 7); g.fill();
+    blob(g, o.r * 0.32, -o.r * 0.12, o.r * 0.2, o.r * 0.13, '#3a1a10'); blob(g, -o.r * 0.4, o.r * 0.26, o.r * 0.15, o.r * 0.1, '#3a1a10');
   },
-  geiser(g, o) { blob(g, 0, 0, o.r, o.r * 0.82, '#4a3f3b'); blob(g, 0, 0, o.r * 0.68, o.r * 0.55, '#2a2321'); blob(g, 0, 0, o.r * 0.3, o.r * 0.25, '#0f0b0a'); },
-  basalto(g, o) { THEMES.volcan.scatter(g, 0, 0, o.r); },
+  geiser(g, o) {
+    blob(g, 1, 2, o.r * 1.02, o.r * 0.92, 'rgba(0,0,0,0.45)');
+    blob(g, 0, 0, o.r, o.r * 0.9, '#8d7a6e'); g.strokeStyle = '#231a16'; g.lineWidth = 2; g.beginPath(); g.ellipse(0, 0, o.r, o.r * 0.9, 0, 0, 7); g.stroke();
+    blob(g, 0, 0, o.r * 0.66, o.r * 0.58, '#3b2f2a'); blob(g, 0, 0, o.r * 0.36, o.r * 0.32, '#0d0908');
+    for (const [x, y, q] of [[-0.1, -0.1, 0.13], [0.12, -0.3, 0.17], [-0.05, -0.55, 0.2]]) blob(g, x * o.r, y * o.r, q * o.r, q * o.r, 'rgba(245,245,240,0.8)');
+  },
+  basalto(g, o) {
+    blob(g, 0, 0, o.r * 1.12, o.r * 1.05, 'rgba(255,110,30,0.4)');
+    THEMES.volcan.scatter(g, 0, 0, o.r);
+    g.strokeStyle = '#ff8a2a'; g.lineWidth = 1.8; g.beginPath(); g.moveTo(-o.r * 0.55, o.r * 0.3); g.lineTo(-o.r * 0.1, -o.r * 0.1); g.lineTo(o.r * 0.1, o.r * 0.35); g.lineTo(o.r * 0.55, -o.r * 0.3); g.stroke();
+  },
   cactus(g, o) { THEMES.desierto.scatter(g, 0, 0, o.r * 1.15); },
   arena(g, o) {
-    patch(g, o, '#e6cc96', '#f1dfb4', 'rgba(255,255,255,0.3)');
-    g.strokeStyle = 'rgba(145,105,55,0.45)'; g.lineWidth = 1;
-    for (let k = -1; k <= 1; k++) { g.beginPath(); g.ellipse(0, k * o.r * 0.22, o.r * (0.7 - Math.abs(k) * 0.18), o.r * 0.05, 0, 0, 7); g.stroke(); }
+    patch(g, o, '#f4dfa9', '#fff0c9', 'rgba(255,255,255,0.7)', '#a0702e');
+    g.strokeStyle = '#a0702e'; g.lineWidth = 1.5; g.lineCap = 'round';
+    for (let k = -1; k <= 1; k++) { const w = o.r * (0.68 - Math.abs(k) * 0.14), y = k * o.r * 0.32; g.beginPath(); g.moveTo(-w, y); g.quadraticCurveTo(-w / 2, y - 4, 0, y); g.quadraticCurveTo(w / 2, y + 4, w, y); g.stroke(); }
   },
   remolino(g, o) {
-    blob(g, 0, 0, o.r, o.r, 'rgba(175,140,90,0.45)');
-    g.strokeStyle = 'rgba(95,65,30,0.8)'; g.lineWidth = 1.8; g.beginPath();
-    for (let a = 0; a < 15; a += 0.3) { const q = o.r * (1 - a / 15); g.lineTo(Math.cos(a) * q, Math.sin(a) * q); }
-    g.stroke();
+    blob(g, 0, 0, o.r, o.r, '#7a5730'); g.strokeStyle = '#4c3214'; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, o.r, 0, 7); g.stroke();
+    spiral(g, o.r * 0.92, 13, 3, '#f3deb0');
   },
   tronco(g, o) {
     g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(-o.r - 1, -3, o.r * 2 + 4, 12);
-    g.fillStyle = '#5a3e22'; g.fillRect(-o.r, -6, o.r * 2, 11);
-    g.fillStyle = '#6f4e2c'; g.fillRect(-o.r, -6, o.r * 2, 3);
-    blob(g, -o.r, -0.5, 3.5, 5.5, '#9d7a4c'); blob(g, o.r, -0.5, 3.5, 5.5, '#9d7a4c');
-    blob(g, -o.r * 0.3, -6, 5, 2, '#5f8a3a'); blob(g, o.r * 0.45, -6, 4, 2, '#5f8a3a');
+    g.fillStyle = '#6a4726'; g.strokeStyle = '#1e1108'; g.lineWidth = 1.5; g.fillRect(-o.r, -7, o.r * 2, 13); g.strokeRect(-o.r, -7, o.r * 2, 13);
+    g.fillStyle = '#87613a'; g.fillRect(-o.r, -7, o.r * 2, 4);
+    g.strokeStyle = 'rgba(30,17,8,0.7)'; g.lineWidth = 1; for (let k = -0.7; k < 0.8; k += 0.45) { g.beginPath(); g.moveTo(k * o.r, -2); g.lineTo((k + 0.28) * o.r, -2); g.moveTo((k + 0.15) * o.r, 2); g.lineTo((k + 0.45) * o.r, 2); g.stroke(); }
+    blob(g, -o.r, -0.5, 4, 6.5, '#c49b63'); blob(g, o.r, -0.5, 4, 6.5, '#c49b63'); blob(g, o.r, -0.5, 2, 3.5, '#8b6a3e');
+    blob(g, -o.r * 0.3, -7, 5, 2, '#7cb249'); blob(g, o.r * 0.45, -7, 4, 2, '#7cb249');
   },
-  cienaga(g, o) { patch(g, o, '#27442f', '#39603d', 'rgba(190,230,150,0.35)'); blob(g, o.r * 0.35, o.r * 0.1, o.r * 0.1, o.r * 0.1, '#7ab052'); blob(g, -o.r * 0.25, o.r * 0.25, o.r * 0.07, o.r * 0.07, '#7ab052'); },
-  caiman(g, o) { blob(g, 0, 0, o.r, o.r * 0.78, '#1f3a2c'); blob(g, 0, 0, o.r * 0.75, o.r * 0.55, '#2f5a4a'); },
+  cienaga(g, o) {
+    patch(g, o, '#2f6a3a', '#4f9549', 'rgba(215,245,170,0.55)', '#0b2410');
+    bubbles(g, o, '#c8ea8f', [[0.36, 0.2, 0.11], [-0.3, 0.32, 0.08], [0.05, -0.34, 0.07]]);
+    blob(g, -0.42 * o.r, -0.12 * o.r, 0.18 * o.r, 0.14 * o.r, '#a3d65c');
+  },
+  caiman(g, o, open) {
+    blob(g, 1, 2, o.r * 1.02, o.r * 0.92, 'rgba(0,0,0,0.4)');
+    blob(g, 0, 0, o.r, o.r * 0.9, '#123a3a');
+    g.strokeStyle = '#6fb6a6'; g.lineWidth = 1.3; g.beginPath(); g.ellipse(0, 0, o.r, o.r * 0.9, 0, 0, 7); g.stroke();
+    drawCaiman(g, o.r, open || 0);
+  },
 };
+// Aro rojo: no se puede saltar, hay que esquivarlo
+const NO_SE_SALTA = { pino: 1, cactus: 1, geiser: 1, remolino: 1, caiman: 1 };
+function noJumpRing(g, r) {
+  g.strokeStyle = '#ff3b30'; g.lineWidth = 2.5; g.setLineDash([7, 4]);
+  g.beginPath(); g.arc(0, 0, r + 5, 0, 7); g.stroke(); g.setLineDash([]);
+}
+const OBSTACLE_HELP = {
+  valla: ['Valla', 'Se salta o se esquiva. Lento, tropieza'], barro: ['Barro', 'Frena. Se salta o se esquiva'],
+  pino: ['Pino', 'No se salta: hay que esquivarlo'], hielo: ['Hielo', 'No deja girar. Se salta o se esquiva'], nevada: ['Nieve alta', 'Frena. Se salta o se esquiva'],
+  roca: ['Roca', 'Se salta o se esquiva. Lento, tropieza'], crater: ['Cráter', 'Aturde al caer. Se salta o se esquiva'],
+  lava: ['Lava', 'Quema y pierde tiempo. Saltarla pide mucha velocidad'], geiser: ['Géiser', 'Revienta con aviso y alcanza en el aire'], basalto: ['Basalto', 'Saltarlo pide mucha velocidad. Lento, tropieza'],
+  cactus: ['Cactus', 'No se salta: hay que esquivarlo'], arena: ['Arena blanda', 'Frena. Se salta o se esquiva'], remolino: ['Remolino', 'Hace girar y alcanza en el aire'],
+  tronco: ['Tronco', 'Saltarlo pide velocidad. Lento, tropieza'], cienaga: ['Ciénaga', 'Frena mucho. Se salta o se esquiva'], caiman: ['Caimán', 'Muerde con la boca abierta, también en el aire'],
+};
+const obstacleIcons = {};
+function obstacleIcon(type) { // Mismo dibujo de la pista, para reconocerlo al verlo correr
+  if (obstacleIcons[type]) return obstacleIcons[type];
+  const c = document.createElement('canvas'); c.width = c.height = 96;
+  const g = c.getContext('2d'); g.translate(48, 48); g.scale(1.45, 1.45);
+  if (NO_SE_SALTA[type]) noJumpRing(g, 20);
+  if (type === 'caiman') OBSTACLE_ART.caiman(g, { r: 20 }, 0.75);
+  else OBSTACLE_ART[type](g, { r: type === 'valla' || type === 'tronco' ? 18 : 20 });
+  return obstacleIcons[type] = c.toDataURL();
+}
+const obstacleLegend = list => list.map(t => `<div class="ob"><img src="${obstacleIcon(t)}" alt=""><span><b>${OBSTACLE_HELP[t][0]}</b>${OBSTACLE_HELP[t][1]}</span></div>`).join('');
 function drawObstacle(g, o) {
-  g.save(); g.translate(o.x, o.y); g.rotate(o.angle);
+  g.save(); g.translate(o.x, o.y);
+  if (NO_SE_SALTA[o.type]) noJumpRing(g, o.r);
+  g.rotate(o.angle);
   (OBSTACLE_ART[o.type] || OBSTACLE_ART.valla)(g, o);
   g.restore();
 }
 
 // Géiseres y caimanes se activan cada cierto tiempo: se dibujan en cada cuadro, sincronizados con el servidor
 const CYCLES = { geiser: { periodo: 150, activo: 45, aviso: 30 }, caiman: { periodo: 120, activo: 30, aviso: 30 } };
+function alertRing(r, tick, on) { // Parpadea cuando va a activarse y queda encendido mientras muerde o revienta
+  ctx.save();
+  ctx.globalAlpha = on ? 0.3 : 0.14 + 0.14 * Math.sin(tick * 0.6);
+  blob(ctx, 0, 0, r + 5, r + 5, '#ff2d20');
+  ctx.globalAlpha = on ? 1 : 0.55 + 0.45 * Math.sin(tick * 0.6);
+  ctx.strokeStyle = '#ff3b30'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, 7); ctx.stroke();
+  ctx.restore();
+}
+function warnBadge(r) {
+  blob(ctx, 0, -r - 14, 9, 9, '#ffd21f'); ctx.strokeStyle = '#201400'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -r - 14, 9, 0, 7); ctx.stroke();
+  ctx.fillStyle = '#201400'; ctx.font = '900 14px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', 0, -r - 13.5);
+}
 function drawCycles(tick) {
   for (const o of track.obstacles) {
+    if (o.type === 'remolino') { // Gira todo el tiempo para que se note que arrastra
+      ctx.save(); ctx.translate(o.x, o.y); blob(ctx, 0, 0, o.r * 0.97, o.r * 0.97, '#7a5730'); ctx.rotate(-tick * 0.16); spiral(ctx, o.r * 0.92, 13, 3, '#f3deb0'); ctx.restore();
+      continue;
+    }
     const c = CYCLES[o.type]; if (!c) continue;
     const ph = (tick + (o.fase || 0)) % c.periodo, on = ph < c.activo, warn = ph >= c.periodo - c.aviso;
     if (!on && !warn) continue;
     ctx.save(); ctx.translate(o.x, o.y);
+    alertRing(o.r, tick, on);
+    if (warn) warnBadge(o.r);
     if (o.type === 'geiser') {
-      if (warn) { ctx.globalAlpha = 0.35 + 0.35 * Math.sin(tick * 0.6); blob(ctx, 0, 0, o.r, o.r * 0.82, '#ffb35c'); }
-      else {
+      if (on) {
         const k = Math.sin(ph / c.activo * Math.PI);
-        for (let j = 0; j < 14; j++) { const a = j * 2.4 + tick * 0.15, q = (j / 14) * o.r * (0.5 + k); ctx.globalAlpha = 0.85 - j * 0.04; blob(ctx, Math.cos(a) * q, Math.sin(a) * q, 7 + k * 6, 7 + k * 6, j % 3 ? '#f6f1ea' : '#ffb35c'); }
-      }
+        for (let j = 0; j < 16; j++) { const a = j * 2.4 + tick * 0.15, q = (j / 16) * o.r * (0.45 + k * 0.6); ctx.globalAlpha = 0.9 - j * 0.035; blob(ctx, Math.cos(a) * q, Math.sin(a) * q, 7 + k * 6, 7 + k * 6, j % 3 ? '#fbf8f2' : '#ffb35c'); }
+      } else { ctx.globalAlpha = 0.45 + 0.35 * Math.sin(tick * 0.6); blob(ctx, 0, 0, o.r * 0.5, o.r * 0.45, '#ffb35c'); }
     } else {
       ctx.rotate(o.angle);
-      const open = on ? Math.sin(ph / c.activo * Math.PI) * 0.65 : 0.08;
-      if (warn) { blob(ctx, -o.r * 0.25, 0, 2.5, 2.5, '#e8d44a'); blob(ctx, o.r * 0.25, 0, 2.5, 2.5, '#e8d44a'); }
-      else for (const side of [-1, 1]) {
-        ctx.fillStyle = '#3f6e38'; ctx.beginPath(); ctx.moveTo(-o.r * 0.9, side * 2); ctx.lineTo(o.r * 1.1, side * (2 + open * o.r)); ctx.lineTo(-o.r * 0.5, side * (6 + open * 6)); ctx.fill();
-        ctx.fillStyle = '#fff'; for (let d = -0.5; d < 1; d += 0.3) { ctx.beginPath(); ctx.arc(d * o.r, side * (3 + (d + 0.9) * open * o.r * 0.5), 1.4, 0, 7); ctx.fill(); }
-      }
+      OBSTACLE_ART.caiman(ctx, o, on ? 0.35 + 0.65 * Math.sin(ph / c.activo * Math.PI) : 0.12 + 0.08 * Math.sin(tick * 0.8));
     }
     ctx.restore();
   }
@@ -1394,6 +1508,9 @@ function renderUI() {
     + `<span class="here">${here.icon || ''} ${esc(here.name || '')}: suele ganar ${bestHere.icon} ${esc(bestHere.name)}</span>`;
   const betting = s.phase === 'apuestas';
   document.getElementById('persBar').style.display = betting ? '' : 'none';
+  const obsKey = (here.obstaculos || []).join(), obsBar = document.getElementById('obstBar');
+  if (obsBar.dataset.k !== obsKey) { obsBar.dataset.k = obsKey; obsBar.innerHTML = obstacleLegend(here.obstaculos || []); }
+  obsBar.style.display = s.phase === 'carrera' || betting ? '' : 'none';
   document.getElementById('join').style.display = betting ? 'flex' : 'none';
   document.getElementById('startBtn').style.display = betting && HOSTKEY ? '' : 'none';
   document.getElementById('resetBtn').style.display = s.phase !== 'carrera' && HOSTKEY ? '' : 'none';
@@ -1467,7 +1584,7 @@ const TIPS = [
 ];
 let introUntil = 0, introTip = '';
 function startIntro() {
-  introUntil = Date.now() + 5000;
+  introUntil = Date.now() + 8000; // Más tiempo: también explica los obstáculos del mundo
   introTip = TIPS[Math.floor(Math.random() * TIPS.length)];
 }
 function updateIntro() {
@@ -1480,6 +1597,8 @@ function updateIntro() {
   const world = s.cfg.mundos[s.mundo] || {};
   document.getElementById('introTitle').textContent = `${world.icon || ''} ${s.grandPrix ? 'Gran Premio en ' : ''}${world.name || 'Jackpot Jockeys'}`;
   document.getElementById('introSub').textContent = `${world.desc || ''} ${size} · ${s.laps} vueltas · ${s.horses.length} caballos`;
+  const introObs = document.getElementById('introObs'), introKey = (world.obstaculos || []).join();
+  if (introObs.dataset.k !== introKey) { introObs.dataset.k = introKey; introObs.innerHTML = obstacleLegend(world.obstaculos || []); }
   const fav = s.horses.reduce((a, h, i) => (h.odds < s.horses[a].odds ? i : a), 0);
   document.getElementById('introCalc').innerHTML = s.match.race === 1 ? 'Todos parten iguales: <b>Que gane paga x2</b> en cualquier caballo'
     : `Favorito: <b>${esc(s.horses[fav].name)}</b> (x${s.horses[fav].odds.toFixed(2)}). Las cuotas cambiaron con los resultados.`;
@@ -1496,9 +1615,9 @@ const SLIDES = [
   ['🎟️', 'Toca un caballo y escribe cuánto', 'El número dorado de tu celular es lo que recibes si aciertas. <b>El que gana paga menos</b> la próxima vez.',
     '100 a x2: si gana recibes 200. <b>↩ Deshacer</b> quita tu última apuesta.'],
   ['🧬', '4 personalidades', '<b>💨 Corredor:</b> limpio y constante. <b>🦊 Pícaro:</b> empuja a veces. <b>😤 Bravo:</b> busca pelea. <b>🔥 Muy bravo:</b> todo o nada.',
-    'Se ven mientras se apuesta. A cada personalidad le va mejor en ciertos mundos.'],
+    'Se ven mientras se apuesta. <b>Cambian al azar</b> en cada partida y después de cada Gran Premio: mira quién es quién antes de apostar.'],
   ['🌍', 'Cada carrera es un mundo', '<b>🏇 Hipódromo, ❄️ Nieve, 🌙 Luna, 🌋 Volcán, 🏜️ Desierto y 🐊 Pantano.</b> Cada uno cambia cómo corren y tiene obstáculos únicos.',
-    'En la Luna se salta lejos, en la Nieve se derrapa y en el Volcán la ceniza no deja ver.'],
+    'Abajo de la pista se explica cada obstáculo. <b>Aro rojo:</b> no se salta, hay que esquivarlo.'],
   ['🥕', 'En carrera, mira esta pantalla', 'En el celular, un toque: <b>🥕</b> acelera, <b>🛡️</b> protege, <b>🪢 🙈</b> frenan, <b>⚡</b> aturde a los demás.',
     'Tu caballo va 2º: zanahoria para él o lazo para el que va 1º.'],
   ['🕴️', 'La mafia es un banco malo', 'Te <b>presta</b> fichas, pero la deuda <b>sube 12 % cada carrera</b> y se lleva <b>la mitad de tus premios</b> hasta cobrarse. <b>Sabotaje:</b> frena a un caballo 2 s y suma 300 a tu deuda.',

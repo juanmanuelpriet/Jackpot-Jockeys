@@ -1,6 +1,7 @@
 jugadores.json
 victorias.json
 caballos_aprendidos*.json
+perfiles_aprendidos.json
 # Salidas de consola de los entrenamientos
 logs/salida_*.txt
 # App de escritorio (se regeneran con npm install / npm run empaquetar)

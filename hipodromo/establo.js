@@ -7,25 +7,42 @@ const { FPS, SIM_SPEED } = require('./sim');
 // Segundos reales que dura un efecto (la simulación del juego va más lenta que el reloj)
 const secs = ticks => `${+(ticks / (FPS * SIM_SPEED)).toFixed(1)} s`.replace('.', ',');
 
-// Corredores: rápidos y limpios. Bravos: buscan embestir a los demás, cada uno con distinta agresividad.
-// Sus cerebros son GRU que imitan a una heurística con esa personalidad (ver experimentos/imitacion).
+// Cada personalidad tiene dos líneas de cerebros (GRU que imitan a una heurística con esa personalidad, ver
+// experimentos/personalidades). Lo que se aprende y las victorias quedan en la línea, no en el caballo que corría.
+const ESTILOS = { corredor: 'corredor', picaro: 'pícaro', bravo: 'bravo', muybravo: 'muy bravo' };
+const PERFILES = Object.keys(ESTILOS).flatMap(pers => [1, 2].map(k => ({
+  slot: `${pers}.${k}`, pers, perfil: pers === 'corredor' ? 'corredor' : 'bravo', estilo: ESTILOS[pers],
+})));
+const perfil = slot => PERFILES.find(p => p.slot === slot);
+
+// El reparto de cada caballo es al azar en el juego (`repartir`). Este, fijo, es el que usan las herramientas como torneo.js
 const HORSES = [
-  { name: 'Don Galope', color: '#c8102e', perfil: 'corredor', estilo: 'corredor', pers: 'corredor', cerebro: ['caballos_gru.json', 0] },
-  { name: 'Herradura Loca', color: '#2f5fb3', perfil: 'bravo', estilo: 'muy bravo', pers: 'muybravo', cerebro: ['caballos_gru.json', 1] },
-  { name: 'Sir Relincho', color: '#e07a1f', perfil: 'corredor', estilo: 'corredor', pers: 'corredor', cerebro: ['caballos_gru.json', 2] },
-  { name: 'Patas de Trueno', color: '#1f9e86', perfil: 'bravo', estilo: 'bravo', pers: 'bravo', cerebro: ['caballos_gru.json', 3] },
-  { name: 'Pura Sangre Fría', color: '#8e3fb0', perfil: 'corredor', estilo: 'corredor', pers: 'corredor', cerebro: ['caballos_gru.json', 4] },
-  { name: 'Pancho Trotes', color: '#c9a227', perfil: 'bravo', estilo: 'pícaro', pers: 'picaro', cerebro: ['caballos_gru.json', 5] },
+  { name: 'Don Galope', color: '#c8102e', ...perfil('corredor.1') },
+  { name: 'Herradura Loca', color: '#2f5fb3', ...perfil('muybravo.1') },
+  { name: 'Sir Relincho', color: '#e07a1f', ...perfil('corredor.2') },
+  { name: 'Patas de Trueno', color: '#1f9e86', ...perfil('bravo.1') },
+  { name: 'Pura Sangre Fría', color: '#8e3fb0', ...perfil('bravo.2') },
+  { name: 'Pancho Trotes', color: '#c9a227', ...perfil('picaro.1') },
 ];
+
+// Reparte las líneas entre los caballos: seis de ocho, así que como mucho hay dos de cada personalidad
+function repartir(rng = Math.random) {
+  const lines = PERFILES.slice();
+  for (let i = lines.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [lines[i], lines[j]] = [lines[j], lines[i]];
+  }
+  return HORSES.map((h, i) => ({ ...h, ...lines[i] }));
+}
 
 // Las 4 personalidades, en palabras simples. Los números salen de 600 carreras simuladas por personalidad con estos
 // mismos cerebros: `podio` = % de veces entre los 3 primeros, `choques` = embestidas por carrera,
 // `salidas` = veces que se sale por carrera y `gana` = % de victorias por tamaño de pista.
 const PERSONALIDADES = {
-  corredor: { icon: '💨', name: 'Corredor', tag: 'limpio y constante', line: 'Limpio y constante: el que más llega al podio. Algo más flojo en pistas largas.', podio: 56, choques: 1.9, salidas: 1.3, gana: { corta: 19, media: 17, larga: 13 } },
-  picaro: { icon: '🦊', name: 'Pícaro', tag: 'empuja a veces', line: 'Empuja a veces y es el que menos se sale, pero recibe muchos golpes.', podio: 50, choques: 1.9, salidas: 1.2, gana: { corta: 13, media: 18, larga: 13 } },
-  bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea y rinde parejo en cualquier pista.', podio: 51, choques: 2.8, salidas: 2.5, gana: { corta: 22, media: 21, larga: 25 } },
-  muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca y más se sale. Gana poco en pistas cortas y mucho en las largas.', podio: 32, choques: 4.4, salidas: 4.3, gana: { corta: 9, media: 9, larga: 23 } },
+  corredor: { icon: '💨', name: 'Corredor', tag: 'limpio y constante', line: 'Limpio y constante: el que más llega al podio. Algo más flojo en pistas largas.', podio: 64, choques: 1.6, salidas: 0.3, gana: { corta: 23, media: 21, larga: 18 } },
+  picaro: { icon: '🦊', name: 'Pícaro', tag: 'empuja a veces', line: 'Empuja a veces y casi no se sale, pero recibe muchos golpes. Rinde más en pistas cortas.', podio: 59, choques: 1.6, salidas: 0.3, gana: { corta: 20, media: 18, larga: 13 } },
+  bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea y rinde parejo en cualquier pista.', podio: 47, choques: 2.2, salidas: 0.9, gana: { corta: 15, media: 17, larga: 13 } },
+  muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca y más se sale. Gana poco en pistas cortas y mucho en las largas.', podio: 30, choques: 3.6, salidas: 3.4, gana: { corta: 8, media: 10, larga: 23 } },
 };
 
 // Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores
@@ -61,18 +78,18 @@ const POWERS = {
 
 // Los potros nacen con perceptrones (199 pesos): la evolución del entrenamiento los mejora, y a una GRU la rompe.
 // Su hándicap es fijo porque salió de calibrar esas redes, no las de la casa.
-const POTROS = { corredor: { cerebro: ['caballos_corredor.json', 0], handicap: 0.924 }, bravo: { cerebro: ['caballos_bravo_100.json', 0], handicap: 1.058 } };
+const POTROS = { corredor: { cerebro: ['caballos_corredor.json', 0], handicap: 0.985 }, bravo: { cerebro: ['caballos_bravo_100.json', 0], handicap: 1.1 } };
 const loadColtBrain = perfil => {
   const [file, idx] = POTROS[perfil].cerebro;
   return JSON.parse(fs.readFileSync(path.join(__dirname, file), 'utf8'))[idx];
 };
 
-// Hándicap por caballo (lo calcula calibrar.js); 1 = sin hándicap
-function loadHandicap() {
+// Velocidad de cada personalidad (handicap.json); 1 = sin hándicap
+function loadHandicapPers() {
   const p = path.join(__dirname, 'handicap.json');
-  const h = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
-  return HORSES.map(x => h[x.name] ?? 1);
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
 }
+const loadHandicap = (lineup = HORSES) => { const h = loadHandicapPers(); return lineup.map(x => h[x.pers] ?? 1); };
 
 // Cuánto mejor le va a cada personalidad en cada mundo (lo mide calibrar.js): mueve las cuotas
 function loadWorldEdges() {
@@ -80,20 +97,11 @@ function loadWorldEdges() {
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
 }
 
-// Cada caballo carga su cerebro; si su archivo aún no existe usa los cerebros sin perfil
-function loadBrains(log = console.log) {
-  const read = f => {
-    const p = path.join(__dirname, f);
-    return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
-  };
-  const fallback = read('caballos.json') || [read('campeon_original.json')];
-  return HORSES.map((h, i) => {
-    const [file, idx] = h.cerebro;
-    const list = read(file);
-    if (!list) log(`⚠️  No existe ${file} para ${h.name}, usando un cerebro sin perfil (ver README: Entrenar)`);
-    return list ? list[idx % list.length] : fallback[i % fallback.length];
-  });
+// Los cerebros de cada línea (id → cerebro)
+function loadPerfiles() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, 'perfiles_gru.json'), 'utf8'));
 }
+const loadBrains = (lineup = HORSES) => { const b = loadPerfiles(); return lineup.map(x => b[x.slot]); };
 
 // Aplica un poder al caballo idx. Devuelve 'bloqueado' si el escudo lo detuvo,
 // o el obstáculo creado en el caso del charco.
@@ -113,4 +121,4 @@ function applyPower(horses, track, idx, key) {
   return {};
 }
 
-module.exports = { HORSES, PERSONALIDADES, POWERS, POTROS, SKINS, randomHouseSkin, loadBrains, loadColtBrain, loadHandicap, loadWorldEdges, applyPower };
+module.exports = { HORSES, PERFILES, PERSONALIDADES, POWERS, POTROS, SKINS, repartir, randomHouseSkin, loadBrains, loadPerfiles, loadColtBrain, loadHandicap, loadHandicapPers, loadWorldEdges, applyPower };

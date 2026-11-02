@@ -14,7 +14,7 @@ const rng = mulberry32(2026);
 // Los efectos aleatorios internos (vendas, choques) usan Math.random; lo fijamos para reproducibilidad
 Math.random = mulberry32(99);
 
-const brains = loadBrains(() => {});
+const brains = loadBrains();
 const handicap = loadHandicap();
 const sizes = Object.keys(SIZES);
 const powerKeys = Object.keys(POWERS);

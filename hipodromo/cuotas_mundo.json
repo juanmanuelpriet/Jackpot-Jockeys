@@ -1,56 +1,56 @@
 {
   "hipodromo": {
     "edge": {
-      "corredor": 0.932,
-      "muybravo": 1.125,
-      "bravo": 1.395,
-      "picaro": 0.683
+      "corredor": 0.792,
+      "picaro": 1.093,
+      "bravo": 1.059,
+      "muybravo": 1.055
     },
-    "mejor": "bravo"
+    "mejor": "picaro"
   },
   "nieve": {
     "edge": {
-      "corredor": 1.13,
-      "muybravo": 0.669,
-      "bravo": 1.033,
-      "picaro": 0.907
+      "corredor": 0.922,
+      "picaro": 1.301,
+      "bravo": 1.042,
+      "muybravo": 0.734
     },
-    "mejor": "corredor"
+    "mejor": "picaro"
   },
   "luna": {
     "edge": {
-      "corredor": 1.15,
-      "muybravo": 0.5,
-      "bravo": 1.131,
-      "picaro": 0.919
+      "corredor": 1.074,
+      "picaro": 1.443,
+      "bravo": 0.874,
+      "muybravo": 0.601
     },
-    "mejor": "corredor"
+    "mejor": "picaro"
   },
   "volcan": {
     "edge": {
-      "corredor": 1.214,
-      "muybravo": 0.402,
-      "bravo": 0.973,
-      "picaro": 0.982
+      "corredor": 1.452,
+      "picaro": 0.881,
+      "bravo": 0.994,
+      "muybravo": 0.673
     },
     "mejor": "corredor"
   },
   "desierto": {
     "edge": {
-      "corredor": 0.97,
-      "muybravo": 1.048,
-      "bravo": 1.295,
-      "picaro": 0.746
+      "corredor": 1.304,
+      "picaro": 0.967,
+      "bravo": 1.007,
+      "muybravo": 0.721
     },
-    "mejor": "bravo"
+    "mejor": "corredor"
   },
   "pantano": {
     "edge": {
-      "corredor": 0.835,
-      "muybravo": 1.12,
-      "bravo": 1.74,
-      "picaro": 0.634
+      "corredor": 1.042,
+      "picaro": 0.994,
+      "bravo": 1.003,
+      "muybravo": 0.962
     },
-    "mejor": "bravo"
+    "mejor": "corredor"
   }
 }

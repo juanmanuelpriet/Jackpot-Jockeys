@@ -6,13 +6,13 @@ const { Track, Horse, stepRace, drawGates, laneOffset, mulberry32, upgradeBrain,
 const SIZES = ['corta', 'media', 'larga'];
 const WORLDS = Object.keys(MUNDOS);
 
-// Aptitud: avanzar, terminar rápido (cada tick ahorrado vale un punto), saltar, no tropezar
+// Aptitud: avanzar, terminar rápido (cada tick ahorrado vale un punto), saltar o esquivar (valen igual), no tropezar
 // ni salirse. `hit` premia cada embestida dada (máx. 8), `taken` castiga las recibidas y
 // `place` premia cada rival que deja atrás en la llegada (para que un bravo también quiera ganar).
 // `mud` castiga cada charco pisado: frena tan poco que sin esto no vale la pena aprender a esquivarlo.
 function makeFitness({ hit = 0, taken = 10, fall = 40, stumble = 15, jump = 5, place = 0, mud = 40 } = {}) {
   return (h, finishBonus, beaten = 0) => h.total + finishBonus - h.stumbles * stumble - h.falls * fall
-    + h.jumps * jump + Math.min(h.hitsGiven, 8) * hit - h.hitsTaken * taken + beaten * place - h.mudHits * mud;
+    + (h.jumps + h.dodges) * jump + Math.min(h.hitsGiven, 8) * hit - h.hitsTaken * taken + beaten * place - h.mudHits * mud;
 }
 
 // Corre una carrera y devuelve los caballos con sus estadísticas
@@ -184,15 +184,16 @@ function learnFromRace({ brain, form = 1, pers, report = {}, rivals, world, rng 
   return { brain: best, improved, summary: { antes: +e.antes.toFixed(2), despues: +e.despues.toFixed(2) } };
 }
 
-// Cuánto más (o menos) gana cada caballo de la casa que uno promedio, para que sus cuotas lo reflejen
+// Cuánto más (o menos) gana cada línea de la casa que una promedio (corren seis al azar en cada carrera), para que sus cuotas lo reflejen
 // y la casa no pierda su ventaja cuando uno mejora. El suavizado evita exagerar por pocas carreras.
 const EDGE_SMOOTHING = 5;
 function houseEdges(brains, forms, races, rng) {
   const wins = brains.map(() => 0);
   for (let r = 0; r < races; r++) {
-    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length], WORLDS[r % WORLDS.length]), brains, forms.map(f => f * (0.93 + rng() * 0.14)), rng);
+    const some = brains.map((_, i) => [rng(), i]).sort((a, b) => a[0] - b[0]).slice(0, 6).map(x => x[1]);
+    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length], WORLDS[r % WORLDS.length]), some.map(i => brains[i]), some.map(i => forms[i] * (0.93 + rng() * 0.14)), rng);
     const rank = h => h.finished ? h.finishTick : maxTicks * 10 - h.total;
-    wins[horses.reduce((best, h, i) => rank(h) < rank(horses[best]) ? i : best, 0)]++;
+    wins[some[horses.reduce((best, h, i) => rank(h) < rank(horses[best]) ? i : best, 0)]]++;
   }
   return wins.map(w => (w + EDGE_SMOOTHING) / (races + EDGE_SMOOTHING * brains.length) * brains.length);
 }

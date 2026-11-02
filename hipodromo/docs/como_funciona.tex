@@ -20,13 +20,13 @@
 \maketitle
 
 \begin{abstract}
-En Jackpot Jockeys los caballos son redes neuronales que nadie programa a mano. Los caballos de la casa son GRU, redes con memoria, que aprendieron imitando a una heurística con personalidad y luego afinan por evolución en cada partida; los potros de los jugadores son perceptrones entrenados por neuroevolución. Cada carrera se corre en uno de seis mundos, que cambian la física y traen obstáculos propios. Este documento da las ecuaciones exactas del código (\texttt{sim.js}, \texttt{mundos.js}, \texttt{evolucion.js}, \texttt{calibrar.js}, \texttt{cuotas.js} y \texttt{sala.js}), explica cómo se entrenó a los caballos para esa aleatoriedad y reporta lo medido, incluidas sus limitaciones.
+En Jackpot Jockeys los caballos son redes neuronales que nadie programa a mano. Los caballos de la casa son GRU, redes con memoria, que aprendieron imitando a una heurística con personalidad, mejoraron compitiendo sin maestro y siguen afinando por evolución en cada partida; los potros de los jugadores son perceptrones entrenados por neuroevolución. Cada carrera se corre en uno de seis mundos, que cambian la física y traen obstáculos propios. Este documento da las ecuaciones exactas del código (\texttt{sim.js}, \texttt{mundos.js}, \texttt{evolucion.js}, \texttt{calibrar.js}, \texttt{cuotas.js} y \texttt{sala.js}), explica cómo se entrenó a los caballos para esa aleatoriedad y reporta lo medido, incluidas sus limitaciones.
 \end{abstract}
 
 \tableofcontents
 
 \section{La red neuronal}
-Hay dos tipos de cerebro, con las mismas 18 entradas y las mismas 2 salidas: los seis caballos de la casa usan una GRU y los potros de los jugadores, un perceptrón.
+Hay dos tipos de cerebro, con las mismas 22 entradas y las mismas 2 salidas: los seis caballos de la casa usan una GRU y los potros de los jugadores, un perceptrón.
 
 \paragraph{GRU de la casa.} Tiene $u = 32$ unidades de memoria $m_t$, que empiezan en cero en cada carrera:
 \begin{equation}
@@ -35,18 +35,18 @@ z_t = \sigma\!\left(W_z x_t + U_z m_{t-1} + b_z\right), \qquad r_t = \sigma\!\le
 \begin{equation}
 m_t = (1 - z_t) \odot m_{t-1} + z_t \odot \tanh\!\left(W_c x_t + U_c (r_t \odot m_{t-1}) + b_c\right), \qquad (s,\ g) = \tanh\!\left(V m_t + d\right).
 \end{equation}
-Son $(18 + 32)\cdot 96 + 96 + 32\cdot 2 + 2 = 4962$ pesos, unas 25 veces más que el perceptrón.
+Son $(22 + 32)\cdot 96 + 96 + 32\cdot 2 + 2 = 5346$ pesos, unas 23 veces más que el perceptrón.
 
-\paragraph{Perceptrón de los potros.} Tiene arquitectura $18 \to 8 \to 3 \to 3 \to 2$ y activación $\tanh$ en todas las capas:
+\paragraph{Perceptrón de los potros.} Tiene arquitectura $22 \to 8 \to 3 \to 3 \to 2$ y activación $\tanh$ en todas las capas:
 \begin{equation}
-h^{(0)} = x \in \mathbb{R}^{18}, \qquad h^{(\ell)} = \tanh\!\left(W_\ell\, h^{(\ell-1)} + b_\ell\right), \quad \ell = 1,\dots,4,
+h^{(0)} = x \in \mathbb{R}^{22}, \qquad h^{(\ell)} = \tanh\!\left(W_\ell\, h^{(\ell-1)} + b_\ell\right), \quad \ell = 1,\dots,4,
 \end{equation}
 \begin{equation}
 (s,\ g) = h^{(4)} \in (-1,1)^2,
 \end{equation}
 donde $s$ es el giro y $g$ el acelerador. El número de parámetros es
 \begin{equation}
-(18\cdot 8 + 8) + (8\cdot 3 + 3) + (3\cdot 3 + 3) + (3\cdot 2 + 2) = 152 + 27 + 12 + 8 = 199.
+(22\cdot 8 + 8) + (8\cdot 3 + 3) + (3\cdot 3 + 3) + (3\cdot 2 + 2) = 184 + 27 + 12 + 8 = 231.
 \end{equation}
 Ninguna de las dos redes contiene reglas (``embestir'', ``esquivar'', ``saltar''): todo comportamiento sale de los pesos. Cuando se agregan entradas nuevas a un cerebro viejo, sus pesos arrancan en cero, de modo que la red vieja sigue calculando lo mismo.
 
@@ -69,9 +69,13 @@ Entrada & Significado \\
 15 & Agarre del suelo del mundo, $A_w$ \\
 16 & Viento de lado respecto a la cabeza, en $[-1,1]$ \\
 17 & Gravedad: $S_w/6.5$, qué tanta velocidad pide un salto \\
+18 & Distancia al obstáculo más cercano de cualquier tipo, en el cono, $d/180$ \\
+19 & Lado de ese obstáculo, en $[-1,1]$ \\
+20 & Si se puede pasar: 1 sí, $-0.5$ se salta pero va lento, $-1$ no se salta, 0 no hay \\
+21 & Mi velocidad, $v/9$ \\
 \bottomrule
 \end{tabular}
-\caption{Las 18 entradas. Las entradas 14 a 17 son las que se agregaron para los mundos.}
+\caption{Las 22 entradas. Las 14 a 17 se agregaron para los mundos, y las 18 a 21 para decidir entre saltar y esquivar.}
 \end{table}
 
 Las entradas 15 a 17 le dicen a la red en qué tipo de suelo está, sin decirle el nombre del mundo. Así una misma red puede comportarse distinto en la nieve y en la Luna, y es lo que hace posible que un solo cerebro sirva para todos los mundos.
@@ -117,20 +121,20 @@ Mundo & Obstáculo & Prob. & Radio & Efecto \\
 \midrule
 Hipódromo & Valla & .65 & 14 & Se salta; si no, tropieza \\
  & Barro & .35 & 22 & Se salta; si no, frena: $\times 0.55$ \\
-Nieve & Pino & .35 & 13 & Sólido: siempre tropieza \\
- & Hielo & .35 & 26 & El giro se multiplica por $0.15$ \\
+Nieve & Pino & .35 & 13 & Sólido: no se salta, siempre tropieza \\
+ & Hielo & .35 & 26 & Se salta; si no, el giro $\times 0.15$ \\
  & Nevada & .30 & 24 & Se salta; si no, frena: $\times 0.6$ \\
 Luna & Roca & .50 & 13 & Se salta; si no, tropieza \\
  & Cráter & .50 & 14 & Se salta; si no, aturdido $0.8$ s. A un lado \\
-Volcán & Lava & .40 & 22 & Vuelve al centro: $1.2$ s y cuenta como salida \\
- & Géiser & .40 & 20 & Ciclo $150$ ticks, activo $45$: aturde $0.9$ s \\
- & Basalto & .20 & 14 & Sólido \\
-Desierto & Cactus & .35 & 12 & Sólido \\
- & Arena & .35 & 28 & Frena: $\times 0.65$ \\
- & Remolino & .30 & 24 & Gira $\pm 0.14$ rad/tick y frena $\times 0.85$ \\
+Volcán & Lava & .40 & 22 & Se salta con $v \ge 8$; si no, al centro: $1.2$ s y salida \\
+ & Géiser & .40 & 20 & Ciclo $150$ ticks, activo $45$: aturde $0.9$ s, también en el aire \\
+ & Basalto & .20 & 14 & Se salta con $v \ge 8$; si no, tropieza \\
+Desierto & Cactus & .35 & 12 & Sólido: no se salta, siempre tropieza \\
+ & Arena & .35 & 28 & Se salta; si no, frena: $\times 0.65$ \\
+ & Remolino & .30 & 24 & Gira $\pm 0.14$ rad/tick y frena $\times 0.85$, también en el aire \\
 Pantano & Tronco & .25 & 16 & Se salta con $v \ge 7$ \\
- & Ciénaga & .20 & 26 & Frena: $\times 0.45$ \\
- & Caimán & .55 & 18 & Ciclo $120$ ticks, activo $30$: aturde $1.1$ s \\
+ & Ciénaga & .20 & 26 & Se salta; si no, frena: $\times 0.45$ \\
+ & Caimán & .55 & 18 & Ciclo $120$ ticks, activo $30$: aturde $1.1$ s, también en el aire \\
 \bottomrule
 \end{tabular}
 \caption{Los 16 obstáculos.}
@@ -193,7 +197,9 @@ La red percibe la componente lateral: $\operatorname{clip}\!\left(w(t)\sin(\psi 
 
 \paragraph{Sensores.} Cada rayo llega hasta $180\,C_w$ píxeles y se normaliza siempre con 180. Por eso, en el volcán, ningún rayo marca más de $0.55$: la ceniza acorta la vista y la red lo nota.
 
-\paragraph{Saltos.} Al llegar a una valla, roca o tronco salta si $v \ge S_o$, donde $S_o$ es el umbral propio del obstáculo o, si no tiene, $S_w$. El barro, los montones de nieve y los cráteres también se saltan con $v \ge S_w$; si no alcanza, se pisan y hacen su efecto, sin tropiezo adicional. Queda $T_w$ ticks en el aire, sin chocar. Si no le alcanza, queda aturdido $0.8$ s con velocidad cero. Los obstáculos sólidos siempre lo aturden.
+\paragraph{Saltos y esquives.} El salto es automático: al llegar a un obstáculo saltable, salta si $v \ge S_o$, donde $S_o$ es el umbral propio del obstáculo o, si no tiene, $S_w$. La red solo decide cuánto gira y cuánto corre, así que elegir entre saltar y esquivar es elegir entre llegar rápido o rodearlo. En las vallas, rocas, basalto y troncos, si no alcanza la velocidad queda aturdido $0.8$ s; en el barro, el hielo, la nieve, los cráteres, la lava, la arena y la ciénaga los pisa y hacen su efecto. Queda $T_w$ ticks en el aire, sin chocar.
+
+Pino y cactus son sólidos: no se saltan. Géiser, remolino y caimán alcanzan también al que va en el aire (\texttt{atrapa}): la mordida o el chorro lo detienen y termina el salto. Un caimán o un géiser apagados no hacen nada, y se puede pasar por encima o a través de ellos. Se cuenta un esquive cuando un obstáculo queda atrás después de pasar a menos de $r + 30$ px, sin tocarlo a $r + 6$ px ni saltarlo.
 
 \paragraph{Salirse.} Fuera de la pista, el jinete lo devuelve al centro en el punto de mayor avance y pierde $1.2$ s.
 
@@ -208,9 +214,9 @@ Esta sección describe la neuroevolución con la que se entrenaron los perceptro
 \subsection{Aptitud}
 Tras correr, un caballo recibe
 \begin{equation}
-F = D + (T_{\max} - t_{\text{fin}}) + 5J - 15E - c_s C + H\min(G, 8) - c_r R + P b - 40M,
+F = D + (T_{\max} - t_{\text{fin}}) + 5(J + Q) - 15E - c_s C + H\min(G, 8) - c_r R + P b - 40M,
 \end{equation}
-donde $D$ es el avance en puntos de trazado, $t_{\text{fin}}$ el tick de llegada (el segundo término vale cero si no termina), $J$ los saltos, $E$ los tropiezos, $C$ las salidas, $G$ las embestidas dadas, $R$ las recibidas, $b$ los rivales que deja atrás y $M$ los obstáculos pisados.
+donde $D$ es el avance en puntos de trazado, $t_{\text{fin}}$ el tick de llegada (el segundo término vale cero si no termina), $J$ los saltos, $Q$ los esquives, que valen lo mismo, $E$ los tropiezos, $C$ las salidas, $G$ las embestidas dadas, $R$ las recibidas, $b$ los rivales que deja atrás y $M$ los obstáculos pisados.
 
 \begin{table}[h]
 \centering
@@ -246,11 +252,11 @@ Como cada generación ve seis mundos y pistas distintas, un cerebro especializad
 \end{figure}
 
 \subsection{Velocidad de cada personalidad}
-Cada caballo $i$ corre con un multiplicador $h_i$. En carrera, $f = h_i\, u$, con forma del día $u \sim \mathcal{U}[0.93,\ 1.07]$. Con las GRU se fija a mano: $0.97$ al corredor, $0.96$ al pícaro, $1.03$ al bravo y $1.10$ al muy bravo. No se iguala la tasa de victorias, porque se comprobó que eso borra las personalidades (sección de experimentos); las diferencias que quedan las absorben las cuotas. \texttt{calibrar.js} conserva el ajuste automático de antes para quien quiera usarlo, y con 0 iteraciones solo mide las cuotas por mundo:
+Cada caballo $i$ corre con un multiplicador $h_i$. En carrera, $f = h_i\, u$, con forma del día $u \sim \mathcal{U}[0.93,\ 1.07]$. Con las GRU se fija a mano: $1$ al corredor, $0.98$ al pícaro, $1$ al bravo y $1.09$ al muy bravo. No se iguala la tasa de victorias, porque se comprobó que eso borra las personalidades (sección de experimentos); las diferencias que quedan las absorben las cuotas. \texttt{calibrar.js} conserva el ajuste automático de antes para quien quiera usarlo, y con 0 iteraciones solo mide las cuotas por mundo:
 \begin{equation}
 h_i \leftarrow h_i \left(\frac{1/n}{\max(p_i,\ 0.01)}\right)^{0.07},
 \end{equation}
-tras lo cual se normalizan a media 1 y se recortan a $[0.7,\ 1.25]$. Los potros corren con el hándicap que tenían esas redes: $0.924$ el corredor y $1.058$ el bravo.
+tras lo cual se normalizan a media 1 y se recortan a $[0.7,\ 1.25]$. Los potros corren con $0.985$ el corredor y $1.10$ el bravo, ajustados para que sigan llegando al podio con las redes nuevas.
 
 \section{Aprender durante la partida}
 \subsection{Caballos de la casa}
@@ -308,15 +314,15 @@ Un potro entrenado multiplica su peso por $\exp(20\,\text{vel} + 4\,\text{giro})
 \toprule
 Mundo & Corredor & Pícaro & Bravo & Muy bravo & Suele ganar \\
 \midrule
-Hipódromo & 0.932 & 0.683 & 1.395 & 1.125 & Bravo \\
-Nieve & 1.130 & 0.907 & 1.033 & 0.669 & Corredor \\
-Luna & 1.150 & 0.919 & 1.131 & 0.500 & Corredor \\
-Volcán & 1.214 & 0.982 & 0.973 & 0.402 & Corredor \\
-Desierto & 0.970 & 0.746 & 1.295 & 1.048 & Bravo \\
-Pantano & 0.835 & 0.634 & 1.740 & 1.120 & Bravo \\
+Hipódromo & 0.792 & 1.093 & 1.059 & 1.055 & Pícaro \\
+Nieve & 0.922 & 1.301 & 1.042 & 0.734 & Pícaro \\
+Luna & 1.074 & 1.443 & 0.874 & 0.601 & Pícaro \\
+Volcán & 1.452 & 0.881 & 0.994 & 0.673 & Corredor \\
+Desierto & 1.304 & 0.967 & 1.007 & 0.721 & Corredor \\
+Pantano & 1.042 & 0.994 & 1.003 & 0.962 & Corredor \\
 \bottomrule
 \end{tabular}
-\caption{$e_{w,k}$ medido con 2000 carreras por mundo, con las GRU. 1 es ``gana lo que le toca''. Nadie programó estas diferencias: en el volcán, por ejemplo, el muy bravo rinde mucho menos.}
+\caption{$e_{w,k}$ medido con 400 carreras por mundo, con las GRU adoptadas, con un error de unos $0.2$. 1 es ``gana lo que le toca''. Nadie programó estas diferencias: en la Luna, por ejemplo, el muy bravo rinde mucho menos.}
 \end{table}
 
 \subsection{De la probabilidad a la cuota}
@@ -349,15 +355,15 @@ Antes de entrenar por mundo, en el volcán el 76\,\% de los caballos no llegaba 
 \toprule
 Mundo & Tiempo (s) & No llega & Salidas & Tropiezos & Pisados & Embestidas \\
 \midrule
-Hipódromo & 30.7 & 0\,\% & 1.2 & 0.1 & 0.1 & 2.4 \\
-Nieve & 37.8 & 0\,\% & 2.7 & 3.4 & 3.7 & 2.4 \\
-Luna & 31.5 & 0\,\% & 1.8 & 0.2 & 0.1 & 2.1 \\
-Volcán & 36.9 & 0\,\% & 3.8 & 2.0 & 1.9 & 2.8 \\
-Desierto & 34.3 & 0\,\% & 1.7 & 2.9 & 7.9 & 2.7 \\
-Pantano & 31.8 & 0\,\% & 1.0 & 0.3 & 2.4 & 2.2 \\
+Hipódromo & 29.2 & 0\,\% & 1.0 & 0.0 & 0.1 & 2.1 \\
+Nieve & 32.3 & 0\,\% & 1.2 & 0.9 & 0.2 & 2.1 \\
+Luna & 29.9 & 0\,\% & 1.3 & 0.2 & 0.1 & 2.0 \\
+Volcán & 31.4 & 0\,\% & 1.4 & 0.3 & 0.4 & 2.6 \\
+Desierto & 31.4 & 0\,\% & 1.3 & 1.1 & 2.9 & 2.3 \\
+Pantano & 31.1 & 0\,\% & 0.9 & 0.2 & 0.2 & 2.3 \\
 \bottomrule
 \end{tabular}
-\caption{Promedio por caballo y carrera en 100 carreras de cada mundo, con las GRU.}
+\caption{Promedio por caballo y carrera en 100 carreras de cada mundo, con las GRU adoptadas. Antes el rango de tiempos era de $30.7$ a $37.8$ s y en el desierto se pisaban $7.9$ obstáculos: se pisan menos, pero los mundos se distinguen menos por el tiempo.}
 \end{table}
 
 \begin{table}[h]
@@ -375,9 +381,9 @@ Muy bravo & 7.77 & 3.07 \\
 \caption{Mejora durante la evolución de los perceptrones: primeras y últimas 20 generaciones de los registros.}
 \end{table}
 
-\paragraph{La casa.} Se simularon 4000 carreras en partidas de 10, con las cuotas por victorias y sin poderes ni potros. Se probaron seis tipos de apuesta, cada uno apostando a todo, al favorito y a lo que más paga. Desde la carrera 5, lo mejor fue el podio apostando a todo, con $0.78$ por ficha, y apostar a lo que más paga no pasó de $0.68$. En las carreras 1 a 4, nada pasó de $0.66$. No se repitió la prueba de apostar sabiendo el mundo, y no se puso a prueba a un jugador que aproveche el retraso del historial. El sistema anterior llegaba a $0.86$--$0.88$ sin mirar el mundo y a $1.00$--$1.13$ sabiéndolo.
+\paragraph{La casa.} Con las redes adoptadas, ver la subsección \emph{Sin maestro} de Experimentos: en 11000 carreras ninguna estrategia pasó de $0.84$ por ficha. Con las redes anteriores se simularon 4000 carreras en partidas de 10, con las cuotas por victorias y sin poderes ni potros. Se probaron seis tipos de apuesta, cada uno apostando a todo, al favorito y a lo que más paga. Desde la carrera 5, lo mejor fue el podio apostando a todo, con $0.78$ por ficha, y apostar a lo que más paga no pasó de $0.68$. En las carreras 1 a 4, nada pasó de $0.66$. No se repitió la prueba de apostar sabiendo el mundo, y no se puso a prueba a un jugador que aproveche el retraso del historial. El sistema anterior llegaba a $0.86$--$0.88$ sin mirar el mundo y a $1.00$--$1.13$ sabiéndolo.
 
-\paragraph{Aprendizaje por carrera con las GRU.} De 12 lecciones, 9 pasaron el examen, que es poco exigente. Tardan unos 23 s cada una, frente a 13 s de un perceptrón. No se midió todavía cuánto ganan de más tras varias lecciones.
+\paragraph{Aprendizaje por carrera con las GRU.} Con las redes adoptadas, de 12 lecciones pasaron el examen 4; con las anteriores, 9. El examen es poco exigente. Tardan unos 23 s cada una, frente a 13 s de un perceptrón. No se midió todavía cuánto ganan de más tras varias lecciones.
 
 \paragraph{Aprendizaje por carrera con los perceptrones anteriores.} Cada caballo tomó 8 lecciones por separado, en mundos al azar y contra los otros cinco sin aprender. Luego se comparó antes y después en 600 carreras de todos los mundos con las mismas semillas.
 
@@ -625,6 +631,104 @@ El muy bravo conservó su perfil de todo o nada. Hay menos embestidas que antes,
 
 \paragraph{Prueba en el juego real.} Con un servidor aparte, datos temporales, una pantalla y un celular simulado en el navegador se jugaron dos carreras completas. En la primera todos pagaban x2, la apuesta ganadora cobró bien y se guardaron las victorias. En la segunda, con el historial ya aplicado, las cuotas dejaron de ser iguales. Se compró un potro, que nació como perceptrón, y su entrenamiento de velocidad pasó el examen. Cinco caballos de la casa aceptaron una lección o más; al reiniciar, el servidor recuperó las victorias y lo aprendido. Sigue sin probarse con celulares reales, en el túnel, en partidas largas o en Windows.
 
+\subsection{Saltar o esquivar, y personalidades al azar: adoptado}
+\paragraph{Reglas.} Saltar y esquivar valen lo mismo en la aptitud, y cada caballo elige según la situación. Los caimanes, géiseres y remolinos también alcanzan al que va en el aire. Sin reentrenar, solo con las reglas nuevas, los saltos subieron de $4.9$ a $10.4$ en la nieve y de $0$ a $3.6$ en el volcán. Un prototipo donde casi todo se podía saltar se descartó porque los mundos quedaban casi iguales: tardaban de $29.6$ a $31.1$ s, frente a $30.5$ a $39.5$ s. Un reentrenamiento del maestro y una calibración se detuvieron a medias cuando se pidió el entrenamiento pesado; no dejaron resultados.
+
+\paragraph{Sentidos nuevos.} La red pasó de 18 a 22 entradas: distancia, lado y si se puede pasar el obstáculo más cercano de cualquier tipo, y la velocidad propia. La GRU pasó a $5346$ pesos y el perceptrón a $231$. Los potros que ya existían reciben las entradas nuevas con pesos cero.
+
+\paragraph{Maestro por personalidad.} Se reescribió para que el corredor rodee y los demás salten más. Medido por sí mismo, da $2.3$, $6.9$, $7.1$ y $7.3$ saltos; $13.2$, $8.3$, $8.2$ y $7.8$ esquives; $1.4$, $1.8$, $3.4$ y $4.4$ golpes; y $0.6$, $0.7$, $2.5$ y $4.6$ salidas, en el orden corredor, pícaro, bravo y muy bravo. ``Esquive'' incluye pasar cerca de un obstáculo sin tocarlo, así que puede exagerar la intención.
+
+\paragraph{Imitación pesada.} Se entrenaron 8 redes en paralelo, dos por personalidad, con DAgger durante 25 rondas de 80 carreras y 4000 pasos, con más peso en los errores cerca de obstáculos. La tabla~\ref{tab:imita} las mide como sexto caballo contra cinco de la casa anterior, en 300 carreras por red. Los rivales no son idénticos entre filas y el error es de unos 2 puntos.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lccccc}
+\toprule
+ & Gana & Podio & Tropiezos & Saltos & Esquives \\
+\midrule
+Corredor, anterior & 16--20\,\% & 53--58\,\% & 1.3 & 7 & 8 \\
+Corredor, nueva & 19\,\% & 48--55\,\% & 0.32 & 2.5 & 14 \\
+Pícaro, anterior & 10\,\% & 46\,\% & 1.26 & 6.6 & 8.8 \\
+Pícaro, nueva & 28--29\,\% & 61--62\,\% & 0.55 & 7.5 & 8 \\
+Bravo, anterior & 21\,\% & 53\,\% & 1.34 & -- & -- \\
+Bravo, nueva & 28--29\,\% & 59--61\,\% & 0.6 & -- & -- \\
+Muy bravo, anterior & 10\,\% & 27\,\% & 1.45 & -- & -- \\
+Muy bravo, nueva & 16--19\,\% & 34--41\,\% & 1.06 & -- & -- \\
+\bottomrule
+\end{tabular}
+\caption{Redes imitadoras frente a la casa anterior.}
+\label{tab:imita}
+\end{table}
+
+\paragraph{Controles.} Sin los sentidos nuevos, con 18 entradas, el corredor gana $22$\,\% con $0.59$ tropiezos y el muy bravo $9$\,\% con $1.51$: los sentidos ayudan claramente en tropiezos, y en victorias solo al muy bravo. Sin memoria, con un perceptrón del mismo maestro, sentidos y entrenamiento, el corredor gana $11$\,\% y el muy bravo $12$\,\%, frente a $19$\,\% y $16$--$19$\,\%. Los perceptrones son una semilla por personalidad y solo se probaron dos personalidades.
+
+\subsection{GRU de tres capas: descartada}
+Se apilaron tres capas GRU de 96 números de memoria en total y $17\,826$ pesos, más del triple. Cada ronda tomó unos 8 minutos, frente a unos 3. Se fijó de antemano medirlas en la ronda 15 contra la red de una capa en la misma ronda, en las mismas carreras, y cortar si iban claramente peor.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{2}{c}{Gana} & \multicolumn{2}{c}{Podio} & \multicolumn{2}{c}{Salidas} \\
+ & 1 capa & 3 capas & 1 capa & 3 capas & 1 capa & 3 capas \\
+\midrule
+Corredor & 21\,\% & 19\,\% & 55\,\% & 51\,\% & 1.21 & 1.56 \\
+Pícaro & 26.5\,\% & 23\,\% & 65.5\,\% & 51\,\% & 0.88 & 1.27 \\
+Bravo & 28.5\,\% & 26.5\,\% & 57.5\,\% & 52.5\,\% & 2.34 & 2.69 \\
+Muy bravo & 16\,\% & 17.5\,\% & 37\,\% & 40\,\% & 4.47 & 4.37 \\
+\bottomrule
+\end{tabular}
+\caption{Ronda 15, 600 carreras por red y dos redes por personalidad. Corriendo solas, las dos arquitecturas iban casi iguales.}
+\end{table}
+
+Tres de cuatro personalidades iban peor y el muy bravo mejoraba dentro del error, así que se cortaron a la ronda 15 de 25. No se sabe cómo habrían terminado.
+
+\subsection{Sin maestro: adoptado el ciclo 1}
+Después de imitar, cada red compite y mejora por su cuenta con estrategias evolutivas (\texttt{es.js}): en cada generación se prueban 16 perturbaciones en espejo con $\sigma = 0.02$ sobre 6 carreras iguales para todas, se ordenan por valor y se da un paso con Adam, tasa $0.003$. Son 192 carreras por generación. El valor de una carrera premia el puesto, ganar, y saltos y esquives por igual, más lo propio de cada personalidad:
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+ & Por golpe dado & Por salida & Por tropiezo \\
+\midrule
+Corredor & $-0.05$ & $-0.10$ & $-0.05$ \\
+Pícaro & $+0.06$ & $-0.12$ & $-0.03$ \\
+Bravo & $+0.12$ & $-0.02$ & $-0.03$ \\
+Muy bravo & $+0.18$ & $0$ & $-0.02$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Piloto.} Una red por personalidad, 60 generaciones contra las imitadoras congeladas y con premios algo más suaves. En 600 carreras nuevas, frente a la misma red antes de evolucionar: el corredor pasó de $46$ a $56$\,\% de podio, el pícaro se quedó en $61$\,\%, el bravo subió de $54$ a $75$\,\% y el muy bravo de $39$ a $52$\,\%. Las salidas bajaron de $1.45$, $1.14$, $2.39$ y $4.51$ a $0.28$, $0.30$, $0.68$ y $3.16$. Este método funcionó donde afinar con la aptitud anterior había empeorado a la red; la causa probable es usar perturbaciones pequeñas, muchas carreras iguales para comparar y un paso con gradiente estimado en vez de seleccionar a los mejores, pero no se comprobó por separado.
+
+\paragraph{Liga.} Las 8 redes evolucionaron a la vez durante 5 ciclos de 40 generaciones, y en cada ciclo enfrentaron la versión anterior de las demás. Mejoraron todas: el tiempo medio bajó unos 2 s y las salidas siguieron cayendo. Pero la mejora se llevó parte del carácter, y con las velocidades anteriores el bravo y el muy bravo pasaron a dominar, porque el precio de su velocidad era salirse.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}
+\toprule
+ & Imitadoras & Ciclo 1 & Ciclo 3 \\
+\midrule
+Golpes (corredor / pícaro / bravo / muy bravo) & 1.6 / 1.6 / 2.5 / 4.0 & 1.6 / 1.6 / 2.2 / 3.6 & 1.7 / 1.7 / 2.1 / 3.3 \\
+Salidas & 1.4 / 1.1 / 2.3 / 4.6 & 0.3 / 0.3 / 0.9 / 3.4 & 0.2 / 0.2 / 0.4 / 2.3 \\
+Podio (\%) & 51 / 61 / 54 / 34 & 64 / 59 / 47 / 30 & 51 / 59 / 50 / 40 \\
+Velocidades & .97 / .96 / 1.03 / 1.10 & 1 / .98 / 1 / 1.09 & 1 / .99 / 1 / 1.08 \\
+Tiempo por mundo (s) & 30.6--34.3 & 29.2--32.3 & 28.6--31.8 \\
+Lecciones aprobadas & 6 de 12 & 4 de 12 & 4 de 12 \\
+Mejor apuesta en 3000 carreras & 1.02 & 1.09 & 0.84 \\
+\bottomrule
+\end{tabular}
+\caption{Las mismas pruebas para tres conjuntos de redes, cada uno con velocidades ajustadas. Cada apuesta suelta tiene mucho ruido; ver el párrafo siguiente.}
+\end{table}
+
+\paragraph{Elección.} Se adoptó el ciclo 1. El ciclo 3 y el 5 ganaban algo más, pero el 1 mantiene el contraste que se pidió: salidas de $0.3$, $0.9$ y $3.4$ según la personalidad. Cara a cara, con cuatro redes del ciclo 1 contra cuatro imitadoras con la misma velocidad, en 600 carreras por disposición, los podios son $60$--$64$ contra $38$--$42$\,\% en el corredor, $62$--$65$ contra $44$--$48$\,\% en el pícaro, $67$--$70$ contra $45$--$46$\,\% en el bravo y $39$--$41$ contra $33$\,\% en el muy bravo, donde la ventaja es la menor. Las lecciones de 12 pruebas son una muestra pequeña, pero apuntan a que una red más afinada mejora menos con una sola carrera.
+
+\paragraph{Apuestas.} Una trifecta al favorito devolvió $1.09$ por ficha en la prueba de 3000 carreras. Se repitió con 8000 más: con las 11000, devuelve $0.84$; apostar a todo devuelve de $0.76$ a $0.78$ desde la carrera 5. El $1.02$ de las imitadoras tiene la misma varianza y no se repitió. Con el ciclo 1 ninguna estrategia probada le gana a la casa, sin simular poderes ni potros.
+
+\paragraph{No aparecieron estrategias nuevas.} Lo que cambia es que se salen menos y van más rápido; saltos, esquives y golpes cambian poco. No se analizó si hay algo más sutil, como el momento de empujar.
+
+\paragraph{Potros.} Con las redes nuevas, un potro sin entrenar bajaba a $16$\,\% de podio si es corredor y $24$\,\% si es bravo, frente a $39$ y $38$\,\% con las imitadoras. Se subió su hándicap de $0.924$ a $0.985$ y de $1.058$ a $1.10$, y quedan en $38$ y $35$\,\%. El potro bravo casi no mejora con más velocidad, porque se sale más ($37$\,\% con $1.16$). Faltan por medir los potros entrenados y las cuotas con potros.
+
+\paragraph{Reparto y aprendizaje por perfil.} Hay 8 perfiles y cada partida reparte 6 al azar entre los caballos, y otra vez tras cada Gran Premio. Lo aprendido en una carrera se guarda en el perfil, no en el nombre, en \texttt{perfiles\_aprendidos.json}, y las victorias para las cuotas también van por perfil.
+
+\paragraph{Prueba del juego.} Con datos temporales se simularon 12 carreras con Gran Premio, y el reparto cambió solo después de él. En el navegador, con pantalla y un celular simulado, se jugó una carrera completa: apuesta, cuotas actualizadas, victorias guardadas y lección guardada en el perfil del muy bravo. No se probó en celulares reales, por internet ni en Windows.
+
 \subsection{Ideas pendientes}
 Quedan sin probar: CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
 
@@ -633,15 +737,18 @@ Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube
 \section{Limitaciones}
 \begin{itemize}
 \item \textbf{Saber el mundo puede dar una ventaja pequeña.} Con las redes y cuotas anteriores, el mejor caso devolvió entre $1.00$ y $1.13$ por ficha. No se repitió esa prueba con las GRU, así que no está descartada. El juego muestra a propósito quién ``suele ganar'' en cada mundo.
-\item \textbf{Esquivan poco.} Los caballos pisan muchos obstáculos pisables (hasta $7.9$ por carrera en el desierto). Aprendieron a soportar el mundo más que a rodearlo; la explicación probable, no comprobada, es que en una pista angosta esquivar cuesta casi lo mismo que pisar.
+\item \textbf{Esquivar mejoró, pero no del todo.} En el desierto, el peor mundo, se pisan $2.9$ obstáculos por carrera, frente a $7.9$ antes. Antes de eso, los caballos pisaban muchos obstáculos. Aprendieron a soportar el mundo más que a rodearlo; la explicación probable, no comprobada, es que en una pista angosta esquivar cuesta casi lo mismo que pisar.
 \item \textbf{Castigar más no enseñó a esquivar.} Subir el castigo por tropiezo de $15E$ a $100E$ y reentrenar casi no cambió los tropiezos en la Luna ($7.9$ a $7.5$). Lo que funcionó fue cambiar el mundo: cráteres de radio $14$ en vez de $22$ y siempre a un lado de la pista dejaron los tropiezos en $1.4$, con los mismos caballos, y poder saltarlos los bajó a $0.1$. A cambio, con buena velocidad el barro, los montones de nieve y los cráteres casi no afectan la carrera.
-\item \textbf{Los mundos no están equilibrados:} el muy bravo casi no gana en el volcán ($e = 0.40$) y el bravo rinde mucho en el pantano ($e = 1.74$). El volcán sigue siendo el mundo con más salidas ($3.8$). Las cuotas lo compensan, pero la carrera es menos pareja.
+\item \textbf{Los mundos no están equilibrados:} el muy bravo rinde poco en la Luna ($e = 0.60$) y el pícaro mucho ($e = 1.44$). Las redes nuevas también acercaron los tiempos entre mundos, de $29.2$ a $32.3$ s, y se salen menos, así que los mundos se distinguen menos que antes.
+\item \textbf{Las personalidades se parecen más al competir.} Corredor y pícaro golpean casi igual; se distinguen en que el corredor rodea y el pícaro salta. El bravo se distingue menos que antes del pícaro en golpes ($2.2$ contra $1.6$).
+\item \textbf{El video de bienvenida quedó desactualizado:} no explica las personalidades al azar ni el nuevo sentido de los obstáculos.
+\item \textbf{La mejora final es difícil de atribuir.} Reglas, sentidos, maestro y evolución cambiaron a la vez en el juego final; solo los controles anteriores los separan, y con pocas semillas. Las cuotas lo compensan, pero la carrera es menos pareja.
 \item \textbf{Las GRU no se miden tras muchas lecciones.} No se sabe si mejoran con el tiempo ni si conservan su estilo, más allá de la condición del examen.\item \textbf{Los potros siguen sin GRU,} y el pícaro se parece demasiado al corredor. \item \textbf{Las cuotas reaccionan con retraso.} Un caballo que mejora paga de más durante varias carreras. No se ha medido cómo se comportan tras mucho aprendizaje real, con jugadores de verdad ni con poderes.\item \textbf{El aprendizaje por carrera de los perceptrones fue desigual.} De seis caballos con 8 lecciones cada uno, solo Herradura Loca mejoró con claridad; los demás quedaron dentro del ruido (tabla~\ref{tab:lecciones}). El examen pareado reduce el riesgo de empeorar, no lo elimina, y 8 lecciones son pocas para sacar conclusiones sobre partidas largas.
 \item \textbf{Las tablas dependen de los cerebros.} Al reentrenar hay que correr \texttt{calibrar.js} otra vez; un caballo que aprende cambia $\epsilon_i$, $W_i$ y $E_i$, pero no $e_{w,k}$.
 \end{itemize}
 
 \section*{Reproducir}
-El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}, y los perceptrones de los que nacen los potros, así:
+El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, y los perceptrones de los que nacen los potros, así:
 \begin{verbatim}
 node entrenar.js corredor 300 0 1 100
 node entrenar.js bravo 300 60 1 100

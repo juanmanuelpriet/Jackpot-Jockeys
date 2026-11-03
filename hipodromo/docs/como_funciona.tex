@@ -733,6 +733,34 @@ Mejor apuesta en 3000 carreras & 1.02 & 1.09 & 0.84 \\
 
 \paragraph{Prueba de las aplicaciones.} La de Mac se abrió con ventana y con datos temporales: cargó la pantalla, reprodujo el video con sonido activado y, al cerrarla, no quedó ningún proceso ni puerto abierto. No se jugó una carrera en esa ventana. La de Windows se probó con el zip nuevo en una máquina virtual con Windows 11 ARM, que corre el programa x64 por emulación: abrió, salió el aviso del firewall, el video mostró sus subtítulos, se saltó, se vieron las personalidades de la partida y se corrió una carrera completa en el Hipódromo, con tiempos de $23.67$ a $29.33$ s. La carrera siguiente salió en Nieve con cuotas ya distintas, de $1.85$ a $3.24$. La página del celular respondió desde el Mac por la red interna de la máquina virtual, sin apuestas ni un celular real, y al cerrar el juego se cerró el puerto. No se probó el túnel en Windows ni la red WiFi real.
 
+\subsection{Qué tanto recuerdan las GRU: medido, sin cambios}
+Cada caballo de la casa tiene una sola capa GRU con 32 números de memoria, que empieza en cero en cada carrera. Para saber cuánto la usa se hicieron cuatro pruebas con \texttt{memoria.js}, de \texttt{experimentos/personalidades/}, en 400 carreras con dos semillas. Las dos semillas dieron casi lo mismo, y aquí se dan los rangos. Reconstruir la memoria fuera del juego dio exactamente la del juego, con diferencia $0$.
+
+\paragraph{Puertas.} En la GRU, cada tick se conserva $1-z$ de cada número. La vida media que sale de $z$ es de $0.32$ a $0.42$ ticks en la mediana y no pasa de $1.4$ ticks en ningún número: por sí sola, la puerta casi no guarda nada. Lo que se arrastra pasa por el candidato, que vuelve a leer la memoria.
+
+\paragraph{Horizonte.} Se cambió lo que el caballo vio en un tick por lo que vio en otro momento de la misma carrera, y se midió cuánto cambiaban sus decisiones (suma de las diferencias de giro y acelerador) en los ticks siguientes, con las mismas entradas después. El efecto cae al $10$\,\% en $9$ a $10$ ticks, unos $0.3$ s: $10$ en el corredor, $9.7$ a $9.9$ en el pícaro, $9.4$ en el bravo y $9.0$ en el muy bravo. Al segundo queda entre el $1$ y el $2$\,\%. Separando las entradas, lo que más pesa son los sensores de pista ($0.42$ a $0.57$ al instante), luego los obstáculos ($0.08$ a $0.19$) y, según la personalidad, el rival: $0.03$ en el corredor, $0.06$ en el pícaro, $0.22$ a $0.24$ en el bravo y $0.31$ a $0.33$ en el muy bravo. El mundo y lo propio no pasan de $0.02$.
+
+\paragraph{Amnesia en carrera.} A un caballo por carrera se le borró la memoria y se comparó con la misma carrera sin borrar, con las mismas semillas.
+\begin{table}[h]\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+Borrar & Corredor & Pícaro & Bravo & Muy bravo \\
+\midrule
+Cada tick (sin memoria) & $+4.1$ s, $-38$/$-40$ & $+4.7$/$+6.5$ s, $-42$/$-45$ & $+4.5$/$+6.1$ s, $-28$/$-35$ & $+5.0$ s, $-10$/$-13$ \\
+Cada 10 ticks & $+0.3$/$+0.4$ s, $-7$ & $+0.3$/$+0.5$ s, $-6$/$-14$ & $0.0$/$+0.6$ s, $+3$/$-8$ & $-0.1$/$-0.4$ s, $+4$/$+6$ \\
+Cada 30 ticks & $-0.1$/$+0.1$ s & $+0.3$ s, $+1$/$-12$ & $-0.2$/$+0.2$ s & $-0.6$/$0.0$ s \\
+Cada 90 ticks & $0.0$/$+0.1$ s & $0.0$/$+0.1$ s & $0.0$/$+0.1$ s & $-0.4$/$-0.3$ s \\
+Al empezar la vuelta 2 & $-0.1$/$0.0$ s & $-0.1$/$+0.1$ s & $-0.1$/$+0.1$ s & $-0.1$/$+0.1$ s \\
+\bottomrule
+\end{tabular}
+\caption{Cambio en el tiempo de carrera y, donde no es cero, en puntos de podio, con unas 95 carreras por casilla y semilla (las dos semillas separadas por /). El error típico del tiempo es de $0.1$ a $0.3$ s, y de $0.5$ a $0.9$ s sin memoria.}
+\end{table}
+Sin memoria, todos se salen de $2$ a $3.7$ veces más por carrera. Borrarla cada 10 ticks le cuesta algo al corredor y al pícaro; cada segundo o más, el cambio queda dentro del ruido. Borrarla al empezar la vuelta 2 no cambia el tiempo de esa vuelta (de $-0.08$ a $+0.10$ s, con error de $0.07$ a $0.15$): los caballos no recuerdan la pista de la primera vuelta.
+
+\paragraph{Qué guarda.} Se intentó leer de la memoria, con regresión lineal entrenada en las carreras pares y medida en las impares, cosas que el caballo ya no ve. Como control, lo que ve ahora se lee de sus entradas con $R^2 = 1.00$. El sensor central de hace 3 ticks se lee de la memoria con $R^2$ de $0.59$ a $0.78$, y la distancia al rival de hace 3 ticks con $0.01$ en el corredor, $0.07$ en el pícaro, $0.47$ en el bravo y $0.61$ en el muy bravo. En cambio, la vuelta, el punto de la vuelta, la velocidad o el obstáculo de hace un segundo y el tiempo desde el último tropiezo no pasan de $R^2 = 0.08$ ni desde la memoria ni desde lo que ve.
+
+\paragraph{Conclusión.} La memoria es corta, de unos $0.3$ s, y sirve para suavizar lo que ven los sensores; los bravos además siguen al rival. No guarda la pista. Hace falta, porque sin ella todos corren mucho peor, pero más de un segundo de memoria no se usa. Agregar capas densas después de la GRU no cambiaría esto, porque las capas densas no recuerdan. Son 400 carreras sin poderes ni potros, y solo con las redes adoptadas.
+
 \subsection{Ideas pendientes}
 Quedan sin probar: CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
 
@@ -746,12 +774,12 @@ Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube
 \item \textbf{Los mundos no están equilibrados:} el muy bravo rinde poco en la Luna ($e = 0.60$) y el pícaro mucho ($e = 1.44$). Las redes nuevas también acercaron los tiempos entre mundos, de $29.2$ a $32.3$ s, y se salen menos, así que los mundos se distinguen menos que antes.
 \item \textbf{Las personalidades se parecen más al competir.} Corredor y pícaro golpean casi igual; se distinguen en que el corredor rodea y el pícaro salta. El bravo se distingue menos que antes del pícaro en golpes ($2.2$ contra $1.6$).
 \item \textbf{La mejora final es difícil de atribuir.} Reglas, sentidos, maestro y evolución cambiaron a la vez en el juego final; solo los controles anteriores los separan, y con pocas semillas. Las cuotas lo compensan, pero la carrera es menos pareja.
-\item \textbf{Las GRU no se miden tras muchas lecciones.} No se sabe si mejoran con el tiempo ni si conservan su estilo, más allá de la condición del examen.\item \textbf{Los potros siguen sin GRU,} y el pícaro se parece demasiado al corredor. \item \textbf{Las cuotas reaccionan con retraso.} Un caballo que mejora paga de más durante varias carreras. No se ha medido cómo se comportan tras mucho aprendizaje real, con jugadores de verdad ni con poderes.\item \textbf{El aprendizaje por carrera de los perceptrones fue desigual.} De seis caballos con 8 lecciones cada uno, solo Herradura Loca mejoró con claridad; los demás quedaron dentro del ruido (tabla~\ref{tab:lecciones}). El examen pareado reduce el riesgo de empeorar, no lo elimina, y 8 lecciones son pocas para sacar conclusiones sobre partidas largas.
+\item \textbf{La memoria de las GRU es corta,} de unos 0.3 s: no recuerdan la pista ni lo que pasó hace un segundo.\item \textbf{Las GRU no se miden tras muchas lecciones.} No se sabe si mejoran con el tiempo ni si conservan su estilo, más allá de la condición del examen.\item \textbf{Los potros siguen sin GRU,} y el pícaro se parece demasiado al corredor. \item \textbf{Las cuotas reaccionan con retraso.} Un caballo que mejora paga de más durante varias carreras. No se ha medido cómo se comportan tras mucho aprendizaje real, con jugadores de verdad ni con poderes.\item \textbf{El aprendizaje por carrera de los perceptrones fue desigual.} De seis caballos con 8 lecciones cada uno, solo Herradura Loca mejoró con claridad; los demás quedaron dentro del ruido (tabla~\ref{tab:lecciones}). El examen pareado reduce el riesgo de empeorar, no lo elimina, y 8 lecciones son pocas para sacar conclusiones sobre partidas largas.
 \item \textbf{Las tablas dependen de los cerebros.} Al reentrenar hay que correr \texttt{calibrar.js} otra vez; un caballo que aprende cambia $\epsilon_i$, $W_i$ y $E_i$, pero no $e_{w,k}$.
 \end{itemize}
 
 \section*{Reproducir}
-El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, \texttt{potros.js} mide los potros entrenados, y los perceptrones de los que nacen los potros, así:
+El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, \texttt{potros.js} mide los potros entrenados, \texttt{memoria.js} mide la memoria, y los perceptrones de los que nacen los potros, así:
 \begin{verbatim}
 node entrenar.js corredor 300 0 1 100
 node entrenar.js bravo 300 60 1 100

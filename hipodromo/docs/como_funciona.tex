@@ -843,6 +843,27 @@ Los 8 números & $15.7$ & $53.7$ & $31.09$ & $0.35$ & $0.56$ / $0.74$ \\
 \end{table}
 Sin ver la pista no llega. Sin las vallas tropieza el triple y pisa más barro, y sin los peligros pisa casi el triple de barro: aprendió a usar cada canal para lo que es. Sin los 8 números (sobre todo la velocidad) corre más lento. La memoria pesa mucho menos que en las GRU de la casa, que sin ella pierden de $4$ a $6.5$ s: Einstein pierde $0.26$ s y se sale algo más. Borrarla cada segundo o al empezar la vuelta 2 no cambia nada: como las de la casa, no recuerda la pista; lo que ve le basta. Golpea poco y casi igual sin ver a los rivales.
 
+\paragraph{Dónde mira: Grad-CAM y saliencia.} Con \texttt{graba.js} se grabaron 36 carreras (31\,039 ticks) con lo que veía y lo que decidió, y \texttt{gradcam.py} carga la misma red en PyTorch (reproduce sus decisiones con diferencia $2 \times 10^{-6}$). Para cada momento se deriva el giro (hacia donde gira) o el acelerador respecto a todo lo que vio en el último segundo, empezando con la memoria que tenía. Grad-CAM pesa los 8 mapas de la primera convolución, antes del pooling, por su gradiente medio; la saliencia es $|\text{gradiente} \times \text{entrada}|$ en cada celda.
+\begin{figure}[!htbp]\centering
+\includegraphics[height=.86\textheight]{img/einstein_gradcam_momentos.png}
+\caption{Seis momentos típicos de Einstein (columna izquierda) y su Grad-CAM para girar y para acelerar.}
+\end{figure}
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{img/einstein_saliencia_promedio.png}
+\caption{Saliencia promedio en 1\,500 momentos al azar, por canal, y Grad-CAM promedio.}
+\end{figure}
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{img/einstein_tiempo_y_canales.png}
+\caption{Izquierda: peso de lo que vio $k$ ticks antes, relativo a lo que ve ahora. Centro: sensibilidad (solo el gradiente) de cada canal. Derecha: victorias sin cada cosa, de la tabla anterior.}
+\end{figure}
+
+Para girar mira lejos: el $90$\,\% de la saliencia está por delante de él y el Grad-CAM se enciende en el borde de la pista más lejano, por donde sigue la curva. Para acelerar mira más cerca: el $60$\,\% de lo que tiene por delante está en las 6 filas más próximas (frente a $38$\,\% en el giro), sobre todo el borde de la pista justo delante. Las vallas y los peligros pesan donde está a punto de pisarlos, en el carril que lleva. En los momentos sueltos se ve lo mismo: antes de saltar barro, el Grad-CAM del giro se concentra en el barro; frente a un peligro en la Luna, el del acelerador se enciende sobre él; en una curva cerrada, sobre el borde por donde dobla la pista.
+
+Gradiente por entrada da el $93$\,\% a la pista, pero eso exagera: la pista está encendida en casi la mitad de las celdas y lo demás casi nunca. La sensibilidad, que no depende de si la celda está encendida, reparte $13$\,\% a la pista, $41$\,\% a las vallas, $27$\,\% a los peligros y $19$\,\% a los rivales: si aparece una valla delante, su decisión cambia mucho. Lo que de verdad decide es lo de la derecha: quitar la pista lo deja sin ganar y quitar las vallas le cuesta 5 puntos, mientras que rivales y peligros apenas cambian el resultado aunque los mire.
+
+Hacia atrás, lo que vio hace 5 ticks pesa el $28$\,\% de lo de ahora en el giro y el $21$\,\% en el acelerador; al segundo, el $13$ y el $3$\,\%. El giro arrastra algo más de memoria, el acelerador vive del momento. Aun así, borrarle la memoria cada segundo no cambia sus resultados.
+
+\clearpage
 \paragraph{En el juego.} Einstein (con un cerebro de icono) entra en la mitad de las carreras en lugar de un caballo de la casa, con su propio historial de victorias y una ventaja fija de $2.0$ para las cuotas (de lo medido). No recibe lecciones ni entrena el cuerpo, porque está en prueba, y no se usa de rival en las lecciones de los demás. Se probó en el navegador: corrió, saltó vallas, y la leyenda y los textos lo muestran solo cuando corre.
 
 \subsection{Ideas pendientes}
@@ -866,7 +887,7 @@ Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube
 \end{itemize}
 
 \section*{Reproducir}
-El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, \texttt{potros.js} mide los potros entrenados, \texttt{memoria.js} mide la memoria. Einstein se entrena con \texttt{experimentos/einstein/}: \texttt{ronda.sh} imita, \texttt{es.js} lo afina con evolución, \texttt{evalua.js} lo mide y \texttt{analiza.js} le quita cosas para ver qué usa. Y los perceptrones de los que nacen los potros, así:
+El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, \texttt{potros.js} mide los potros entrenados, \texttt{memoria.js} mide la memoria. Einstein se entrena con \texttt{experimentos/einstein/}: \texttt{ronda.sh} imita, \texttt{es.js} lo afina con evolución, \texttt{evalua.js} lo mide, \texttt{analiza.js} le quita cosas para ver qué usa, y \texttt{graba.js} con \texttt{gradcam.py} muestran dónde mira. Y los perceptrones de los que nacen los potros, así:
 \begin{verbatim}
 node entrenar.js corredor 300 0 1 100
 node entrenar.js bravo 300 60 1 100

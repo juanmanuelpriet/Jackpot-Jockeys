@@ -21,7 +21,7 @@ const CFG = {
   grandPrixBonus: 0.5,    // en el Gran Premio todas las cuotas suben 50 %
   playerHorsesPerRace: 3,
   maxHorses: 8,           // 6 al armar la carrera; hasta 8 si entran potros durante las apuestas
-  einsteinChance: 0.5,    // Einstein (en prueba) entra en la mitad de las carreras en lugar de un caballo de la casa
+  einsteinChance: +(process.env.JJ_EINSTEIN ?? 0.5), // Einstein (en prueba) entra en la mitad de las carreras en lugar de uno de la casa; JJ_EINSTEIN=1 lo pone siempre
   // Mafia
   loanOptions: [200, 500],
   maxDebt: 2500,

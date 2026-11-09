@@ -5,5 +5,5 @@ const { parentPort, workerData } = require('worker_threads');
 const { learnFromRace, houseEdges } = require('./evolucion');
 
 parentPort.postMessage(workerData.edgesOf
-  ? houseEdges(workerData.edgesOf, workerData.forms, workerData.races, Math.random)
+  ? houseEdges(workerData.edgesOf, workerData.forms, workerData.races, Math.random, workerData.traits)
   : learnFromRace({ ...workerData, rng: Math.random }));

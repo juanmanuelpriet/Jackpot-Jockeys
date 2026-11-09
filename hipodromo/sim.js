@@ -97,6 +97,90 @@ function predict(brain, input, mem = []) {
   return x;
 }
 
+// ─── Einstein: ve la pista, recuerda y decide ────────
+// Su vista es una cuadrícula de VISTA×VISTA celdas alrededor de él, girada hacia donde mira (filas: de atrás
+// hacia adelante; columnas: de izquierda a derecha). Cuatro capas:
+//   0 pista (1 pista, 0 fuera, 0.5 donde no alcanza a ver)
+//   1 lo que se salta o bloquea (0.5 se salta, 0.75 pide más velocidad, 1 sólido, 0.25 se pisa pero no se salta)
+//   2 lo que se pisa, con su peligro (ver PELIGRO)        3 rivales
+// La red: dos convoluciones 3×3 con pooling 2×2, una capa densa que resume la vista, dos GRU y una capa densa que decide.
+const VISTA = 16, CELDA = 12, ATRAS = 2;
+const ESCALARES = [8, 9, 10, 12, 15, 16, 17, 21]; // de inputs(): rival protegido, furia, turbo, puesto, agarre, viento, gravedad, velocidad
+
+function visionGrid(h, others = []) {
+  const g = new Float32Array(4 * VISTA * VISTA), tr = h.track, n2 = VISTA * VISTA;
+  if (h.fx.blind > 0) { for (let i = 0; i < g.length; i++) g[i] = Math.random() * 0.5; return g; }
+  const c = Math.cos(h.angle), s = Math.sin(h.angle), reach = SENSOR_LENGTH * tr.world.vision;
+  const cerca = tr.obstacles.filter(o => (o.x - h.x) ** 2 + (o.y - h.y) ** 2 < 280 * 280);
+  for (let r = 0; r < VISTA; r++) {
+    const f = (r - ATRAS + 0.5) * CELDA;
+    for (let k = 0; k < VISTA; k++) {
+      const l = (k - VISTA / 2 + 0.5) * CELDA, i = r * VISTA + k;
+      if (Math.hypot(f, l) > reach) { g[i] = 0.5; continue; }
+      const x = h.x + c * f - s * l, y = h.y + s * f + c * l;
+      g[i] = tr.onTrack(x, y) ? 1 : 0;
+      for (const o of cerca) {
+        if ((x - o.x) ** 2 + (y - o.y) ** 2 >= o.r * o.r) continue;
+        const info = OBSTACULOS[o.type];
+        if (o.kind === 'solido') g[n2 + i] = 1;
+        else if (o.kind === 'salto') g[n2 + i] = Math.max(g[n2 + i], info.salto ? 0.75 : 0.5);
+        else {
+          if (info.atrapa) g[n2 + i] = Math.max(g[n2 + i], 0.25);
+          const p = o.kind === 'ciclo' && !h._cycleOn(o, CICLO_AVISO) ? PELIGRO_CICLO_APAGADO : PELIGRO[o.kind];
+          g[2 * n2 + i] = Math.max(g[2 * n2 + i], p);
+        }
+      }
+    }
+  }
+  for (const o of others) {
+    if (o === h || o.finished) continue;
+    const dx = o.x - h.x, dy = o.y - h.y, f = dx * c + dy * s, l = -dx * s + dy * c;
+    const r = Math.floor(f / CELDA + ATRAS), k = Math.floor(l / CELDA + VISTA / 2);
+    if (r >= 0 && r < VISTA && k >= 0 && k < VISTA && Math.hypot(f, l) <= reach) g[3 * n2 + r * VISTA + k] = 1;
+  }
+  return g;
+}
+
+// Convolución 3×3 con relleno de ceros y ReLU, seguida de un pooling 2×2 que se queda con el máximo
+function convPool(x, cin, size, l) {
+  const cout = l.b.length, half = size / 2, y = new Float32Array(cout * half * half);
+  for (let co = 0; co < cout; co++) {
+    for (let r = 0; r < size; r += 2) for (let k = 0; k < size; k += 2) {
+      let best = 0;
+      for (let dr = 0; dr < 2; dr++) for (let dk = 0; dk < 2; dk++) {
+        let a = l.b[co];
+        for (let ci = 0; ci < cin; ci++) {
+          const wb = (co * cin + ci) * 9, xb = ci * size * size;
+          for (let ky = 0; ky < 3; ky++) {
+            const yy = r + dr + ky - 1;
+            if (yy < 0 || yy >= size) continue;
+            for (let kx = 0; kx < 3; kx++) {
+              const xx = k + dk + kx - 1;
+              if (xx >= 0 && xx < size) a += l.W[wb + ky * 3 + kx] * x[xb + yy * size + xx];
+            }
+          }
+        }
+        if (a > best) best = a; // ReLU y máximo a la vez: el máximo de valores con piso 0
+      }
+      y[co * half * half + (r / 2) * half + k / 2] = best;
+    }
+  }
+  return y;
+}
+
+const dense = (x, l, act = Math.tanh) => l.b.map((b, j) => { let s = b; for (let i = 0; i < x.length; i++) s += x[i] * l.W[i][j]; return act(s); });
+
+// Un paso de Einstein: lo que ve y unos pocos datos propios → giro y acelerador. `mem` guarda las dos GRU seguidas
+function einsteinStep(brain, grid, scalars, mem) {
+  let x = grid, size = VISTA, cin = 4;
+  for (const l of brain.conv) { x = convPool(x, cin, size, l); cin = l.b.length; size /= 2; }
+  x = [...dense(x, brain.proy), ...scalars];
+  let off = 0;
+  for (const l of brain.gru) { x = gruStep(l, x, mem, off); off += l.b.length / 3; }
+  for (const l of brain.densa) x = dense(x, l);
+  return x;
+}
+
 function cloneBrain(brain) {
   return brain.map(l => ({ ...l, W: l.W.map(r => r.slice()), b: l.b.slice() }));
 }
@@ -444,7 +528,7 @@ class Track {
 class Horse {
   constructor(track, brain, opts = {}) {
     this.track = track;
-    this.brain = upgradeBrain(brain);
+    this.brain = brain && brain.einstein ? brain : upgradeBrain(brain);
     this.id = opts.id ?? 0;
     this.form = opts.form ?? 1; // "forma del día": multiplica la velocidad
     this.agility = opts.agility ?? 1; // cuánto gira: lo sube el entrenamiento de control
@@ -603,7 +687,10 @@ class Horse {
       this._senseAhead();
     }
 
-    const [steer, gas] = predict(this.brain, this.inputs(others.length), this.mem);
+    // `piloto` lo usan los experimentos para que conduzca un maestro
+    const [steer, gas] = this.piloto ? this.piloto(this, others)
+      : this.brain.einstein ? einsteinStep(this.brain, visionGrid(this, others), (x => ESCALARES.map(i => x[i]))(this.inputs(others.length)), this.mem)
+      : predict(this.brain, this.inputs(others.length), this.mem);
     this.steer = steer; this.gas = gas;
 
     const world = this.track.world, puddle = this._patchAt(), info = puddle && OBSTACULOS[puddle.type];
@@ -781,7 +868,7 @@ function stepRace(horses) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    Track, Horse, predict, INPUT_NAMES, cloneBrain, upgradeBrain, mutateBrain, mulberry32,
+    Track, Horse, predict, INPUT_NAMES, cloneBrain, upgradeBrain, mutateBrain, mulberry32, visionGrid, einsteinStep, VISTA, ESCALARES,
     resolveCollisions, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, SIZES, MUNDOS, OBSTACULOS,
   };
 }

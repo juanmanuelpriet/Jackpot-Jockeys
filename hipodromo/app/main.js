@@ -4,12 +4,10 @@
 
 const { app, BrowserWindow, Menu, shell, dialog, clipboard } = require('electron');
 const net = require('net');
-const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 
 app.setName('Jackpot Jockeys');
-let win = null, port = 3000, tunnel = null;
+let win = null, port = 3000;
 
 // Primer puerto libre desde 3000 (así no choca con otro servidor abierto)
 function freePort(start) {
@@ -51,59 +49,32 @@ async function newRoom() {
   win.loadURL(home());
 }
 
-function findCloudflared() {
-  const local = process.env.LOCALAPPDATA || '';
-  const candidates = ['/opt/homebrew/bin/cloudflared', '/usr/local/bin/cloudflared',
-    'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe', 'C:\\Program Files\\cloudflared\\cloudflared.exe',
-    path.join(local, 'Microsoft', 'WinGet', 'Links', 'cloudflared.exe')];
-  return candidates.find(p => fs.existsSync(p)) || 'cloudflared';
-}
-
-// Publica el juego con un túnel temporal de Cloudflare y recarga para que el QR use el enlace público
+// Jugar por internet: el túnel lo maneja el servidor (tunel.js); la pantalla tiene su propio botón y el menú hace lo mismo.
+// Cuando el enlace está listo se copia y se avisa una vez.
 function shareOnline() {
-  if (tunnel) return showShared(process.env.PUBLIC_URL);
-  tunnel = spawn(findCloudflared(), ['tunnel', '--url', home()], { stdio: ['ignore', 'pipe', 'pipe'] });
-  let done = false;
-  const timer = setTimeout(() => {
-    if (!done) dialog.showMessageBox(win, { type: 'warning', message: 'El túnel está tardando', detail: 'Revisa tu conexión a internet e inténtalo de nuevo.' });
-  }, 25000);
-  const watch = data => {
-    const m = String(data).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-    if (!m || done) return;
-    done = true; clearTimeout(timer);
-    process.env.PUBLIC_URL = m[0];
-    win && win.webContents.reload();
-    showShared(m[0]);
-  };
-  tunnel.stdout.on('data', watch);
-  tunnel.stderr.on('data', watch);
-  tunnel.on('error', () => {
-    clearTimeout(timer); tunnel = null;
-    dialog.showMessageBox(win, {
-      type: 'info', message: 'Para jugar por internet hace falta cloudflared',
-      detail: `Instálalo una vez con:\n\n${process.platform === 'win32' ? 'winget install --id Cloudflare.cloudflared' : 'brew install cloudflared'}\n\n` +
-        'Después cierra y abre el juego. Mientras tanto se puede jugar con celulares en la misma WiFi.',
+  const tunel = require('../tunel');
+  if (tunel.estado().fase === 'listo') return showShared(tunel.estado().url);
+  if (!shareOnline.listening) {
+    shareOnline.listening = true;
+    tunel.escuchar(st => {
+      if (st.fase === 'listo' && shareOnline.waiting) { shareOnline.waiting = false; showShared(st.url); }
+      if (st.fase === 'error' && shareOnline.waiting) { shareOnline.waiting = false; win && dialog.showMessageBox(win, { type: 'warning', message: 'No se pudo abrir a internet', detail: st.error }); }
     });
-  });
-  tunnel.on('exit', () => { tunnel = null; delete process.env.PUBLIC_URL; });
+  }
+  shareOnline.waiting = true;
+  tunel.abrir();
 }
 
 function showShared(url) {
-  if (!url) return;
+  if (!url || !win) return;
   clipboard.writeText(url);
   dialog.showMessageBox(win, {
     type: 'info', message: 'Jackpot Jockeys está en internet',
-    detail: `${url}\n\nEl enlace quedó copiado. El QR de la pantalla ya sirve para cualquier celular, esté donde esté.\nEl enlace deja de funcionar al cerrar el juego.`,
+    detail: `${url}\n\nEl enlace quedó copiado. El QR de la pantalla ya sirve para cualquier celular, con datos o en otra red.\nEl enlace deja de funcionar al cerrar el juego.`,
   });
 }
 
-function stopSharing() {
-  if (!tunnel) return;
-  tunnel.kill();
-  tunnel = null;
-  delete process.env.PUBLIC_URL;
-  win && win.webContents.reload();
-}
+const stopSharing = () => require('../tunel').cerrar();
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
@@ -140,4 +111,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => { if (tunnel) tunnel.kill(); });
+app.on('before-quit', () => require('../tunel').cerrar());

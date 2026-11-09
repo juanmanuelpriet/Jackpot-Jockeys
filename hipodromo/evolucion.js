@@ -168,11 +168,11 @@ function trainHorse({ brain, body = {}, focus, form = 1, rivals, rivalForm = 1, 
 const LEARN_GENERATIONS = 30;
 const STYLE_HIT = { corredor: 0, picaro: 60, bravo: 100, muybravo: 150 };
 const MIN_HITS_KEPT = 0.8;
-function learnFromRace({ brain, form = 1, pers, report = {}, rivals, world, rng }) {
+function learnFromRace({ brain, form = 1, agility = 1, power = 1, pers, report = {}, rivals, world, rng }) {
   const worse = n => 1 + Math.min(n || 0, 2);
   const fitness = makeFitness({ hit: STYLE_HIT[pers] || 0, place: 300, fall: 40 * worse(report.falls), stumble: 15 * worse(report.stumbles),
     mud: 40 * worse(report.mudHits), taken: 10 * worse(report.hitsTaken) });
-  const opts = { fitness, rivals, rng, form };
+  const opts = { fitness, rivals, rng, form, agility, power };
   const population = evolve({ ...opts, seeds: [brain], generations: LEARN_GENERATIONS, pop: 18, elite: 5, tracksPerGen: 3, mutation: [0.02, 0.1], focusWorld: world });
   let made = 0;
   const newTrack = size => new Track(Math.floor(rng() * 1e6), null, size, WORLDS[made++ % WORLDS.length]);
@@ -187,11 +187,11 @@ function learnFromRace({ brain, form = 1, pers, report = {}, rivals, world, rng 
 // Cuánto más (o menos) gana cada línea de la casa que una promedio (corren seis al azar en cada carrera), para que sus cuotas lo reflejen
 // y la casa no pierda su ventaja cuando uno mejora. El suavizado evita exagerar por pocas carreras.
 const EDGE_SMOOTHING = 5;
-function houseEdges(brains, forms, races, rng) {
+function houseEdges(brains, forms, races, rng, traits = []) {
   const wins = brains.map(() => 0);
   for (let r = 0; r < races; r++) {
     const some = brains.map((_, i) => [rng(), i]).sort((a, b) => a[0] - b[0]).slice(0, 6).map(x => x[1]);
-    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length], WORLDS[r % WORLDS.length]), some.map(i => brains[i]), some.map(i => forms[i] * (0.93 + rng() * 0.14)), rng);
+    const { horses, maxTicks } = race(new Track(Math.floor(rng() * 1e6), null, SIZES[r % SIZES.length], WORLDS[r % WORLDS.length]), some.map(i => brains[i]), some.map(i => forms[i] * (0.93 + rng() * 0.14)), rng, some.map(i => traits[i] || {}));
     const rank = h => h.finished ? h.finishTick : maxTicks * 10 - h.total;
     wins[some[horses.reduce((best, h, i) => rank(h) < rank(horses[best]) ? i : best, 0)]]++;
   }

@@ -25,6 +25,9 @@ const HORSES = [
   { name: 'Pancho Trotes', color: '#c9a227', ...perfil('picaro.1') },
 ];
 
+// Einstein: ve la pista con una red convolucional, recuerda con dos GRU y decide con capas densas (experimentos/einstein)
+const EINSTEIN = { name: 'Einstein', color: '#f4f1e8', slot: 'einstein', pers: 'einstein', perfil: 'corredor', estilo: 'el más listo (en prueba)' };
+
 // Reparte las líneas entre los caballos: seis de ocho, así que como mucho hay dos de cada personalidad
 function repartir(rng = Math.random) {
   const lines = PERFILES.slice();
@@ -43,6 +46,8 @@ const PERSONALIDADES = {
   picaro: { icon: '🦊', name: 'Pícaro', tag: 'empuja a veces', line: 'Empuja a veces y casi no se sale, pero recibe muchos golpes. Rinde más en pistas cortas.', podio: 59, choques: 1.6, salidas: 0.3, gana: { corta: 20, media: 18, larga: 13 } },
   bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea y rinde parejo en cualquier pista.', podio: 47, choques: 2.2, salidas: 0.9, gana: { corta: 15, media: 17, larga: 13 } },
   muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca y más se sale. Gana poco en pistas cortas y mucho en las largas.', podio: 30, choques: 3.6, salidas: 3.4, gana: { corta: 8, media: 10, larga: 23 } },
+  // En prueba: no es una línea de la casa, solo corre a veces (CFG.einsteinChance). Números de experimentos/einstein
+  einstein: { icon: '🧠', name: 'Einstein', tag: 'el más listo (en prueba)', prueba: true, line: 'Ve la pista con una red convolucional, recuerda con dos GRU y decide con capas densas. En prueba: aún se sale más que los demás.', podio: 59, choques: 1.9, salidas: 1.1, gana: { corta: 33, media: 12, larga: 21 } },
 };
 
 // Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores
@@ -72,8 +77,17 @@ const POWERS = {
   vendas: { name: 'Vendas', icon: '🙈', cost: 100, desc: `Ciega sus sensores ${secs(FPS * 2.5)}`, fx: 'blind', ticks: Math.round(FPS * 2.5), debuff: true },
   lazo: { name: 'Lazo', icon: '🪢', cost: 120, desc: `Lo frena en seco ${secs(FPS * 1.5)}`, fx: 'freeze', ticks: Math.round(FPS * 1.5), debuff: true },
   furia: { name: 'Furia', icon: '😤', cost: 90, desc: `+15% vel., sus choques aturden el doble ${secs(FPS * 5)}`, fx: 'rage', ticks: FPS * 5, debuff: false },
-  charco: { name: 'Charco', icon: '💩', cost: 45, desc: 'Tira barro justo delante de él', debuff: true },
+  charco: { name: 'Charco', icon: '💩', cost: 45, desc: 'Tira barro justo delante de él: no se puede saltar', debuff: true },
   rayo: { name: 'Rayo', icon: '⚡', cost: 250, desc: `Aturde ${secs(FPS)} a TODOS menos a él`, debuff: false },
+};
+
+// Los caballos de la casa también entrenan el cuerpo cada tantas carreras, como los potros, pero sin tocar el cerebro
+// (así no pierden su personalidad). Cada personalidad entrena en este orden lo que más le sirve.
+const PLAN_CASA = {
+  corredor: ['velocidad', 'control', 'velocidad', 'control', 'velocidad', 'velocidad'],
+  picaro: ['control', 'velocidad', 'control', 'velocidad', 'velocidad', 'agresion'],
+  bravo: ['agresion', 'velocidad', 'agresion', 'velocidad', 'control', 'velocidad'],
+  muybravo: ['control', 'agresion', 'control', 'velocidad', 'control', 'agresion'],
 };
 
 // Los potros nacen con perceptrones (199 pesos): la evolución del entrenamiento los mejora, y a una GRU la rompe.
@@ -99,7 +113,10 @@ function loadWorldEdges() {
 
 // Los cerebros de cada línea (id → cerebro)
 function loadPerfiles() {
-  return JSON.parse(fs.readFileSync(path.join(__dirname, 'perfiles_gru.json'), 'utf8'));
+  const b = JSON.parse(fs.readFileSync(path.join(__dirname, 'perfiles_gru.json'), 'utf8'));
+  const ein = path.join(__dirname, 'einstein.json');
+  if (fs.existsSync(ein)) b.einstein = JSON.parse(fs.readFileSync(ein, 'utf8'));
+  return b;
 }
 const loadBrains = (lineup = HORSES) => { const b = loadPerfiles(); return lineup.map(x => b[x.slot]); };
 
@@ -109,7 +126,7 @@ function applyPower(horses, track, idx, key) {
   const pw = POWERS[key], h = horses[idx];
   if (pw.debuff && h.fx.shield > 0) return { blocked: true };
   if (key === 'charco') {
-    return { obstacle: track.addObstacle('barro', h.maxProgress + 12, (Math.random() - 0.5) * 20) };
+    return { obstacle: track.addObstacle('charco', h.maxProgress + 12, (Math.random() - 0.5) * 20) };
   }
   if (key === 'rayo') {
     for (const other of horses) {
@@ -121,4 +138,4 @@ function applyPower(horses, track, idx, key) {
   return {};
 }
 
-module.exports = { HORSES, PERFILES, PERSONALIDADES, POWERS, POTROS, SKINS, repartir, randomHouseSkin, loadBrains, loadPerfiles, loadColtBrain, loadHandicap, loadHandicapPers, loadWorldEdges, applyPower };
+module.exports = { HORSES, EINSTEIN, PERFILES, PERSONALIDADES, POWERS, POTROS, PLAN_CASA, SKINS, repartir, randomHouseSkin, loadBrains, loadPerfiles, loadColtBrain, loadHandicap, loadHandicapPers, loadWorldEdges, applyPower };

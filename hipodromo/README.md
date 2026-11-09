@@ -24,15 +24,16 @@ escriben el código de la sala.
 
 ### Jugar con datos móviles o desde otro lugar
 
-La dirección local del QR solo sirve en la misma WiFi. Para otras redes:
+La dirección local del QR solo sirve en la misma WiFi. Para que entren celulares con datos o desde otra red se abre
+un túnel temporal de Cloudflare (gratis, sin cuenta). Si no está instalado `cloudflared`, el juego lo descarga solo
+la primera vez de las versiones oficiales de Cloudflare. El enlace dura mientras el juego está abierto.
 
+- **En la pantalla grande:** botón **🌎 Abrir a internet**, debajo del QR. El QR cambia solo al enlace público.
 - **En la app:** menú Juego → **Compartir por internet** (⌘I).
-- **En la terminal:**
+- **En la terminal:** `npm run compartir`.
 
-  ```bash
-  brew install cloudflared   # una sola vez
-  npm run compartir
-  ```
+Algunas redes (de empresas, colegios o con filtros) bloquean los enlaces `trycloudflare.com`: si un celular no
+abre la página, que pruebe con datos móviles.
 
 ### Generar la app
 
@@ -47,8 +48,7 @@ La app no está firmada:
 
 - **En otra Mac:** la primera vez se abre con clic derecho → Abrir.
 - **En Windows:** en el aviso de SmartScreen toca **Más información → Ejecutar de todas formas**. En el Firewall
-  marca **Redes privadas**, o los celulares no podrán conectarse. Para jugar por internet instala cloudflared con
-  `winget install --id Cloudflare.cloudflared`.
+  marca **Redes privadas**, o los celulares no podrán conectarse.
 
 ## Cómo se juega
 
@@ -110,7 +110,7 @@ Se usan en carrera con un toque: los de ayuda van a tu caballo y los de freno al
 | 🙈 Vendas | 100 | Ciega sus sensores 2.5 s |
 | 🪢 Lazo | 120 | Lo frena en seco 1.5 s |
 | 😤 Furia | 90 | 5 s: +15 % de velocidad, no lo embisten y sus choques aturden el doble |
-| 💩 Charco | 45 | Tira barro delante de él |
+| 💩 Charco | 45 | Tira barro justo delante de él; no se puede saltar |
 | ⚡ Rayo | 250 | Aturde 1 s a todos los demás |
 
 ### Mafia
@@ -229,7 +229,8 @@ el servidor para que use los caballos nuevos.
 | `evolucion.js`, `entrenador.js` | Neuroevolución y entrenamiento de potros en un hilo aparte |
 | `entrenar.js`, `calibrar.js`, `torneo.js`, `analisis.ipynb` | Entrenamiento de la casa, hándicap y análisis |
 | `narrador.js` | Frases del narrador |
-| `compartir.js`, `app/main.js` | Túnel de Cloudflare y app de escritorio |
+| `tunel.js`, `compartir.js`, `app/main.js` | Túnel de Cloudflare (lo descarga si falta) y app de escritorio |
+| `einstein.json` | Einstein, el caballo en prueba que ve la pista con una red convolucional |
 | `public/pantalla.html`, `public/cel.html` | Pantalla grande y celular |
 | `public/tutorial.webm`, `video/` | Video tutorial y lo que lo graba |
 | `aprendiz.js` | Aprendizaje de los caballos de la casa en un hilo aparte |

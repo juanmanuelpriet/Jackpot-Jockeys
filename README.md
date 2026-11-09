@@ -21,6 +21,7 @@ Solo necesitas [Node 18 o más nuevo](https://nodejs.org).
    ```
 
 3. Abre `http://localhost:3000` en la pantalla grande. Los jugadores escanean el QR con el celular, en la misma WiFi.
+   Para que entren desde otra red o con datos móviles, toca **🌎 Abrir a internet** debajo del QR.
 
 O con git:
 

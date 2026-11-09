@@ -10,8 +10,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { Worker } = require('worker_threads');
 const { FPS, SIM_SPEED } = require('./sim');
-const { HORSES, PERFILES, PERSONALIDADES, loadHandicapPers } = require('./establo');
-const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, houseBrains, houseForms, WIN_RECORD } = require('./sala');
+const { HORSES, PERFILES, PERSONALIDADES, PLAN_CASA, loadHandicapPers } = require('./establo');
+const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, setHouseBody, houseBrains, houseForms, houseTraits, WIN_RECORD } = require('./sala');
 const ws = require('./websocket');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -66,12 +66,35 @@ try { learned = JSON.parse(fs.readFileSync(LEARNED_FILE, 'utf8')); } catch { /* 
 for (const [slot, l] of Object.entries(learned)) {
   if (l.brain) setHouseBrain(slot, l.brain);
   if (l.edge) setHouseEdge(slot, l.edge);
+  if (l.body) setHouseBody(slot, l.body);
 }
 const saveLearned = () => fs.writeFile(LEARNED_FILE, JSON.stringify(learned), () => {});
 const EDGE_RACES = 600;
 
 let lessons = [], learning = false, edgesStale = false;
+// Como los potros, cada línea de la casa entrena el cuerpo cada pocas carreras siguiendo el plan de su personalidad
+// (experimentos/casa/cuerpo.js): el cerebro no cambia, así que no pierde su forma de correr.
+const RACES_PER_TRAINING = 5;
+const BODY_STEP = { velocidad: ['speed', 0.015, 0.06], control: ['agility', 0.05, 0.2], agresion: ['power', 0.1, 0.4] };
+function trainHouseBodies(room, entries) {
+  for (const { slot, pers } of entries) {
+    const l = learned[slot] = { ...learned[slot] }, plan = PLAN_CASA[pers] || [];
+    l.races = (l.races || 0) + 1;
+    const done = l.trainings || 0;
+    if (l.races % RACES_PER_TRAINING || done >= plan.length) continue;
+    const [trait, step, max] = BODY_STEP[plan[done]];
+    l.body = { ...l.body, [trait]: +Math.min(max, (l.body?.[trait] || 0) + step).toFixed(3) };
+    l.trainings = done + 1;
+    setHouseBody(slot, l.body);
+    edgesStale = true;
+    const p = PERSONALIDADES[pers];
+    room.addLog(`🏋️ La casa entrenó ${{ agresion: 'agresión' }[plan[done]] || plan[done]} a su línea ${p.icon} ${p.name} (${l.trainings}/${plan.length}).`);
+  }
+  saveLearned();
+}
+
 function learnFromRace(room, entries) {
+  trainHouseBodies(room, entries);
   // La lección más nueva de cada línea; primero las que peor llegaron
   lessons = [...lessons.filter(l => !entries.some(e => e.slot === l.slot)), ...entries.map(e => ({ ...e, room }))].sort((a, b) => b.place - a.place);
   nextLesson();
@@ -89,7 +112,7 @@ function nextLesson() {
     // Terminadas las lecciones, las cuotas se ponen al día con lo que aprendieron
     if (!edgesStale) return;
     edgesStale = false;
-    return runLearner({ edgesOf: houseBrains(), forms: houseForms(), races: EDGE_RACES }, edges => {
+    return runLearner({ edgesOf: houseBrains(), forms: houseForms(), traits: houseTraits(), races: EDGE_RACES }, edges => {
       PERFILES.forEach(({ slot }, i) => {
         learned[slot] = { ...learned[slot], edge: edges[i] };
         setHouseEdge(slot, edges[i]);
@@ -119,6 +142,15 @@ for (const h of HORSES) delete WIN_RECORD[h.name]; // historial de cuando se con
 const saveWins = () => fs.writeFile(WINS_FILE, JSON.stringify(WIN_RECORD), () => {});
 
 const hooks = { save: saveAccounts, train: startTraining, learn: learnFromRace, saveWins };
+
+// ─── Jugar por internet: la pantalla abre o cierra el túnel, y cada pantalla ve en vivo cómo va y el QR nuevo ───
+const tunel = require('./tunel');
+tunel.puerto(PORT);
+const internetMsg = room => {
+  const st = tunel.estado();
+  return { type: 'internet', ...st, joinUrl: `${st.fase === 'listo' ? st.url : `http://${lanIP()}:${PORT}`}/cel?sala=${room.code}` };
+};
+tunel.escuchar(() => { for (const room of rooms.values()) broadcastScreens(room, internetMsg(room)); });
 
 function createRoom() {
   let code;
@@ -160,6 +192,7 @@ function attach(room, conn, params) {
   if (params.get('role') === 'screen') {
     room.screens.add(conn);
     conn.onClose(() => room.screens.delete(conn));
+    send(conn, internetMsg(room));
   } else {
     room.phones.set(conn, params.get('id'));
     conn.onClose(() => room.phones.delete(conn));
@@ -219,6 +252,10 @@ function handleAction(name, body) {
     if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede arrancar' };
     if (room.phase === 'apuestas') room.startRace();
     return {};
+  }
+  if (name === 'internet') {
+    if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede abrir el juego a internet' };
+    return body.on ? tunel.abrir() && tunel.estado() : tunel.cerrar();
   }
   if (name === 'resetCoins') {
     if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede reiniciar las fichas' };

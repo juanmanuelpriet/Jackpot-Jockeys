@@ -37,3 +37,9 @@ Para las redes actuales, `redes_imitadoras.json` guarda las 8 redes tras imitar,
 | `stats.js` | Por personalidad. `PH=` prueba otra velocidad de potro |
 
 `es.js`, `liga.js` y `ciclos.sh` esperan cada red en `<perfil>/red_final.json`, junto a ellos.
+
+## Einstein, la casa entrenada y el charco
+
+En `einstein/` está Einstein, el caballo en prueba. Ve la pista como una cuadrícula de 16 × 16 alrededor suyo (4 canales: pista, vallas, peligros y rivales), la pasa por dos capas convolucionales con *max pooling*, recuerda con dos GRU y decide con dos capas densas. Aprende imitando a `maestro.js` (la heurística de `personalidades/piloto.js`, que ve toda la pista) con DAgger: `gen.js` graba, `entrena.py` aprende (PyTorch), `ronda.sh <carpeta> [semilla]` repite las rondas (`RONDAS`, `CARRERAS`, `PASOS`), `control.js` comprueba que el juego calcula lo mismo que PyTorch y `evalua.js <red.json | maestro | corredor.1> <carreras>` lo mide contra la casa.
+
+`casa/cuerpo.js <personalidad> <carreras>` mide un caballo de la casa con 0, 2, 4 y 6 entrenamientos del cuerpo (`PLAN_CASA` en `establo.js`) contra cinco sin entrenar. `sabotaje/charco.js <carreras>` mide cuánto frena el charco del sabotaje y cuántos lo saltan.

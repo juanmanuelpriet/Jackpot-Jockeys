@@ -3,7 +3,7 @@
 
 const crypto = require('crypto');
 const { Track, Horse, stepRace, drawGates, laneOffset, FPS, SIM_SPEED, MUNDOS } = require('./sim');
-const { HORSES, PERFILES, PERSONALIDADES, POWERS, POTROS, SKINS, repartir, randomHouseSkin, loadPerfiles, loadColtBrain, loadHandicapPers, loadWorldEdges, applyPower } = require('./establo');
+const { HORSES, EINSTEIN, PERFILES, PERSONALIDADES, POWERS, POTROS, SKINS, repartir, randomHouseSkin, loadPerfiles, loadColtBrain, loadHandicapPers, loadWorldEdges, applyPower } = require('./establo');
 const { say, quip } = require('./narrador');
 const { TRAIN_GENERATIONS, bodyOpts } = require('./evolucion');
 const { winFactor, recordRace, trainedEdge, payFactors, oddsFor, ODDS_CAP } = require('./cuotas');
@@ -21,6 +21,7 @@ const CFG = {
   grandPrixBonus: 0.5,    // en el Gran Premio todas las cuotas suben 50 %
   playerHorsesPerRace: 3,
   maxHorses: 8,           // 6 al armar la carrera; hasta 8 si entran potros durante las apuestas
+  einsteinChance: 0.5,    // Einstein (en prueba) entra en la mitad de las carreras en lugar de un caballo de la casa
   // Mafia
   loanOptions: [200, 500],
   maxDebt: 2500,
@@ -76,7 +77,11 @@ let HANDICAP = loadHandicapPers();
 const WORLD_EDGE = loadWorldEdges();
 const WIN_RECORD = {}; // victorias reales y esperadas de cada línea (o potro) en el juego; las guarda server.js
 const HOUSE_EDGE = {}; // cuánto mejor es cada línea de la casa tras aprender: baja sus cuotas
-const houseEntry = h => ({ ...h, brain: BRAINS[h.slot], handicap: HANDICAP[h.pers] ?? 1, edge: HOUSE_EDGE[h.slot] || 1, skin: randomHouseSkin() });
+const HOUSE_BODY = {}; // lo que cada línea de la casa ha entrenado el cuerpo (cada pocas carreras, como los potros)
+const houseEntry = h => {
+  const { form, agility, power } = bodyOpts(HOUSE_BODY[h.slot], HANDICAP[h.pers] ?? 1);
+  return { ...h, brain: BRAINS[h.slot], handicap: form, agility, power, edge: HOUSE_EDGE[h.slot] || BRAINS[h.slot]?.edge || 1, skin: randomHouseSkin() };
+};
 const recordKey = h => h.slot || h.name;
 const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
 // Hándicap de partida para los potros de los jugadores, según el tipo de cerebro con el que nacen
@@ -256,6 +261,7 @@ class Room {
     const house = this.reparto.map(houseEntry)
       .sort(() => Math.random() - 0.5)
       .slice(0, 6 - lineup.length);
+    if (BRAINS.einstein && house.length && Math.random() < CFG.einsteinChance) house[house.length - 1] = houseEntry(EINSTEIN);
     return [...house, ...lineup].sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -402,10 +408,10 @@ class Room {
     if (!this.hooks.learn) return;
     const world = this.track.mundo;
     this.hooks.learn(this, order.flatMap((i, place) => {
-      const { owner, name, slot, brain, handicap, pers } = this.lineup[i], h = this.horses[i];
-      if (owner) return [];
+      const { owner, name, slot, brain, handicap, agility, power, pers } = this.lineup[i], h = this.horses[i];
+      if (owner || pers === 'einstein') return []; // Einstein no aprende en el juego: está en prueba
       const others = [...order.slice(0, place).reverse(), ...order.slice(place + 1)].slice(0, 3);
-      return [{ name, slot, brain, form: handicap, pers, place, world, rivals: others.map(k => this.lineup[k].brain),
+      return [{ name, slot, brain, form: handicap, agility, power, pers, place, world, rivals: others.filter(k => this.lineup[k].pers !== 'einstein').map(k => this.lineup[k].brain),
         report: { falls: h.falls, stumbles: h.stumbles, mudHits: h.mudHits, hitsTaken: h.hitsTaken } }];
     }));
   }
@@ -902,6 +908,8 @@ class Room {
 }
 
 module.exports = { Room, roomCode, CFG, BET_TYPES, setHandicap: h => { HANDICAP = h; },
-  WIN_RECORD, houseBrains: () => PERFILES.map(p => BRAINS[p.slot]), houseForms: () => PERFILES.map(p => HANDICAP[p.pers] ?? 1),
+  WIN_RECORD, houseBrains: () => PERFILES.map(p => BRAINS[p.slot]), houseForms: () => PERFILES.map(p => bodyOpts(HOUSE_BODY[p.slot], HANDICAP[p.pers] ?? 1).form),
+  houseTraits: () => PERFILES.map(p => { const { agility, power } = bodyOpts(HOUSE_BODY[p.slot]); return { agility, power }; }),
+  setHouseBody: (slot, body) => { HOUSE_BODY[slot] = body; },
   setHouseBrain: (slot, brain) => { BRAINS[slot] = brain; },
   setHouseEdge: (slot, edge) => { HOUSE_EDGE[slot] = edge; } };

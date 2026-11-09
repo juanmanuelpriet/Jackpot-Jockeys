@@ -278,6 +278,19 @@ con $H_k = 0, 60, 100, 150$ según la personalidad. Son 30 generaciones, poblaci
 \end{equation}
 La última condición, para los que embisten, impide que pierdan su personalidad. Es un criterio poco exigente (medio error estándar): deja pasar algunas falsas mejoras a cambio de no desperdiciar las reales.
 
+\paragraph{Entrenan el cuerpo.} Además, cada línea de la casa entrena el cuerpo cada 5 carreras que corre, como un potro, hasta 6 veces. Usa los mismos pasos que los potros (velocidad $+0.015$, giro $+0.05$, fuerza $+0.1$, con los mismos topes) en un orden fijo para cada personalidad:
+\begin{center}\footnotesize
+\begin{tabular}{ll}
+\toprule
+Corredor & velocidad, giro, velocidad, giro, velocidad, velocidad \\
+Pícaro & giro, velocidad, giro, velocidad, velocidad, fuerza \\
+Bravo & fuerza, velocidad, fuerza, velocidad, giro, velocidad \\
+Muy bravo & giro, fuerza, giro, velocidad, giro, fuerza \\
+\bottomrule
+\end{tabular}
+\end{center}
+A diferencia del potro, el cerebro no se reentrena: así no pierde su forma de correr, y el cuerpo nuevo no necesita examen porque solo puede ayudar. El cuerpo se guarda junto a lo aprendido, entra en las lecciones (que se repasan con ese cuerpo) y en el cálculo de $\epsilon_i$, así que las cuotas lo siguen. Con 8 líneas y 6 caballos por carrera, cada línea corre unas 3 de cada 4 carreras: el primer entrenamiento llega hacia la carrera 7 y el último hacia la 40. El narrador lo anuncia.
+
 \subsection{Potros de los jugadores}
 Los potros siguen naciendo con perceptrones, los del corredor o el bravo anteriores, y los que ya existían conservan su cerebro. Falta probar si una GRU entrenaría igual de bien. Su entrenamiento no cambió. Cada entrenamiento sube un rasgo del cuerpo (velocidad $+0.015$ hasta $0.06$, giro $+0.05$ hasta $0.2$, fuerza $+0.1$ hasta $0.4$), reentrena el cerebro 60 generaciones con ese cuerpo y lo examina igual, contra el caballo de antes. El cerebro nuevo se conserva si $\bar\Delta > \mathrm{SE}/2$ en el rasgo y no pierde más de $0.3$ rivales vencidos por carrera. Cuesta una carrera: mientras entrena, el potro no compite.
 
@@ -406,6 +419,11 @@ Pancho Trotes & 2/8 & $18.5 \to 18.8$ & $3.35 \to 3.29$ & $1.57 \to 1.55$ \\
 \end{table}
 
 Herradura Loca es la única mejora clara, y es la que más margen tenía, porque era la de peor puesto medio. Una sola lección aceptada le bastó; también se sale un poco más. Cuando un caballo mejora así, $\epsilon_i$ baja sus cuotas para que apostarle no le gane a la casa. Lo aprendido por esas redes no pasa a las GRU: se guardaba en otro archivo, que ya no se lee.
+
+\section{Jugar desde otra red}
+La dirección del QR es la de la WiFi, así que un celular con datos móviles o en otra red no llega al juego. Debajo del QR, el botón \emph{Abrir a internet} abre un túnel temporal de Cloudflare (\texttt{cloudflared}, gratis y sin cuenta), que da un enlace público \texttt{https://…trycloudflare.com} hacia el puerto del juego. El QR se cambia solo a ese enlace, y todas las pantallas de la sala ven en vivo el estado: descargando, abriendo, listo o error. Si \texttt{cloudflared} no está instalado, el juego descarga una sola vez la versión oficial de Cloudflare en GitHub para Mac, Windows o Linux y la guarda junto a sus datos. El túnel se cierra con el botón o al cerrar el juego; nada queda corriendo. Lo mismo se hace desde el menú de la app o con \texttt{npm run compartir}. Todo vive en \texttt{tunel.js}.
+
+\paragraph{Prueba.} En el Mac, con datos temporales, la descarga de \texttt{cloudflared} (39 MB) tardó $1.1$ s y el túnel quedó listo en $3.7$ a $5.1$ s; se registró en el centro de datos de Bogotá y, al cerrarlo, no quedó ningún proceso. El enlace no se pudo abrir desde el mismo Mac: la red de la casa no resuelve los subdominios de \texttt{trycloudflare.com} y, resolviéndolos por fuera, la conexión segura no termina; la página general de \texttt{api.trycloudflare.com} sí responde. La explicación probable, no comprobada, es un filtro de la red o del proveedor. Un lector de páginas externo recibió un 403 del borde de Cloudflare, que suele rechazar a los robots, así que tampoco confirma que un celular entre. Falta probarlo con un celular real con datos móviles.
 
 \section{El video tutorial}
 La primera vez que se abre el juego en un equipo sale un video con voz, de unos dos minutos, que explica cómo entrar, apostar, las personalidades, los mundos, los poderes, los potros, la mafia y las peñas. Se salta con un botón o con Enter, y se vuelve a ver con la tecla V o desde la pantalla de inicio. Se graba con el juego real desde \texttt{video/grabar.js}, con un guion en \texttt{video/guion.js}; lo que se ve hay que volver a grabarlo si cambia el juego. El video actual dura 2:22, se grabó con las redes adoptadas y ya explica las personalidades al azar, los saltos y que los caimanes muerden aunque se salte. Se revisaron sus escenas y que la pista de audio decodifica, pero nadie ha escuchado la voz de esta versión de principio a fin.
@@ -761,6 +779,26 @@ Sin memoria, todos se salen de $2$ a $3.7$ veces más por carrera. Borrarla cada
 
 \paragraph{Conclusión.} La memoria es corta, de unos $0.3$ s, y sirve para suavizar lo que ven los sensores; los bravos además siguen al rival. No guarda la pista. Hace falta, porque sin ella todos corren mucho peor, pero más de un segundo de memoria no se usa. Agregar capas densas después de la GRU no cambiaría esto, porque las capas densas no recuerdan. Son 400 carreras sin poderes ni potros, y solo con las redes adoptadas.
 
+\subsection{El charco del sabotaje se saltaba: corregido}
+Desde que los caballos aprendieron a saltar el barro, el charco que tira el sabotaje casi no frenaba. Con \texttt{experimentos/sabotaje/charco.js}, a un caballo se le tira el charco a los 10 s y se compara con la misma carrera sin charco. El charco caía $40$ unidades de recorrido por delante y era barro común: lo saltaban el $76$\,\% de las veces y costaba $0.19$ s. Ahora es un obstáculo propio, \texttt{charco}, que frena más ($0.15$ en vez de $0.25$, radio $26$) y atrapa, como el pantano: no se puede saltar, y los sensores lo marcan así. Cae a $12$ unidades, justo delante. En 200 carreras se salta el $5$\,\% de las veces (solo con la zanahoria o en el aire), se pisa el $80.5$\,\%, y cuesta $0.87 \pm 0.16$ s. La pantalla lo dibuja oscuro, con burbujas y el aro de ``no se salta''.
+
+\subsection{La casa entrena el cuerpo: adoptado}
+Los potros entrenados le ganan bastante a la casa (sección anterior), pero la casa solo aprendía con lecciones, que cambian poco. Con \texttt{experimentos/casa/cuerpo.js} se corrió un caballo de cada personalidad con 0, 2, 4 y 6 entrenamientos del plan contra cinco de la casa sin entrenar, en 300 a 400 carreras por casilla.
+\begin{table}[h]\centering\footnotesize
+\begin{tabular}{lcccc}
+\toprule
+Entrenamientos & Corredor & Pícaro & Bravo & Muy bravo \\
+\midrule
+0 & $23$ / $67$ & $17$ / $63$ & $19$ / $51$ & $14$ / $32$ \\
+2 & $33$ / $78$ & $29$ / $72$ & $23$ / $57$ & $17$ / $35$ \\
+4 & $44$ / $84$ & $41$ / $81$ & $31$ / $63$ & $17$ / $42$ \\
+6 & $56$ / $91$ & $47$ / $86$ & $37$ / $76$ & $23$ / $49$ \\
+\bottomrule
+\end{tabular}
+\caption{\% de victorias / \% de podio contra cinco de la casa sin entrenar. Salidas, golpes y tropiezos casi no cambian; el muy bravo se sale algo menos ($3.5$ a $3.0$).}
+\end{table}
+Es una mejora del tamaño de la de los potros, o mayor, porque el cerebro de la casa ya es bueno. Como todas las líneas entrenan al mismo ritmo, entre ellas siguen parejas; frente a los potros, la casa se vuelve más difícil con la partida. En el juego, con datos temporales y las líneas a una carrera del entrenamiento, al terminar la carrera seis líneas entrenaron (la que no corrió no), el narrador lo anunció y quedó guardado.
+
 \subsection{Ideas pendientes}
 Quedan sin probar: CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
 
@@ -775,6 +813,8 @@ Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube
 \item \textbf{Las personalidades se parecen más al competir.} Corredor y pícaro golpean casi igual; se distinguen en que el corredor rodea y el pícaro salta. El bravo se distingue menos que antes del pícaro en golpes ($2.2$ contra $1.6$).
 \item \textbf{La mejora final es difícil de atribuir.} Reglas, sentidos, maestro y evolución cambiaron a la vez en el juego final; solo los controles anteriores los separan, y con pocas semillas. Las cuotas lo compensan, pero la carrera es menos pareja.
 \item \textbf{La memoria de las GRU es corta,} de unos 0.3 s: no recuerdan la pista ni lo que pasó hace un segundo.\item \textbf{Las GRU no se miden tras muchas lecciones.} No se sabe si mejoran con el tiempo ni si conservan su estilo, más allá de la condición del examen.\item \textbf{Los potros siguen sin GRU,} y el pícaro se parece demasiado al corredor. \item \textbf{Las cuotas reaccionan con retraso.} Un caballo que mejora paga de más durante varias carreras. No se ha medido cómo se comportan tras mucho aprendizaje real, con jugadores de verdad ni con poderes.\item \textbf{El aprendizaje por carrera de los perceptrones fue desigual.} De seis caballos con 8 lecciones cada uno, solo Herradura Loca mejoró con claridad; los demás quedaron dentro del ruido (tabla~\ref{tab:lecciones}). El examen pareado reduce el riesgo de empeorar, no lo elimina, y 8 lecciones son pocas para sacar conclusiones sobre partidas largas.
+\item \textbf{La casa entrenada no se ha medido en partidas largas.} Las cifras son de un caballo entrenado contra cinco sin entrenar; en el juego entrenan todos, y no se midió cómo queda frente a potros muy entrenados tras 40 carreras.
+\item \textbf{El enlace por internet no se ha abierto desde un celular.} El túnel abre, pero la red donde se probó bloquea esos enlaces.
 \item \textbf{Las tablas dependen de los cerebros.} Al reentrenar hay que correr \texttt{calibrar.js} otra vez; un caballo que aprende cambia $\epsilon_i$, $W_i$ y $E_i$, pero no $e_{w,k}$.
 \end{itemize}
 

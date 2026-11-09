@@ -72,6 +72,8 @@
   #qr { background: var(--cream); padding: 6px; line-height: 0; border-radius: 2px; }
   #joinUrl { font-size: 13px; color: var(--cream-dim); overflow-wrap: anywhere; letter-spacing: .5px; }
   #joinUrl .wifi { display: block; margin-top: 6px; color: var(--gold); font-size: 12px; letter-spacing: .3px; }
+  #joinUrl .netBtn { margin-top: 4px; font: inherit; font-weight: 700; color: #0b1f15; background: var(--gold); border: 0; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  #joinUrl .netBtn:disabled { opacity: .5; cursor: default; }
   #joinUrl b { display: block; color: var(--cream); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
   #startBtn { background: var(--gold); color: var(--green-900); border: 0; padding: 10px; font-family: var(--display); font-size: 18px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; padding: 12px 18px; white-space: nowrap; box-shadow: 0 0 0 3px rgba(201,162,74,0.25); }
   #startBtn:hover { background: var(--gold-hi); }
@@ -336,17 +338,7 @@ async function loadTrack() {
     return [p0[0] - Math.sin(a) * lane, p0[1] + Math.cos(a) * lane, a, 0, 0, [1, 1, 1, 1, 1]];
   });
   disp = pos.map(p => p.slice());
-  const qr = document.getElementById('qr');
-  if (!qr.dataset.url) {
-    qr.dataset.url = r.joinUrl;
-    // Con una dirección de la red local solo entran celulares en la misma WiFi: se avisa cómo abrirlo a datos móviles
-    const lan = /^http:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(r.joinUrl);
-    document.getElementById('joinUrl').innerHTML = `<b>Apuesta desde tu celular</b>${esc(r.joinUrl)}` +
-      (lan ? `<small class="wifi">📶 Solo en esta WiFi. ¿Alguien con datos móviles? Menú Juego → Compartir por internet (⌘I / Ctrl+I)</small>` : '');
-    if (window.QRCode) new QRCode(qr, { text: r.joinUrl, width: 96, height: 96, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
-    else qr.style.display = 'none';
-  }
-  fillTutJoin(r.joinUrl);
+  if (!document.getElementById('qr').dataset.url) showJoin(r.joinUrl);
 }
 
 // ─── Utilidades de geometría ────────────────────────
@@ -876,6 +868,10 @@ const OBSTACLE_ART = {
     patch(g, o, '#3a2510', '#553719', 'rgba(255,255,255,0.28)', '#1c1006');
     bubbles(g, o, 'rgba(190,150,100,0.75)', [[0.34, 0.2, 0.11], [-0.28, 0.34, 0.08], [0.1, -0.3, 0.07]]);
   },
+  charco(g, o) { // El del sabotaje: más oscuro que el barro (el aro de que no se salta lo pone NO_SE_SALTA)
+    patch(g, o, '#2a1a08', '#4a2c10', 'rgba(255,255,255,0.22)', '#140a03');
+    bubbles(g, o, 'rgba(160,110,60,0.8)', [[0.3, 0.25, 0.12], [-0.3, 0.3, 0.1], [0.05, -0.32, 0.09], [-0.1, 0.05, 0.07]]);
+  },
   valla(g, o) { // Valla de steeplechase: seto de ramas con alas blancas
     g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(-o.r + 2, -2, o.r * 2, 10);
     g.fillStyle = '#4a3a1f'; g.fillRect(-o.r, -5, o.r * 2, 9);
@@ -953,13 +949,13 @@ const OBSTACLE_ART = {
   },
 };
 // Aro rojo: no se puede saltar, hay que esquivarlo
-const NO_SE_SALTA = { pino: 1, cactus: 1, geiser: 1, remolino: 1, caiman: 1 };
+const NO_SE_SALTA = { pino: 1, cactus: 1, geiser: 1, remolino: 1, caiman: 1, charco: 1 };
 function noJumpRing(g, r) {
   g.strokeStyle = '#ff3b30'; g.lineWidth = 2.5; g.setLineDash([7, 4]);
   g.beginPath(); g.arc(0, 0, r + 5, 0, 7); g.stroke(); g.setLineDash([]);
 }
 const OBSTACLE_HELP = {
-  valla: ['Valla', 'Se salta o se esquiva. Lento, tropieza'], barro: ['Barro', 'Frena. Se salta o se esquiva'],
+  valla: ['Valla', 'Se salta o se esquiva. Lento, tropieza'], barro: ['Barro', 'Frena. Se salta o se esquiva'], charco: ['Charco', 'Sabotaje: frena mucho y no se salta'],
   pino: ['Pino', 'No se salta: hay que esquivarlo'], hielo: ['Hielo', 'No deja girar. Se salta o se esquiva'], nevada: ['Nieve alta', 'Frena. Se salta o se esquiva'],
   roca: ['Roca', 'Se salta o se esquiva. Lento, tropieza'], crater: ['Cráter', 'Aturde al caer. Se salta o se esquiva'],
   lava: ['Lava', 'Quema y pierde tiempo. Saltarla pide mucha velocidad'], geiser: ['Géiser', 'Revienta con aviso y alcanza en el aire'], basalto: ['Basalto', 'Saltarlo pide mucha velocidad. Lento, tropieza'],
@@ -1502,8 +1498,8 @@ function renderUI() {
   document.getElementById('odds').innerHTML = s.horses.map((h, i) => `<div class="odd">
     <div class="num" style="background:${h.color}">${i + 1}</div><div class="nm">${s.cfg.personalidades[h.pers]?.icon || ''} ${esc(h.name)}${h.recent && h.recent.length ? `<small class="rc">${h.recent.map(r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r + 'º').join(' ')}</small>` : ''}</div>
     <div class="x">${h.odds ? 'x' + h.odds.toFixed(2) : '—'}</div></div>`).join('');
-  const P = Object.values(s.cfg.personalidades), here = s.cfg.mundos[s.mundo] || {};
-  const bestHere = s.cfg.personalidades[here.mejor] || P.reduce((a, b) => b.gana[s.trackSize] > a.gana[s.trackSize] ? b : a);
+  const P = Object.entries(s.cfg.personalidades).filter(([k, p]) => !p.prueba || s.horses.some(h => h.pers === k)).map(([, p]) => p), here = s.cfg.mundos[s.mundo] || {};
+  const bestHere = s.cfg.personalidades[here.mejor] || P.filter(p => !p.prueba).reduce((a, b) => b.gana[s.trackSize] > a.gana[s.trackSize] ? b : a);
   document.getElementById('persBar').innerHTML = P.map(p => `<span>${p.icon} <b>${esc(p.name)}:</b> ${esc(p.tag)}</span>`).join('')
     + `<span class="here">${here.icon || ''} ${esc(here.name || '')}: suele ganar ${bestHere.icon} ${esc(bestHere.name)}</span>`;
   const betting = s.phase === 'apuestas';
@@ -1757,6 +1753,34 @@ if (!seenVideo && !qs.has('sinvideo')) openVideo();
 else if (!seenSplash) showSplash(false);
 
 // ─── Conexión ───────────────────────────────────────
+// Enlace y QR para entrar desde el celular. Con una dirección de la red local solo entran celulares en la misma WiFi:
+// el botón abre el juego a internet (datos móviles u otra red) y el QR cambia solo cuando el enlace está listo
+let net = { fase: 'apagado' };
+function showJoin(url) {
+  const qr = document.getElementById('qr');
+  if (qr.dataset.url !== url) {
+    qr.dataset.url = url; qr.innerHTML = '';
+    if (window.QRCode) new QRCode(qr, { text: url, width: 96, height: 96, colorDark: '#0b1f15', colorLight: '#f1e8d3' });
+    else qr.style.display = 'none';
+    fillTutJoin(url);
+  }
+  const lan = /^http:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url);
+  const estado = {
+    apagado: lan ? `📶 Solo en esta WiFi. <button class="netBtn" data-on="1">🌎 Abrir a internet</button>` : '',
+    descargando: `🌎 Preparando internet (primera vez)… ${net.progreso || 0} %`,
+    abriendo: '🌎 Abriendo el enlace…',
+    listo: `🌎 Abierto a internet: entra cualquiera con el enlace. <button class="netBtn" data-on="0">Cerrar</button>`,
+    error: `⚠️ ${esc(net.error || 'No se pudo abrir a internet')} <button class="netBtn" data-on="1">Reintentar</button>`,
+  }[net.fase] || '';
+  document.getElementById('joinUrl').innerHTML = `<b>Apuesta desde tu celular</b>${esc(url)}` + (estado ? `<small class="wifi">${estado}</small>` : '');
+}
+document.getElementById('joinUrl').addEventListener('click', e => {
+  const b = e.target.closest('.netBtn');
+  if (!b) return;
+  b.disabled = true;
+  fetch('/api/internet', { method: 'POST', body: JSON.stringify({ sala: SALA, hostKey: HOSTKEY, on: b.dataset.on === '1' }) }).catch(() => {});
+});
+
 // Conexión en vivo por WebSocket (los túneles y proxies no la retienen); se reconecta sola
 function openStream(query, onMessage, onClosed) {
   let sock = null, stopped = false;
@@ -1781,6 +1805,7 @@ function onServerMessage(m) {
   {
     if (m.type === 'pos') { m.h.t = m.t; if (!replay) pos = m.h; recordFrame(m.h); }
     else if (m.type === 'react') showReaction(m);
+    else if (m.type === 'internet') { net = m; showJoin(m.joinUrl); }
     else if (m.type === 'obst' && track) { track.obstacles.push(m.o); drawObstacle(bg.getContext('2d'), m.o); }
     else if (m.type === 'state') {
       if (m.build && !PAGE_BUILD.startsWith('__') && m.build !== PAGE_BUILD) { location.reload(); return; } // el servidor se actualizó

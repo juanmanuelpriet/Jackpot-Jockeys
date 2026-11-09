@@ -47,6 +47,8 @@ const OBSTACULOS = {
   tronco: { kind: 'salto', r: 16, salto: 7 },
   cienaga: { kind: 'lento', r: 26, freno: 0.45, saltable: true },
   caiman: { kind: 'ciclo', r: 18, periodo: 120, activo: 30, aturde: 1.1, atrapa: true },
+  // El del sabotaje: aparece justo delante, así que si se pudiera saltar casi nunca frenaría a nadie
+  charco: { kind: 'lento', r: 26, freno: 0.15, atrapa: true },
 };
 
 // Qué tan grave es pisarlo, como lo percibe la red

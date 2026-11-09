@@ -799,8 +799,54 @@ Entrenamientos & Corredor & Pícaro & Bravo & Muy bravo \\
 \end{table}
 Es una mejora del tamaño de la de los potros, o mayor, porque el cerebro de la casa ya es bueno. Como todas las líneas entrenan al mismo ritmo, entre ellas siguen parejas; frente a los potros, la casa se vuelve más difícil con la partida. En el juego, con datos temporales y las líneas a una carrera del entrenamiento, al terminar la carrera seis líneas entrenaron (la que no corrió no), el narrador lo anunció y quedó guardado.
 
+\subsection{Einstein, el caballo que ve la pista: en prueba}
+Todos los caballos sienten la pista con 5 rayos y unos pocos números. Einstein, en cambio, la \emph{ve}: cada tick arma una cuadrícula de $16 \times 16$ celdas de 12 unidades a su alrededor, girada con él, con 2 filas detrás y 14 delante (unas 168 unidades hacia adelante y 96 a cada lado). Tiene 4 canales: pista ($1$ dentro, $0$ fuera, $0.5$ más allá de lo que alcanza a ver en ese mundo), vallas y lo que se salta ($1$ lo sólido, $0.5$ o $0.75$ lo saltable, $0.25$ lo que atrapa), peligro de pisar, y rivales. Con las vendas ve ruido. A eso se suman 8 números que la cuadrícula no muestra: un dato del rival, furia, impulso, puesto, agarre, viento lateral, salto del mundo y velocidad.
+
+\paragraph{Red.} Dos capas convolucionales $3 \times 3$ (4 a 8 y 8 a 16 canales, ReLU), cada una con \emph{max pooling} $2 \times 2$, reducen la vista de $16 \times 16$ a $4 \times 4 \times 16$. Una capa densa la resume en 32 números ($\tanh$), que junto a los 8 números entran a dos GRU apiladas de 32, la misma celda de los caballos de la casa. Al final, dos capas densas de 16 y 2 deciden giro y acelerador. Son $23\,498$ pesos, cuatro veces más que una GRU de la casa. El juego la calcula en \texttt{sim.js} (\texttt{visionGrid}, \texttt{einsteinStep}); su salida difiere de la de PyTorch en $2 \times 10^{-7}$ como mucho.
+
+\paragraph{Entrenamiento.} Primero imita al maestro, la heurística que ve todo el mapa (sección de la GRU), con DAgger: en cada ronda corre Einstein, el maestro dice qué habría hecho en cada tick, y la red se entrena en PyTorch con todo lo grabado (secuencias de 48 ticks, el triple de peso cuando hay algo que saltar o pisar delante). Fueron 12 rondas de 1\,500 pasos y otras 8 de 4\,000, con unas 39\,000 muestras nuevas por ronda. Imitar se estancó: el error cuadrático quedó en $0.32$ cuando el giro del maestro tiene varianza $0.47$, y Einstein ganaba entre el $16$ y el $22$\,\% contra cinco de la casa. La explicación probable es que el maestro apunta a un punto más lejos de lo que cabe en la cuadrícula. Luego se afinaron solo sus dos capas densas (562 pesos) con evolución sin maestro: pares de ruido opuesto ($\sigma = 0.02$, 12 pares), 8 carreras nuevas contra la casa por generación, puntos $= $ rivales vencidos $+\,2$ si gana $-\,0.5$ por salida, rangos en vez de puntos y Adam con tasa $0.002$. Un primer intento con pasos sin normalizar lo dejó sin ganar una sola carrera en 10 generaciones. Con Adam, en 400 generaciones y 150 carreras fijas de validación pasó de ganar el $21$ al $30$\,\% y de salirse $0.95$ a $0.43$ veces por carrera.
+
+\paragraph{Resultado.} En 900 carreras nuevas (tres semillas) contra cinco de la casa sin entrenar:
+\begin{table}[h]\centering\footnotesize
+\begin{tabular}{lcccccc}
+\toprule
+ & Gana & Podio & Salidas & Tropiezos & Barro & Golpes dados \\
+\midrule
+Einstein & $28.5$ & $72.9$ & $0.44$ & $0.54$ & $0.41$ & $1.74$ \\
+Maestro (ve todo el mapa) & $31.2$ & $71.8$ & $0.36$ & $0.40$ & $0.33$ & $1.58$ \\
+Corredor de la casa & $21.8$ & $63.3$ & $0.23$ & $0.39$ & $0.43$ & $1.67$ \\
+Einstein solo imitando & $22.0$ & $59.3$ & $1.07$ & $0.61$ & $0.44$ & $1.89$ \\
+\bottomrule
+\end{tabular}
+\caption{\% de victorias y de podio, y eventos por carrera. Lo justo serían $16.7$ y $50$\,\%. En 300 de esas carreras, el pícaro ganó el $22$\,\%, el bravo el $19$ y el muy bravo el $14$. El error típico de las victorias es de unos $1.5$ puntos.}
+\end{table}
+Einstein es el que más gana de los que no ven el mapa entero y llega al podio tanto como el maestro. Gana más en pistas cortas ($36$\,\%) que en medianas y largas ($24$ y $25$\,\%), y más en el Volcán ($41$\,\%). Las carreras son caóticas: guardar los pesos con 6 cifras cambió su resultado en una semilla de $32.3$ a $27.7$\,\%, por eso se promedian tres.
+
+\paragraph{Qué usa.} Con \texttt{analiza.js} se le quitó una cosa a la vez y se corrieron las mismas 300 carreras:
+\begin{table}[h]\centering\footnotesize
+\begin{tabular}{lccccc}
+\toprule
+Sin & Gana & Podio & Tiempo (s) & Salidas & Tropiezos / barro \\
+\midrule
+Nada & $28.7$ & $73.3$ & $29.83$ & $0.38$ & $0.48$ / $0.37$ \\
+Memoria (cada tick) & $23.3$ & $68.0$ & $30.09$ & $0.56$ & $0.53$ / $0.42$ \\
+Memoria cada 1 s & $27.7$ & $75.7$ & $29.74$ & $0.33$ & $0.48$ / $0.35$ \\
+Memoria al empezar la vuelta 2 & $28.3$ & $73.3$ & $29.77$ & $0.34$ & $0.46$ / $0.38$ \\
+Canal de pista & $0$ & $0$ & llega el $26$\,\% & $44.4$ & $1.14$ / $3.86$ \\
+Canal de vallas & $24.0$ & $71.3$ & $30.10$ & $0.27$ & $1.38$ / $0.99$ \\
+Canal de peligros & $27.0$ & $73.3$ & $29.87$ & $0.35$ & $0.82$ / $0.99$ \\
+Canal de rivales & $27.3$ & $72.7$ & $29.73$ & $0.35$ & $0.45$ / $0.34$ \\
+Los 8 números & $15.7$ & $53.7$ & $31.09$ & $0.35$ & $0.56$ / $0.74$ \\
+\bottomrule
+\end{tabular}
+\caption{Cada fila, 300 carreras con dos semillas. Tiempo de los que llegan.}
+\end{table}
+Sin ver la pista no llega. Sin las vallas tropieza el triple y pisa más barro, y sin los peligros pisa casi el triple de barro: aprendió a usar cada canal para lo que es. Sin los 8 números (sobre todo la velocidad) corre más lento. La memoria pesa mucho menos que en las GRU de la casa, que sin ella pierden de $4$ a $6.5$ s: Einstein pierde $0.26$ s y se sale algo más. Borrarla cada segundo o al empezar la vuelta 2 no cambia nada: como las de la casa, no recuerda la pista; lo que ve le basta. Golpea poco y casi igual sin ver a los rivales.
+
+\paragraph{En el juego.} Einstein (con un cerebro de icono) entra en la mitad de las carreras en lugar de un caballo de la casa, con su propio historial de victorias y una ventaja fija de $2.0$ para las cuotas (de lo medido). No recibe lecciones ni entrena el cuerpo, porque está en prueba, y no se usa de rival en las lecciones de los demás. Se probó en el navegador: corrió, saltó vallas, y la leyenda y los textos lo muestran solo cuando corre.
+
 \subsection{Ideas pendientes}
-Quedan sin probar: CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una CNN con minimapa; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
+Quedan sin probar: CMA-ES; aprendizaje por refuerzo (PPO, SAC); NEAT; una vista más amplia para Einstein o afinar también su vista y su memoria con evolución; redes de tiempo continuo; separar una red de giro de otra de ritmo; y mapas de calor de dónde se salen y tropiezan.
 
 Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube.com/watch?v=DcYLT37ImBY}, revisado por su transcripción) se toman cuatro advertencias: una política sin memoria puede bastar y entrena más estable; una recompensa extrema y única deja una marca grande; un premio mal definido se explota; y hay que mirar el comportamiento, no solo el puntaje.
 
@@ -813,13 +859,14 @@ Del video de Peter Whidden sobre Pokémon Rojo con PPO (\url{https://www.youtube
 \item \textbf{Las personalidades se parecen más al competir.} Corredor y pícaro golpean casi igual; se distinguen en que el corredor rodea y el pícaro salta. El bravo se distingue menos que antes del pícaro en golpes ($2.2$ contra $1.6$).
 \item \textbf{La mejora final es difícil de atribuir.} Reglas, sentidos, maestro y evolución cambiaron a la vez en el juego final; solo los controles anteriores los separan, y con pocas semillas. Las cuotas lo compensan, pero la carrera es menos pareja.
 \item \textbf{La memoria de las GRU es corta,} de unos 0.3 s: no recuerdan la pista ni lo que pasó hace un segundo.\item \textbf{Las GRU no se miden tras muchas lecciones.} No se sabe si mejoran con el tiempo ni si conservan su estilo, más allá de la condición del examen.\item \textbf{Los potros siguen sin GRU,} y el pícaro se parece demasiado al corredor. \item \textbf{Las cuotas reaccionan con retraso.} Un caballo que mejora paga de más durante varias carreras. No se ha medido cómo se comportan tras mucho aprendizaje real, con jugadores de verdad ni con poderes.\item \textbf{El aprendizaje por carrera de los perceptrones fue desigual.} De seis caballos con 8 lecciones cada uno, solo Herradura Loca mejoró con claridad; los demás quedaron dentro del ruido (tabla~\ref{tab:lecciones}). El examen pareado reduce el riesgo de empeorar, no lo elimina, y 8 lecciones son pocas para sacar conclusiones sobre partidas largas.
+\item \textbf{Einstein está en prueba.} No aprende en el juego y su ventaja para las cuotas es fija; solo se midió contra la casa sin entrenar, sin poderes ni potros. Imitar al maestro se estancó, y lo que lo hizo ganar fue afinar solo las capas densas.
 \item \textbf{La casa entrenada no se ha medido en partidas largas.} Las cifras son de un caballo entrenado contra cinco sin entrenar; en el juego entrenan todos, y no se midió cómo queda frente a potros muy entrenados tras 40 carreras.
 \item \textbf{El enlace por internet no se ha abierto desde un celular.} El túnel abre, pero la red donde se probó bloquea esos enlaces.
 \item \textbf{Las tablas dependen de los cerebros.} Al reentrenar hay que correr \texttt{calibrar.js} otra vez; un caballo que aprende cambia $\epsilon_i$, $W_i$ y $E_i$, pero no $e_{w,k}$.
 \end{itemize}
 
 \section*{Reproducir}
-El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, \texttt{potros.js} mide los potros entrenados, \texttt{memoria.js} mide la memoria, y los perceptrones de los que nacen los potros, así:
+El código de los experimentos y sus instrucciones están en \texttt{experimentos/}. El script de las pruebas de cruces no se conservó. Las GRU de la casa se entrenan con \texttt{experimentos/personalidades/}: \texttt{ronda.sh} para imitar y \texttt{ciclos.sh} para la fase sin maestro, \texttt{potros.js} mide los potros entrenados, \texttt{memoria.js} mide la memoria. Einstein se entrena con \texttt{experimentos/einstein/}: \texttt{ronda.sh} imita, \texttt{es.js} lo afina con evolución, \texttt{evalua.js} lo mide y \texttt{analiza.js} le quita cosas para ver qué usa. Y los perceptrones de los que nacen los potros, así:
 \begin{verbatim}
 node entrenar.js corredor 300 0 1 100
 node entrenar.js bravo 300 60 1 100

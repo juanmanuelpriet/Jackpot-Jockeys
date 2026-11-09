@@ -47,7 +47,7 @@ const PERSONALIDADES = {
   bravo: { icon: '😤', name: 'Bravo', tag: 'busca pelea', line: 'Busca pelea y rinde parejo en cualquier pista.', podio: 47, choques: 2.2, salidas: 0.9, gana: { corta: 15, media: 17, larga: 13 } },
   muybravo: { icon: '🔥', name: 'Muy bravo', tag: 'todo o nada', line: 'Todo o nada: el que más choca y más se sale. Gana poco en pistas cortas y mucho en las largas.', podio: 30, choques: 3.6, salidas: 3.4, gana: { corta: 8, media: 10, larga: 23 } },
   // En prueba: no es una línea de la casa, solo corre a veces (CFG.einsteinChance). Números de experimentos/einstein
-  einstein: { icon: '🧠', name: 'Einstein', tag: 'el más listo (en prueba)', prueba: true, line: 'Ve la pista con una red convolucional, recuerda con dos GRU y decide con capas densas. En prueba: aún se sale más que los demás.', podio: 59, choques: 1.9, salidas: 1.1, gana: { corta: 33, media: 12, larga: 21 } },
+  einstein: { icon: '🧠', name: 'Einstein', tag: 'el más listo (en prueba)', prueba: true, line: 'Mira la pista con una red convolucional, recuerda con dos GRU y decide con capas densas. Gana más que cualquiera de la casa. Está en prueba.', podio: 73, choques: 1.7, salidas: 0.4, gana: { corta: 36, media: 24, larga: 25 } },
 };
 
 // Disfraces: ridículos a propósito. Los de la casa salen al azar cada carrera; los jugadores

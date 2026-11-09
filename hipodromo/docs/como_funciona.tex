@@ -48,6 +48,19 @@ donde $s$ es el giro y $g$ el acelerador. El número de parámetros es
 \begin{equation}
 (22\cdot 8 + 8) + (8\cdot 3 + 3) + (3\cdot 3 + 3) + (3\cdot 2 + 2) = 184 + 27 + 12 + 8 = 231.
 \end{equation}
+
+\subsection{La forma de cada cerebro}
+Las figuras \ref{fig:redes-casa} y \ref{fig:redes-potros} dibujan cada cerebro con sus pesos reales (\texttt{experimentos/einstein/diagrama.py}): cada línea es un peso, azul si suma y rojo si resta, más gruesa cuanto más pesa. En la GRU se dibuja la parte que arma la idea nueva ($W_c$); la barra gris junto a cada entrada suma lo que pesa en las tres compuertas. Las cuatro personalidades de la casa tienen la misma forma y solo cambian los pesos. Todas escuchan sobre todo los 5 rayos (entre el $48$ y el $54$\,\% del peso de entrada). El corredor y el pícaro casi no miran al rival ($3$ y $7$\,\%); el bravo y el muy bravo sí ($15$ y $13$\,\%), y su peso más grande, $53$ en el bravo y $31$ en el muy bravo, sale del ángulo del rival: así es como buscan pelea. Los potros no tienen memoria, y las 4 entradas que se agregaron después de que nacieron (lo que viene adelante y la velocidad) les llegan con peso $0$ hasta que vuelven a entrenar.
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth,height=.62\textheight,keepaspectratio]{img/redes_casa.png}
+\caption{Los cuatro cerebros de la casa: $22 \to$ GRU $32 \to 2$, $5\,346$ pesos cada uno.}\label{fig:redes-casa}
+\end{figure}
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{img/redes_potros.png}
+\caption{Los dos potros: perceptrón $22 \to 8 \to 3 \to 3 \to 2$, $231$ pesos. En blanco, entradas con peso $0$.}\label{fig:redes-potros}
+\end{figure}
+El de Einstein, que además ve la pista, está en la figura \ref{fig:redes-einstein}.
+\clearpage
 Ninguna de las dos redes contiene reglas (``embestir'', ``esquivar'', ``saltar''): todo comportamiento sale de los pesos. Cuando se agregan entradas nuevas a un cerebro viejo, sus pesos arrancan en cero, de modo que la red vieja sigue calculando lo mismo.
 
 \begin{table}[h]
@@ -803,6 +816,10 @@ Es una mejora del tamaño de la de los potros, o mayor, porque el cerebro de la 
 Todos los caballos sienten la pista con 5 rayos y unos pocos números. Einstein, en cambio, la \emph{ve}: cada tick arma una cuadrícula de $16 \times 16$ celdas de 12 unidades a su alrededor, girada con él, con 2 filas detrás y 14 delante (unas 168 unidades hacia adelante y 96 a cada lado). Tiene 4 canales: pista ($1$ dentro, $0$ fuera, $0.5$ más allá de lo que alcanza a ver en ese mundo), vallas y lo que se salta ($1$ lo sólido, $0.5$ o $0.75$ lo saltable, $0.25$ lo que atrapa), peligro de pisar, y rivales. Con las vendas ve ruido. A eso se suman 8 números que la cuadrícula no muestra: un dato del rival, furia, impulso, puesto, agarre, viento lateral, salto del mundo y velocidad.
 
 \paragraph{Red.} Dos capas convolucionales $3 \times 3$ (4 a 8 y 8 a 16 canales, ReLU), cada una con \emph{max pooling} $2 \times 2$, reducen la vista de $16 \times 16$ a $4 \times 4 \times 16$. Una capa densa la resume en 32 números ($\tanh$), que junto a los 8 números entran a dos GRU apiladas de 32, la misma celda de los caballos de la casa. Al final, dos capas densas de 16 y 2 deciden giro y acelerador. Son $23\,498$ pesos, cuatro veces más que una GRU de la casa. El juego la calcula en \texttt{sim.js} (\texttt{visionGrid}, \texttt{einsteinStep}); su salida difiere de la de PyTorch en $2 \times 10^{-7}$ como mucho.
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{img/redes_einstein.png}
+\caption{Cerebro de Einstein, en esquema: la vista pasa por dos convoluciones y una capa densa, se junta con 8 números, recuerda con dos GRU y decide con dos capas densas.}\label{fig:redes-einstein}
+\end{figure}
 
 \paragraph{Entrenamiento.} Primero imita al maestro, la heurística que ve todo el mapa (sección de la GRU), con DAgger: en cada ronda corre Einstein, el maestro dice qué habría hecho en cada tick, y la red se entrena en PyTorch con todo lo grabado (secuencias de 48 ticks, el triple de peso cuando hay algo que saltar o pisar delante). Fueron 12 rondas de 1\,500 pasos y otras 8 de 4\,000, con unas 39\,000 muestras nuevas por ronda. Imitar se estancó: el error cuadrático quedó en $0.32$ cuando el giro del maestro tiene varianza $0.47$, y Einstein ganaba entre el $16$ y el $22$\,\% contra cinco de la casa. La explicación probable es que el maestro apunta a un punto más lejos de lo que cabe en la cuadrícula. Luego se afinaron solo sus dos capas densas (562 pesos) con evolución sin maestro: pares de ruido opuesto ($\sigma = 0.02$, 12 pares), 8 carreras nuevas contra la casa por generación, puntos $= $ rivales vencidos $+\,2$ si gana $-\,0.5$ por salida, rangos en vez de puntos y Adam con tasa $0.002$. Un primer intento con pasos sin normalizar lo dejó sin ganar una sola carrera en 10 generaciones. Con Adam, en 400 generaciones y 150 carreras fijas de validación pasó de ganar el $21$ al $30$\,\% y de salirse $0.95$ a $0.43$ veces por carrera.
 

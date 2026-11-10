@@ -20,7 +20,7 @@ node server.js
 Abre `http://localhost:3000` en la pantalla grande. Los jugadores escanean el QR o abren `http://<ip>:3000/cel` y
 escriben el código de la sala.
 
-**Teclas en la pantalla grande:** `H` cómo se juega · `S` sensores de las redes · `C` cámara · `Enter` salta el tutorial.
+**Teclas en la pantalla grande:** `H` cómo se juega · `S` sensores de las redes · `L` lo que ve Einstein (su cuadrícula, su Grad-CAM en vivo, sus números y su memoria; `G` cambia entre el Grad-CAM del giro y el del acelerador) · `M` la memoria de cada caballo · `C` cámara · `Enter` salta el tutorial.
 
 ### Jugar con datos móviles o desde otro lugar
 

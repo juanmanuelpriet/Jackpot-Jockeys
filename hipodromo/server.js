@@ -10,7 +10,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { Worker } = require('worker_threads');
 const { FPS, SIM_SPEED } = require('./sim');
-const { HORSES, PERFILES, PERSONALIDADES, PLAN_CASA, loadHandicapPers } = require('./establo');
+const { analiza } = require('./vista');
+const { HORSES, PERFILES, PERSONALIDADES, PLAN_CASA, BODY_STEP, RACES_PER_TRAINING, loadHandicapPers } = require('./establo');
 const { Room, roomCode, setHandicap, setHouseBrain, setHouseEdge, setHouseBody, houseBrains, houseForms, houseTraits, WIN_RECORD } = require('./sala');
 const ws = require('./websocket');
 
@@ -74,8 +75,6 @@ const EDGE_RACES = 600;
 let lessons = [], learning = false, edgesStale = false;
 // Como los potros, cada línea de la casa entrena el cuerpo cada pocas carreras siguiendo el plan de su personalidad
 // (experimentos/casa/cuerpo.js): el cerebro no cambia, así que no pierde su forma de correr.
-const RACES_PER_TRAINING = 5;
-const BODY_STEP = { velocidad: ['speed', 0.015, 0.06], control: ['agility', 0.05, 0.2], agresion: ['power', 0.1, 0.4] };
 function trainHouseBodies(room, entries) {
   for (const { slot, pers } of entries) {
     const l = learned[slot] = { ...learned[slot] }, plan = PLAN_CASA[pers] || [];
@@ -96,6 +95,7 @@ function trainHouseBodies(room, entries) {
 function learnFromRace(room, entries) {
   trainHouseBodies(room, entries);
   // La lección más nueva de cada línea; primero las que peor llegaron
+  entries = entries.filter(e => !e.soloCuerpo);
   lessons = [...lessons.filter(l => !entries.some(e => e.slot === l.slot)), ...entries.map(e => ({ ...e, room }))].sort((a, b) => b.place - a.place);
   nextLesson();
 }
@@ -185,6 +185,16 @@ function publicBase(req) {
 
 // Cada conexión (WebSocket o, de respaldo, Server-Sent Events) es un objeto con send(texto)
 function send(conn, obj) { conn.send(JSON.stringify(obj)); }
+// Lo que ve Einstein (su cuadrícula, sus 8 números y su decisión) y su Grad-CAM del momento, 10 veces por segundo
+function mandaVista(room) {
+  const i = room.lineup.findIndex(h => h.pers === 'einstein'), h = room.horses[i];
+  if (!h || room.phase !== 'carrera') return;
+  h.vigia = true;
+  if (!h.visto || room.tick % 3) return;
+  const { grid, sc, mem } = h.visto, A = analiza(h.brain, grid, sc, mem), q = a => Array.from(a, v => Math.round(v * 100));
+  h.visto = null;
+  broadcastScreens(room, { type: 'vista', i, g: q(grid), giro: q(A.giro), gas: q(A.gas), mem: q(h.mem), sc: sc.map(v => +v.toFixed(2)), y: A.y.map(v => +v.toFixed(2)) });
+}
 function broadcastScreens(room, obj) { const text = JSON.stringify(obj); for (const c of room.screens) c.send(text); }
 
 // Registra una conexión de pantalla o de celular en su sala
@@ -256,6 +266,17 @@ function handleAction(name, body) {
   if (name === 'internet') {
     if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede abrir el juego a internet' };
     return body.on ? tunel.abrir() && tunel.estado() : tunel.cerrar();
+  }
+  if (name === 'vista') { // Tecla L: la pantalla ve lo que ve Einstein y dónde mira
+    if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede ver lo que ve Einstein' };
+    room.vista = !!body.on;
+    if (!room.vista) for (const h of room.horses || []) { h.vigia = false; h.visto = null; }
+    return {};
+  }
+  if (name === 'memoria') { // Tecla M: la memoria de cada caballo que la tiene
+    if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede ver la memoria' };
+    room.memoria = !!body.on;
+    return {};
   }
   if (name === 'resetCoins') {
     if (body.hostKey !== room.hostKey) return { error: 'Solo la pantalla de la sala puede reiniciar las fichas' };
@@ -373,7 +394,12 @@ const server = http.createServer((req, res) => {
 
 setInterval(() => {
   for (const room of rooms.values()) {
-    if (room.step()) broadcastScreens(room, { type: 'pos', h: room.positions(), t: room.tick });
+    if (room.step()) {
+      broadcastScreens(room, { type: 'pos', h: room.positions(), t: room.tick });
+      if (room.vista) mandaVista(room);
+      if (room.memoria && room.phase === 'carrera' && room.tick % 3 === 0)
+        broadcastScreens(room, { type: 'memoria', m: room.horses.map(h => Array.from(h.mem || [], v => Math.round(v * 100))) });
+    }
   }
 }, 1000 / (FPS * SIM_SPEED));
 

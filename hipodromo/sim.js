@@ -660,6 +660,13 @@ class Horse {
       ...this.ahead, this.speed / 9];
   }
 
+  // Einstein: ve, recuerda y decide. Con `vigia` (la tecla L de la pantalla) guarda lo que vio y la memoria con la que llegó
+  _einstein(others) {
+    const grid = visionGrid(this, others), x = this.inputs(others.length), sc = ESCALARES.map(i => x[i]);
+    if (this.vigia) this.visto = { grid, sc, mem: this.mem.slice() };
+    return einsteinStep(this.brain, grid, sc, this.mem);
+  }
+
   update(others = []) {
     if (this.finished) return;
     this.ticks++;
@@ -689,7 +696,7 @@ class Horse {
 
     // `piloto` lo usan los experimentos para que conduzca un maestro
     const [steer, gas] = this.piloto ? this.piloto(this, others)
-      : this.brain.einstein ? einsteinStep(this.brain, visionGrid(this, others), (x => ESCALARES.map(i => x[i]))(this.inputs(others.length)), this.mem)
+      : this.brain.einstein ? this._einstein(others)
       : predict(this.brain, this.inputs(others.length), this.mem);
     this.steer = steer; this.gas = gas;
 

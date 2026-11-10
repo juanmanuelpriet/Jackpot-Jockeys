@@ -88,7 +88,11 @@ const PLAN_CASA = {
   picaro: ['control', 'velocidad', 'control', 'velocidad', 'velocidad', 'agresion'],
   bravo: ['agresion', 'velocidad', 'agresion', 'velocidad', 'control', 'velocidad'],
   muybravo: ['control', 'agresion', 'control', 'velocidad', 'control', 'agresion'],
+  einstein: ['velocidad', 'control', 'velocidad', 'control', 'velocidad', 'velocidad'], // el plan del corredor
 };
+// Cada cuántas carreras de una línea entrena el cuerpo y cuánto sube cada rasgo: [rasgo, paso, tope]
+const RACES_PER_TRAINING = 5;
+const BODY_STEP = { velocidad: ['speed', 0.015, 0.06], control: ['agility', 0.05, 0.2], agresion: ['power', 0.1, 0.4] };
 
 // Los potros nacen con perceptrones (199 pesos): la evolución del entrenamiento los mejora, y a una GRU la rompe.
 // Su hándicap es fijo porque salió de calibrar esas redes, no las de la casa.
@@ -138,4 +142,4 @@ function applyPower(horses, track, idx, key) {
   return {};
 }
 
-module.exports = { HORSES, EINSTEIN, PERFILES, PERSONALIDADES, POWERS, POTROS, PLAN_CASA, SKINS, repartir, randomHouseSkin, loadBrains, loadPerfiles, loadColtBrain, loadHandicap, loadHandicapPers, loadWorldEdges, applyPower };
+module.exports = { HORSES, EINSTEIN, PERFILES, PERSONALIDADES, POWERS, POTROS, PLAN_CASA, BODY_STEP, RACES_PER_TRAINING, SKINS, repartir, randomHouseSkin, loadBrains, loadPerfiles, loadColtBrain, loadHandicap, loadHandicapPers, loadWorldEdges, applyPower };

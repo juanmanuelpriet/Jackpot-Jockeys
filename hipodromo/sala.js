@@ -409,7 +409,9 @@ class Room {
     const world = this.track.mundo;
     this.hooks.learn(this, order.flatMap((i, place) => {
       const { owner, name, slot, brain, handicap, agility, power, pers } = this.lineup[i], h = this.horses[i];
-      if (owner || pers === 'einstein') return []; // Einstein no aprende en el juego: está en prueba
+      if (owner) return [];
+      // Einstein no aprende del juego (está en prueba), pero entrena el cuerpo igual que la casa: si no, la casa lo deja atrás
+      if (pers === 'einstein') return [{ name, slot, pers, place, soloCuerpo: true }];
       const others = [...order.slice(0, place).reverse(), ...order.slice(place + 1)].slice(0, 3);
       return [{ name, slot, brain, form: handicap, agility, power, pers, place, world, rivals: others.filter(k => this.lineup[k].pers !== 'einstein').map(k => this.lineup[k].brain),
         report: { falls: h.falls, stumbles: h.stumbles, mudHits: h.mudHits, hitsTaken: h.hitsTaken } }];
